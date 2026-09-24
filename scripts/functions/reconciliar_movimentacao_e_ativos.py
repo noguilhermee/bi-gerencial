@@ -46,6 +46,7 @@ try:
         consultar_tabela_supabase,
     )
     from functions.metadata_tracker import obter_metadados_planilhas
+    from functions import regras_negocio as rn
 except ImportError:
     from FUNCTIONS.function import (
         carregar_config_referencia,
@@ -54,6 +55,10 @@ except ImportError:
         consultar_tabela_supabase,
     )
     from FUNCTIONS.metadata_tracker import obter_metadados_planilhas
+    try:
+        from FUNCTIONS import regras_negocio as rn
+    except ImportError:
+        import regras_negocio as rn
 
 
 def _normalizar_nome(texto: str) -> str:
@@ -258,7 +263,7 @@ def executar_reconciliacao(reindex_completo: bool = False):
             proj = str(row.get("projeto") or "").strip().upper()
             if proj not in PROJETOS_OFICIAIS:
                 continue
-            if "MATEUS CARNIELLI" in cons and proj and "ALVOAR ECO" in proj:
+            if rn.eh_grupo_excluido(cons):
                 continue
             dt_assoc = row.get("data_associacao")
             if dt_assoc:

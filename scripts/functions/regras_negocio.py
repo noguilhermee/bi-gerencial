@@ -41,6 +41,13 @@ CONSULTORES_NAO_CAMPO = {
     "COORDENACAO",
 }
 
+# Consultores removidos do BI: o nome sai dos grupos e as fazendas/visitas/movimentações
+# em que ele é o único consultor de campo são descartadas
+CONSULTORES_EXCLUIDOS_BI = {
+    "MATEUS CARNIELLI",
+    "AUROKE",
+}
+
 GRUPOS_CFT_EXCLUSIVOS = {
     "DAYANNE UCHOA VEIGA / DEBORA LIMA DE OLIVEIRA / MARIO BARBOSA ROSA FILHO / MATEUS CARNIELLI / TALITA FONTES / THAYNAN FERREIRA DE ARAUJO",
     "HUGO LOPES / MATEUS CARNIELLI / ROMARCIO PAULO DE OLIVEIRA / THAYNAN FERREIRA DE ARAUJO",
@@ -127,7 +134,11 @@ def eh_consultor_nao_campo(nome) -> bool:
     return any(t in k for t in ("_CONSULTOR", "CONSULTOR_", "SUPERVISAO", "COORDENACAO"))
 
 
-def sanitizar_consultores(grupo) -> list[str]:
+def eh_consultor_excluido(nome) -> bool:
+    return chave(nome) in CONSULTORES_EXCLUIDOS_BI
+
+
+def sanitizar_consultores(grupo, manter_excluidos: bool = False) -> list[str]:
     """Quebra um grupo 'A / B (PROJETO)' em consultores de campo individuais e padronizados."""
     if grupo is None:
         return []
@@ -142,13 +153,17 @@ def sanitizar_consultores(grupo) -> list[str]:
             nome = NOME_LAC
         if eh_consultor_nao_campo(nome):
             continue
+        if not manter_excluidos and eh_consultor_excluido(nome):
+            continue
         if nome not in resultado:
             resultado.append(nome)
     return resultado
 
 
-def eh_dado_teste(consultor, projeto) -> bool:
-    return "MATEUS CARNIELLI" in chave(consultor) and "ALVOAR ECO" in chave(projeto)
+def eh_grupo_excluido(grupo) -> bool:
+    """Grupo cujos consultores de campo são todos removidos do BI (o registro inteiro sai)."""
+    de_campo = sanitizar_consultores(grupo, manter_excluidos=True)
+    return bool(de_campo) and all(eh_consultor_excluido(c) for c in de_campo)
 
 
 def eh_codigo_conta_consultor(codigo_lr) -> bool:

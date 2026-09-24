@@ -413,6 +413,8 @@ def construir_fato_visitas(f: Fontes, ctx: Contexto) -> tuple[pd.DataFrame, pd.D
             motivo = "SEM_CODIGO_PRODUTOR"
         elif not rn.eh_tipo_visita_tecnica_leite(r.get("tipo_visita")):
             motivo = "TIPO_FORA_WHITELIST_LEITE"
+        elif rn.eh_grupo_excluido(r.get("nome_consultor")):
+            motivo = "CONSULTOR_EXCLUIDO_BI"
         elif not consultores:
             motivo = "CONSULTOR_NAO_CAMPO"
         elif rn.chave(r.get("nome_consultor")) in rn.GRUPOS_CFT_EXCLUSIVOS:
@@ -421,8 +423,6 @@ def construir_fato_visitas(f: Fontes, ctx: Contexto) -> tuple[pd.DataFrame, pd.D
             motivo = "PROJETO_FORA_LEITE"
         elif unidade == "UNIDADE GENERICA" or rn.chave(r.get("projeto")) == "UNIDADE GENERICA":
             motivo = "UNIDADE_GENERICA"
-        elif rn.eh_dado_teste(consultores[0], projeto):
-            motivo = "DADO_TESTE"
         else:
             dt_inat = ctx.inativacao_mais_recente.get(cod)
             na_carteira = (cod, mes) in ctx.fazenda_mes
@@ -517,11 +517,9 @@ def construir_carteira_mensal(f: Fontes, ctx: Contexto, visitas: pd.DataFrame) -
             continue
         if not rn.eh_cadeia_leite(projeto):
             continue
-        de_campo = rn.sanitizar_consultores(grupo)
-        consultores = [c for c in de_campo if not rn.eh_dado_teste(c, projeto)]
-        if de_campo and not consultores:
-            continue  # carteira de teste (ex.: MATEUS CARNIELLI em ALVOAR ECO)
-        consultores = consultores or [rn.NAO_ATRIBUIDO]
+        if rn.eh_grupo_excluido(grupo):
+            continue  # carteira só de consultor removido do BI (CONSULTORES_EXCLUIDOS_BI)
+        consultores = rn.sanitizar_consultores(grupo) or [rn.NAO_ATRIBUIDO]
 
         fim_mes = mes + pd.offsets.MonthEnd(0) + pd.Timedelta(hours=23, minutes=59, seconds=59)
         data_corte = min(ctx.agora, fim_mes)
@@ -612,7 +610,9 @@ def construir_fato_consistencia(f: Fontes, ctx: Contexto, carteira: pd.DataFrame
             if not rn.eh_cadeia_leite(projeto):
                 continue
             grupo = faz.get("grupo_ponto_atendimento") or vinc.get("consultor_grupo_atendimento") or inat.get("grupo_ponto_atendimento")
-            consultor = (rn.sanitizar_consultores(grupo) or [rn.NAO_ATRIBUIDO])[0]
+            if rn.eh_grupo_excluido(grupo):
+                continue
+            consultor =(rn.sanitizar_consultores(grupo) or [rn.NAO_ATRIBUIDO])[0]
             agro = ctx.agroindustria(cod, projeto)
             regiao = ctx.regiao_de(cod, agro, projeto)
             nome = _texto(faz.get("nome_produtor")) or _texto(vinc.get("nome_produtor")) or _texto(r.get("nome_produtor")) or cod
@@ -649,7 +649,7 @@ def construir_fato_movimentacao(f: Fontes, ctx: Contexto) -> pd.DataFrame:
         consultor = consultores[0] if consultores else rn.NAO_ATRIBUIDO
         inat = ctx.inativacao_meta.get(cod, {})
         projeto = ctx.projeto(cod, fallback=inat.get("projeto"))
-        if not rn.eh_cadeia_leite(projeto) or rn.eh_dado_teste(r.get("nome_consultor"), None):
+        if not rn.eh_cadeia_leite(projeto) or rn.eh_grupo_excluido(r.get("nome_consultor")):
             continue
         saida = "sa" in str(r.get("movimentacao") or "").lower()
         tipo = "SAÍDA" if saida else "ENTRADA"
