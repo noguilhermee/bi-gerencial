@@ -33,10 +33,10 @@ module.exports = async (req, res) => {
     // Leitura das tabelas econômicas e de vínculos
     const [rawEconData, rawVinculosData] = await Promise.all([
       fetchWithCache('FATO_ECONOMICO', () =>
-        fetchAll(() => supabase.from('tab_fato_economico').select(COLUNAS.economico).eq('possui_dados_economicos', 1), undefined, 'id_composto').catch(() => [])
+        fetchAll(() => supabase.from('tab_fato_economico').select(COLUNAS.economico).eq('possui_dados_economicos', 1), undefined, 'id_composto')
       ),
       fetchWithCache('RAW_VINCULOS_ECON', () =>
-        fetchAll(() => supabase.from('sq_raw_vinculos').select(COLUNAS.vinculosEconomico), undefined, 'id_composto').catch(() => [])
+        fetchAll(() => supabase.from('sq_raw_vinculos').select(COLUNAS.vinculosEconomico), undefined, 'id_composto')
       )
     ]);
 

@@ -6,7 +6,7 @@
  * (cadeia de leite, whitelist de visitas, sanitização de consultores,
  * mapeamento de agroindústria/região etc.) vive aqui — tudo isso é resolvido
  * uma única vez no ETL (scripts/functions/regras_negocio.py e
- * camada_consumo.py) e gravado nas tabelas sq_fato_*. A API só lê.
+ * camada_consumo.py) e gravado nas tabelas tab_fato_*. A API só lê.
  */
 
 // Cache em memória no processo Node.js
