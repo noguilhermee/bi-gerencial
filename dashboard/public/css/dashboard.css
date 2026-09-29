@@ -3068,6 +3068,32 @@ th.col-center .table-col-filter { text-align: center !important; }
   overflow: auto;
 }
 
+.panel-table-view-title {
+  margin-right: auto;
+  color: var(--ink-strong);
+  font-size: 13px;
+  font-weight: 750;
+}
+
+/* Controles que só fazem sentido para o gráfico (ex.: horizonte 1M/6M/12M) somem
+   quando o painel expandido passa a mostrar a tabela. */
+.panel-card.is-fullscreen .chart-only-control {
+  display: none;
+}
+
+/* Painel "Quantidade de visitas" em tela cheia: uma tabela por dimensão do ranking
+   (Produtor/Consultor), alternada pelo mesmo seletor do gráfico. */
+.ranking-table-pane {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 0;
+  min-height: 0;
+}
+
+.ranking-table-pane[hidden] {
+  display: none;
+}
+
 .data-table strong.text-positive { color: var(--green-700, #11775d); }
 .data-table strong.text-negative { color: var(--danger, #e23e3b); }
 
@@ -3577,6 +3603,15 @@ th.col-center .table-col-filter { text-align: center !important; }
 .panel-card.is-fullscreen #tableSemVisita .col-visita-mes-anterior,
 .panel-card.is-fullscreen #tableVisitados .col-fazenda {
   display: table-cell !important;
+}
+
+/* Os <col> do <colgroup> usam as mesmas classes: em tela cheia precisam voltar a ser
+   colunas (table-column), senão viram células fantasmas e zeram a última coluna. */
+.panel-card.is-fullscreen #tableSemVisita col.col-fazenda,
+.panel-card.is-fullscreen #tableSemVisita col.col-data-associacao,
+.panel-card.is-fullscreen #tableSemVisita col.col-visita-mes-anterior,
+.panel-card.is-fullscreen #tableVisitados col.col-fazenda {
+  display: table-column !important;
 }
 
 /* Ajuste Compacto e Alinhamento do Cabeçalho das Tabelas */

@@ -209,11 +209,15 @@ def eh_tipo_visita_tecnica_leite(tipo_visita) -> bool:
 _WHITELIST_NORMALIZADA = {chave(t) for t in WHITELIST_TIPOS_VISITA_LEITE}
 
 
+AGRO_NAO_INFORMADA = "NÃO INFORMADA"
+REGIAO_NAO_INFORMADA = "NÃO INFORMADA"
+
+
 def mapear_agroindustria(projeto_ou_agro) -> str:
-    """Nome canônico da agroindústria exibido no dashboard."""
+    """Nome canônico da agroindústria exibido no dashboard (= tab_dim_agroindustria.nome_bi)."""
     p = chave(projeto_ou_agro)
     if not p or p in ("LEITE", "GERAL", "NAO INFORMADA"):
-        return "NÃO INFORMADA"
+        return AGRO_NAO_INFORMADA
     regras = [
         ("ALVOAR", "Alvoar"),
         ("CCPR", "CCPR"),
@@ -227,6 +231,7 @@ def mapear_agroindustria(projeto_ou_agro) -> str:
         ("CAMPILEITE", "CAMPILEITE"),
         ("QUILLAYES", "Quillayes"),
         ("PIRACANJUBA", "Piracanjuba"),
+        ("PROCAMPO", "Piracanjuba"),   # o Procampo é a operação da Piracanjuba fora do SmartQuestion
         ("INDEPENDENTE", "Independente"),
     ]
     for termo, nome in regras:
@@ -315,33 +320,61 @@ def sanitizar_regiao(regiao_bruta, contexto=None) -> str | None:
 
 
 class ResolvedorRegiao:
-    """Resolve a região canônica usando o de-para oficial de tab_dim_regiao."""
+    """Resolve a região canônica e garante que ela pertence à agroindústria.
 
-    def __init__(self, dim_regiao: Iterable[dict]):
-        self.de_para: dict[str, str] = {}
-        self.regioes_oficiais: set[str] = set()
+    Fontes (Supabase): `tab_dim_agroindustria` (nome_bi), `tab_dim_regiao` (1 linha por agroindústria ×
+    região canônica) e `tab_dim_regiao_alias` (nome bruto do SmartQuestion/Elabore/Procampo -> região canônica).
+    """
+
+    def __init__(self, dim_regiao: Iterable[dict], alias: Iterable[dict] = (), dim_agroindustria: Iterable[dict] = ()):
+        agro_por_id = {a["id"]: chave(a.get("nome_bi") or a.get("nome_agroindustria"))
+                       for a in dim_agroindustria if a.get("id") is not None}
+        self.pares: set[tuple[str, str]] = set()          # (agroindústria, região) canônicos
+        self.donos: dict[str, set[str]] = {}              # região canônica -> agroindústrias que a têm
+        self.canonica: dict[tuple[str, str], str] = {}    # (agroindústria, chave da região) -> nome canônico
         for r in dim_regiao:
             if chave(r.get("status")) != "ATIVO":
                 continue
-            bruto = str(r.get("nome_regiao") or "").strip()
-            formatada = str(r.get("nome_regiao_formatada") or bruto).strip()
-            agro = str(r.get("agroindustria") or "").strip()
-            if not formatada:
+            nome = str(r.get("nome_regiao") or "").strip()
+            agro = agro_por_id.get(r.get("id_agroindustria"))
+            if not nome or not agro:
                 continue
-            self.regioes_oficiais.add(formatada)
+            self.pares.add((agro, chave(nome)))
+            self.donos.setdefault(chave(nome), set()).add(agro)
+            self.canonica[(agro, chave(nome))] = nome
+        self.de_para: dict[str, str] = {}
+        # aliases sem agroindústria primeiro: são eles que definem o fallback genérico (sem "agro|") de forma estável
+        for a in sorted(alias, key=lambda x: (x.get("id_agroindustria") is not None, x.get("id") or 0)):
+            if chave(a.get("status")) != "ATIVO":
+                continue
+            bruto, formatada = chave(a.get("nome_bruto")), str(a.get("nome_regiao") or "").strip()
+            if not bruto or not formatada:
+                continue
+            agro = agro_por_id.get(a.get("id_agroindustria"))
             if agro:
-                self.de_para[f"{chave(mapear_agroindustria(agro))}|{bruto.upper()}"] = formatada
-            self.de_para.setdefault(bruto.upper(), formatada)
+                self.de_para[f"{agro}|{bruto}"] = formatada
+            self.de_para.setdefault(bruto, formatada)
+        for (agro, k), nome in self.canonica.items():     # o próprio nome canônico também resolve
+            self.de_para.setdefault(f"{agro}|{k}", nome)
+
+    def valida(self, agroindustria, regiao) -> bool:
+        """True se a região canônica existe em `tab_dim_regiao` para essa agroindústria."""
+        return (chave(agroindustria), chave(regiao)) in self.pares
+
+    def agroindustrias_da(self, regiao) -> set[str]:
+        """Agroindústrias (chave) que possuem essa região canônica."""
+        return self.donos.get(chave(regiao), set())
 
     def resolver(self, regiao_bruta, agroindustria=None, projeto=None) -> str:
+        """Nome canônico da região (sem validar contra a agroindústria; use `valida`)."""
         if regiao_bruta is None or not str(regiao_bruta).strip():
-            return "NÃO INFORMADA"
-        bruto = str(regiao_bruta).strip()
+            return REGIAO_NAO_INFORMADA
+        bruto = chave(regiao_bruta)
         agro = chave(agroindustria or mapear_agroindustria(projeto))
-        for k in (f"{agro}|{bruto.upper()}", bruto.upper()):
+        for k in (f"{agro}|{bruto}", bruto):
             if k in self.de_para:
                 return self.de_para[k]
-        return sanitizar_regiao(bruto, projeto or agroindustria) or "NÃO INFORMADA"
+        return sanitizar_regiao(str(regiao_bruta).strip(), projeto or agroindustria) or REGIAO_NAO_INFORMADA
 
 
 # ─── Procampo / Piracanjuba ───────────────────────────────────────────────────

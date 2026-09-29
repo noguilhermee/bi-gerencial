@@ -74,7 +74,13 @@ module.exports = async (req, res) => {
       const key = String(v.mes_referencia).slice(0, 10);
       visitasPorMes.set(key, (visitasPorMes.get(key) || 0) + 1);
     });
-    const evolucaoVisitas = { labels: referencias.map(monthLabel), values: referencias.map(ref => visitasPorMes.get(ref) || 0) };
+    const valoresVisitas = referencias.map(ref => visitasPorMes.get(ref) || 0);
+    // Variação % sobre o mês anterior da série completa (null quando não há base de comparação)
+    const variacoesVisitas = valoresVisitas.map((valor, idx) => {
+      const anterior = idx > 0 ? valoresVisitas[idx - 1] : 0;
+      return anterior > 0 ? Number((((valor - anterior) / anterior) * 100).toFixed(1)) : null;
+    });
+    const evolucaoVisitas = { labels: referencias.map(monthLabel), values: valoresVisitas, variacoes: variacoesVisitas };
 
     const rankingMap = new Map();
     visitasFiltradas.forEach(v => {

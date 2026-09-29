@@ -19,7 +19,8 @@ document.addEventListener('DOMContentLoaded', () => {
       turnover: 6,
       portfolio: 6,
       consistency: 6,
-      volume: 6
+      volume: 6,
+      visits: 6
     }
   };
 
@@ -56,7 +57,7 @@ document.addEventListener('DOMContentLoaded', () => {
       refMonth: null,
       kpis: {},
       evolucaoMensal: { labels: [], fazendasAtivas: [], fazendasVisitadas: [], percCobertura: [] },
-      evolucaoVisitas: { labels: [], values: [] },
+      evolucaoVisitas: { labels: [], values: [], variacoes: [] },
       rankingProdutores: { labels: [], values: [] },
       filterOptions: { agroindustrias: [], regioes: [], projetos: projectOptions.map((p) => p.value), status: ['ATIVO', 'INATIVO'], meses: [] },
       tabelas: { movimentacao: [], sem_visita: [], visitados: [] }
@@ -175,7 +176,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const coverageData = sliceTimeSeries(data.evolucaoMensal || emptyState.overview.evolucaoMensal, state.chartHorizons.coverage);
     charts.renderCoverage('chartVisitsCoverage', coverageData);
+    renderVisitsEvolution();
     renderSelectedRanking();
+  }
+
+  function renderVisitsEvolution() {
+    const series = sliceTimeSeries(state.overview?.evolucaoVisitas || emptyState.overview.evolucaoVisitas, state.chartHorizons.visits);
+    charts.renderVisitsEvolution('chartVisitsEvolution', { labels: series.labels, values: series.values, variations: series.variacoes });
   }
 
   function renderSelectedRanking() {
@@ -217,6 +224,10 @@ document.addEventListener('DOMContentLoaded', () => {
       button.classList.toggle('active', active);
       button.setAttribute('aria-pressed', String(active));
     });
+    document.querySelectorAll('[data-ranking-pane]').forEach((pane) => {
+      pane.hidden = pane.dataset.rankingPane !== state.rankingDimension;
+    });
+    renderRankingTables();
   }
 
   function renderVisits(data) {
@@ -566,7 +577,9 @@ document.addEventListener('DOMContentLoaded', () => {
     tbodyInconsistencies: { colKey: null, dir: 'asc' },
     tbodyCadastroDetalhe: { colKey: null, dir: 'asc' },
     tbodyMbRankingDetalhe: { colKey: null, dir: 'asc' },
-    tbodyCoeDetalhe: { colKey: null, dir: 'asc' }
+    tbodyCoeDetalhe: { colKey: null, dir: 'asc' },
+    tbodyRankingProdutores: { colKey: null, dir: 'asc' },
+    tbodyRankingConsultores: { colKey: null, dir: 'asc' }
   };
 
   // Estado de paginação para cada tabela do dashboard
@@ -579,7 +592,9 @@ document.addEventListener('DOMContentLoaded', () => {
     tableInconsistencies: { page: 1, pageSize: 25 },
     tableCadastroDetalhe: { page: 1, pageSize: 25 },
     tableMbRankingDetalhe: { page: 1, pageSize: 25 },
-    tableCoeDetalhe: { page: 1, pageSize: 25 }
+    tableCoeDetalhe: { page: 1, pageSize: 25 },
+    tableRankingProdutores: { page: 1, pageSize: 25 },
+    tableRankingConsultores: { page: 1, pageSize: 25 }
   };
 
   function getPaginatedSlice(tableId, rows) {
@@ -835,7 +850,9 @@ document.addEventListener('DOMContentLoaded', () => {
       tbodyInconsistencies: ['codigo_lr', 'produtor', 'consultor', 'meses_sequenciais', 'consistencia_mensal', 'consistencia_anual', 'acao'],
       tbodyCadastroDetalhe: ['nome_fazenda', 'produtor', 'cidade_uf', 'consultor', 'data_associacao_ts', 'tempo_meses', 'categoria_cadastro', 'consistencia_mensal', 'status'],
       tbodyMbRankingDetalhe: ['posicao', 'nome_fazenda', 'produtor', 'consultor', 'mes_referencia', 'volume_diario_litros', 'preco_medio_litro', 'coe_por_litro', 'margem_bruta_por_litro', 'consistencia_mensal'],
-      tbodyCoeDetalhe: ['nome_fazenda', 'produtor', 'mes_referencia', 'volume_leite_mes', 'coe_total_reais', 'coe_por_litro', 'perc_concentrado', 'perc_volumoso', 'perc_mao_de_obra', 'perc_sanidade', 'perc_outros', 'maior_item', 'consistencia_mensal']
+      tbodyCoeDetalhe: ['nome_fazenda', 'produtor', 'mes_referencia', 'volume_leite_mes', 'coe_total_reais', 'coe_por_litro', 'perc_concentrado', 'perc_volumoso', 'perc_mao_de_obra', 'perc_sanidade', 'perc_outros', 'maior_item', 'consistencia_mensal'],
+      tbodyRankingProdutores: ['posicao', 'codigo_lr', 'produtor', 'consultor', 'propriedade', 'total_visitas', 'perc_total_label', 'data_ultima_visita'],
+      tbodyRankingConsultores: ['posicao', 'consultor', 'total_visitas', 'fazendas_visitadas', 'total_fazendas', 'perc_cobertura_label', 'visitas_por_produtor_label']
     };
 
     Object.entries(MAPPINGS).forEach(([tbodyId, colKeys]) => {
@@ -1007,7 +1024,9 @@ document.addEventListener('DOMContentLoaded', () => {
     tableTurnover: {},
     tableConsultants: {},
     tableDataProducers: {},
-    tableInconsistencies: {}
+    tableInconsistencies: {},
+    tableRankingProdutores: {},
+    tableRankingConsultores: {}
   };
 
   function applyColumnFilters(rows, tableId) {
@@ -1084,6 +1103,103 @@ document.addEventListener('DOMContentLoaded', () => {
       input.addEventListener('click', (e) => e.stopPropagation());
       input.addEventListener('keydown', (e) => e.stopPropagation());
     });
+  }
+
+  // Linhas das tabelas exibidas ao expandir "Quantidade de visitas": agregam as mesmas
+  // visitas da tabela "Produtores visitados" (por produtor) e a carteira por consultor
+  // de /api/visits. A posição é fixada pela ordem padrão (mais visitas primeiro), antes
+  // dos filtros de coluna e da ordenação escolhida pelo usuário.
+  function producerRankingRows() {
+    const filter = currentFilter();
+    const overview = state.overview || emptyState.overview;
+    const visited = (overview.tabelas?.visitados || []).filter((row) => matches(row, filter, true));
+    const groups = new Map();
+    visited.forEach((row) => {
+      const key = row.codigo_lr || row.produtor || '—';
+      if (!groups.has(key)) {
+        groups.set(key, { codigo_lr: row.codigo_lr || '—', produtor: row.produtor || '—', consultores: new Set(), fazendas: new Set(), total_visitas: 0, ultimaTs: null, data_ultima_visita: '—' });
+      }
+      const group = groups.get(key);
+      group.total_visitas += 1;
+      if (row.consultor) group.consultores.add(row.consultor);
+      if (row.propriedade || row.fazenda) group.fazendas.add(row.propriedade || row.fazenda);
+      const ts = parseSortValue(row.data_visita);
+      if (typeof ts === 'number' && (group.ultimaTs === null || ts > group.ultimaTs)) {
+        group.ultimaTs = ts;
+        group.data_ultima_visita = row.data_visita;
+      }
+    });
+    const total = visited.length;
+    return [...groups.values()]
+      .sort((a, b) => b.total_visitas - a.total_visitas || String(a.produtor).localeCompare(String(b.produtor), 'pt-BR'))
+      .map((group, idx) => ({
+        posicao: idx + 1,
+        codigo_lr: group.codigo_lr,
+        produtor: group.produtor,
+        consultor: [...group.consultores].join(', ') || '—',
+        propriedade: [...group.fazendas].join(', ') || '—',
+        total_visitas: group.total_visitas,
+        perc_total_label: `${(total > 0 ? (group.total_visitas / total) * 100 : 0).toFixed(1).replace('.', ',')}%`,
+        data_ultima_visita: group.data_ultima_visita
+      }));
+  }
+
+  function consultantRankingRows() {
+    const filter = currentFilter();
+    const visits = state.visits || emptyState.visits;
+    return (visits.tabelaConsultores || [])
+      .filter((row) => matches(row, filter, true))
+      .map((row) => {
+        const totalVisitas = Number(row.total_visitas) || 0;
+        const carteira = Number(row.total_fazendas) || 0;
+        return {
+          consultor: row.consultor || '—',
+          total_visitas: totalVisitas,
+          fazendas_visitadas: Number(row.fazendas_visitadas) || 0,
+          total_fazendas: carteira,
+          perc_cobertura_label: `${Number(row.perc_cobertura || 0).toFixed(1).replace('.', ',')}%`,
+          visitas_por_produtor_label: (carteira > 0 ? totalVisitas / carteira : 0).toFixed(1).replace('.', ',')
+        };
+      })
+      .sort((a, b) => b.total_visitas - a.total_visitas || String(a.consultor).localeCompare(String(b.consultor), 'pt-BR'))
+      .map((row, idx) => ({ posicao: idx + 1, ...row }));
+  }
+
+  function renderRankingTables() {
+    const isConsultant = state.rankingDimension === 'consultant';
+
+    let producers = applyColumnFilters(producerRankingRows(), 'tableRankingProdutores');
+    if (!isConsultant) updateCount('countRankingVisitas', producers);
+    producers = sortRows(producers, tableSort.tbodyRankingProdutores, (row, key) => row[key]);
+    updateTableHeadIcons('tbodyRankingProdutores', tableSort.tbodyRankingProdutores.colKey, tableSort.tbodyRankingProdutores.dir);
+    const pProducers = getPaginatedSlice('tableRankingProdutores', producers);
+    if (el('tbodyRankingProdutores')) el('tbodyRankingProdutores').innerHTML = rowsOrEmpty(pProducers, 8, (row) => `<tr>
+        <td class="col-center font-tabular">${row.posicao}</td>
+        <td class="col-center"><strong>${escapeHtml(row.codigo_lr)}</strong></td>
+        <td class="col-left" title="${escapeHtml(row.produtor)}">${escapeHtml(row.produtor)}</td>
+        <td class="col-left" title="${escapeHtml(row.consultor)}">${escapeHtml(row.consultor)}</td>
+        <td class="col-left col-fazenda" title="${escapeHtml(row.propriedade)}">${escapeHtml(row.propriedade)}</td>
+        <td class="col-center font-tabular"><strong>${number(row.total_visitas)}</strong></td>
+        <td class="col-center font-tabular">${escapeHtml(row.perc_total_label)}</td>
+        <td class="col-center">${escapeHtml(row.data_ultima_visita)}</td>
+      </tr>`);
+    renderTablePagination('paginationRankingProdutores', 'tableRankingProdutores', producers.length);
+
+    let consultants = applyColumnFilters(consultantRankingRows(), 'tableRankingConsultores');
+    if (isConsultant) updateCount('countRankingVisitas', consultants);
+    consultants = sortRows(consultants, tableSort.tbodyRankingConsultores, (row, key) => row[key]);
+    updateTableHeadIcons('tbodyRankingConsultores', tableSort.tbodyRankingConsultores.colKey, tableSort.tbodyRankingConsultores.dir);
+    const pConsultants = getPaginatedSlice('tableRankingConsultores', consultants);
+    if (el('tbodyRankingConsultores')) el('tbodyRankingConsultores').innerHTML = rowsOrEmpty(pConsultants, 7, (row) => `<tr>
+        <td class="col-center font-tabular">${row.posicao}</td>
+        <td class="col-left" title="${escapeHtml(row.consultor)}"><strong>${escapeHtml(row.consultor)}</strong></td>
+        <td class="col-center font-tabular"><strong>${number(row.total_visitas)}</strong></td>
+        <td class="col-center font-tabular">${number(row.fazendas_visitadas)}</td>
+        <td class="col-center font-tabular">${number(row.total_fazendas)}</td>
+        <td class="col-center font-tabular">${escapeHtml(row.perc_cobertura_label)}</td>
+        <td class="col-center font-tabular">${escapeHtml(row.visitas_por_produtor_label)}</td>
+      </tr>`);
+    renderTablePagination('paginationRankingConsultores', 'tableRankingConsultores', consultants.length);
   }
 
   function renderTables() {
@@ -1179,6 +1295,8 @@ document.addEventListener('DOMContentLoaded', () => {
       </tr>`;
     });
     renderTablePagination('paginationVisitados', 'tableVisitados', visited.length);
+
+    renderRankingTables();
 
     // Tabela 3: Turnover / Movimentação
     let movements = (turnover.tabelaMovimentacao || []).filter((row) => matches(row, filter, true));
@@ -1745,6 +1863,22 @@ document.addEventListener('DOMContentLoaded', () => {
       };
     }
 
+    if (tableId === 'tableRankingProdutores') {
+      const data = applyColumnFilters(producerRankingRows(), 'tableRankingProdutores');
+      return {
+        headers: ['#', 'ID (Código LR)', 'Produtor(a)', 'Consultor(a)', 'Fazenda', 'Nº Visitas', '% do Total', 'Última Visita'],
+        rows: data.map((r) => [r.posicao, r.codigo_lr, r.produtor, r.consultor, r.propriedade, r.total_visitas, r.perc_total_label, r.data_ultima_visita])
+      };
+    }
+
+    if (tableId === 'tableRankingConsultores') {
+      const data = applyColumnFilters(consultantRankingRows(), 'tableRankingConsultores');
+      return {
+        headers: ['#', 'Consultor(a)', 'Nº Visitas', 'Produtores Visitados', 'Carteira Ativa', '% Cobertura', 'Visitas / Produtor'],
+        rows: data.map((r) => [r.posicao, r.consultor, r.total_visitas, r.fazendas_visitadas, r.total_fazendas, r.perc_cobertura_label, r.visitas_por_produtor_label])
+      };
+    }
+
     if (tableId === 'tableCoeDetalhe') {
       let data = state.economics?.coe_detalhe || [];
       data = applyColumnFilters(data, 'tableCoeDetalhe');
@@ -1872,6 +2006,9 @@ document.addEventListener('DOMContentLoaded', () => {
   function setupExportButtons() {
     el('btnExportSemVisita')?.addEventListener('click', () => exportTableToCsv('tableSemVisita', 'produtores_sem_visita'));
     el('btnExportVisitados')?.addEventListener('click', () => exportTableToCsv('tableVisitados', 'produtores_visitados'));
+    el('btnExportRankingVisitas')?.addEventListener('click', () => (state.rankingDimension === 'consultant'
+      ? exportTableToCsv('tableRankingConsultores', 'ranking_visitas_consultores')
+      : exportTableToCsv('tableRankingProdutores', 'ranking_visitas_produtores')));
     el('btnExportTurnover')?.addEventListener('click', () => exportTableToCsv('tableTurnover', 'movimentacao_produtores'));
     el('btnExportConsultants')?.addEventListener('click', () => exportTableToCsv('tableConsultants', 'consultores_ativos'));
     el('btnExportDataProducers')?.addEventListener('click', () => exportTableToCsv('tableDataProducers', 'produtores_com_dados'));
@@ -2767,6 +2904,8 @@ document.addEventListener('DOMContentLoaded', () => {
         if (horizonKey === 'coverage' && state.overview) {
           const coverageData = sliceTimeSeries(state.overview.evolucaoMensal || emptyState.overview.evolucaoMensal, months);
           charts.renderCoverage('chartVisitsCoverage', coverageData);
+        } else if (horizonKey === 'visits' && state.overview) {
+          renderVisitsEvolution();
         } else if (horizonKey === 'turnover' && state.turnover) {
           const turnoverData = sliceTimeSeries(state.turnover.historicoMovimentacao || emptyState.turnover.historicoMovimentacao, months);
           charts.renderTurnover('chartTurnoverHistory', turnoverData);

@@ -435,6 +435,112 @@ class DashboardCharts {
     });
   }
 
+  /**
+   * Barras verticais com o total de visitas por mês e, acima de cada barra, o valor e a
+   * variação % em relação ao mês anterior (seta verde ▲ / vermelha ▼; laranja ► quando
+   * não há mês anterior para comparar). `data.variations` pode vir pronto (calculado
+   * sobre a série completa, antes do corte do horizonte); senão é derivado de `values`.
+   */
+  renderVisitsEvolution(id, data = {}) {
+    const ctx = document.getElementById(id);
+    if (!ctx) return;
+    this.destroy(id);
+    const color = this.colors();
+    const isDark = document.documentElement.dataset.theme === 'dark';
+    const positive = isDark ? '#6fdc8c' : '#2e9e44';
+    const values = (data.values || []).map((value) => Number(value) || 0);
+    const variations = Array.isArray(data.variations) && data.variations.length === values.length
+      ? data.variations
+      : values.map((value, idx) => (idx > 0 && values[idx - 1] > 0 ? ((value - values[idx - 1]) / values[idx - 1]) * 100 : null));
+    const formatVariation = (variation) => `${variation > 0 ? '+' : ''}${Number(variation).toFixed(1).replace('.', ',')}%`;
+    const toneOf = (variation) => (!Number.isFinite(variation) || variation === 0 ? color.warning : (variation > 0 ? positive : color.danger));
+
+    const variationLabels = {
+      id: 'visitsVariationLabels',
+      afterDatasetsDraw: (chart) => {
+        const meta = chart.getDatasetMeta(0);
+        if (!meta || meta.hidden) return;
+        const context = chart.ctx;
+        context.save();
+        context.textBaseline = 'middle';
+        meta.data.forEach((bar, idx) => {
+          const variation = variations[idx];
+          const hasVariation = Number.isFinite(variation);
+          const tone = toneOf(variation);
+          const variationY = bar.y - 10;
+          const valueY = bar.y - 27;
+
+          context.font = '700 11px Open Sans, Arial, sans-serif';
+          const arrowWidth = 7;
+          let text = hasVariation ? formatVariation(variation) : '';
+          if (text && context.measureText(text).width + arrowWidth + 4 > Math.max(bar.width + 16, 0)) text = '';
+          const textWidth = text ? context.measureText(text).width : 0;
+          const x = bar.x - (arrowWidth + (text ? 4 + textWidth : 0)) / 2;
+
+          context.strokeStyle = tone;
+          context.lineWidth = 2;
+          context.lineCap = 'round';
+          context.lineJoin = 'round';
+          context.beginPath();
+          if (!hasVariation || variation === 0) {
+            context.moveTo(x + 1.5, variationY - 3.5);
+            context.lineTo(x + 5.5, variationY);
+            context.lineTo(x + 1.5, variationY + 3.5);
+          } else if (variation > 0) {
+            context.moveTo(x, variationY + 2);
+            context.lineTo(x + 3.5, variationY - 2);
+            context.lineTo(x + 7, variationY + 2);
+          } else {
+            context.moveTo(x, variationY - 2);
+            context.lineTo(x + 3.5, variationY + 2);
+            context.lineTo(x + 7, variationY - 2);
+          }
+          context.stroke();
+
+          if (text) {
+            context.fillStyle = tone;
+            context.textAlign = 'left';
+            context.fillText(text, x + arrowWidth + 4, variationY);
+          }
+
+          context.font = '600 11.5px Open Sans, Arial, sans-serif';
+          context.fillStyle = color.ink;
+          context.textAlign = 'center';
+          context.fillText(this.formatValue(values[idx]), bar.x, valueY);
+        });
+        context.restore();
+      }
+    };
+
+    this.instances[id] = new Chart(ctx, {
+      type: 'bar',
+      plugins: [variationLabels],
+      data: {
+        labels: data.labels || [],
+        datasets: [{ label: 'Visitas', data: values, variations, backgroundColor: color.green, borderRadius: 2, barPercentage: 0.78, categoryPercentage: 0.86 }]
+      },
+      options: {
+        layout: { padding: { top: 38 } },
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            ...this.tooltip(),
+            callbacks: {
+              label: (context) => ` Visitas: ${this.formatValue(context.raw)}`,
+              afterLabel: (context) => {
+                const variation = variations[context.dataIndex];
+                return Number.isFinite(variation) ? ` Variação: ${formatVariation(variation)} vs mês anterior` : ' Variação: sem mês anterior';
+              }
+            }
+          }
+        },
+        scales: this.baseScales({
+          y: { display: false, beginAtZero: true }
+        })
+      }
+    });
+  }
+
   renderRanking(id, data = {}) {
     const ctx = document.getElementById(id);
     if (!ctx) return;
@@ -833,6 +939,7 @@ class DashboardCharts {
         saidas: data.datasets[1]?.data,
         porcentagens: data.datasets[2]?.data
       });
+      else if (id === 'chartVisitsEvolution') this.renderVisitsEvolution(id, { labels: data.labels, values: data.datasets[0]?.data, variations: chart.data.datasets[0]?.variations });
       else if (id.includes('Ranking')) this.renderRanking(id, { labels: data.labels, values: data.datasets[0]?.data });
       else if (id.includes('Portfolio')) this.renderPortfolio(id, { labels: data.labels, values: data.datasets[0]?.data });
       else if (id.includes('ConsistencyHistory')) this.renderConsistencyHistory(id, { labels: data.labels, mensal: data.datasets[0]?.data, anual: data.datasets[1]?.data });
