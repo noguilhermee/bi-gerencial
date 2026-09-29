@@ -48,6 +48,14 @@ CONSULTORES_EXCLUIDOS_BI = {
     "AUROKE",
 }
 
+# Consultores que NÃO lançam dados no Elabore (exceção de negócio). Continuam na carteira e nas visitas,
+# mas as fazendas deles ficam fora dos indicadores de consistência (ex.: "Número de fazendas consistentes
+# no mês"). Inclui a grafia curta usada nas planilhas do Procampo (config: procampo.aliases_consultor).
+CONSULTORES_SEM_LANCAMENTO_ELABORE = {
+    "MARCOS PAULO DE PINHO FLECHA",
+    "MARCOS PAULO FLECHA",
+}
+
 GRUPOS_CFT_EXCLUSIVOS = {
     "DAYANNE UCHOA VEIGA / DEBORA LIMA DE OLIVEIRA / MARIO BARBOSA ROSA FILHO / MATEUS CARNIELLI / TALITA FONTES / THAYNAN FERREIRA DE ARAUJO",
     "HUGO LOPES / MATEUS CARNIELLI / ROMARCIO PAULO DE OLIVEIRA / THAYNAN FERREIRA DE ARAUJO",
@@ -164,6 +172,17 @@ def eh_grupo_excluido(grupo) -> bool:
     """Grupo cujos consultores de campo são todos removidos do BI (o registro inteiro sai)."""
     de_campo = sanitizar_consultores(grupo, manter_excluidos=True)
     return bool(de_campo) and all(eh_consultor_excluido(c) for c in de_campo)
+
+
+def eh_consultor_sem_lancamento_elabore(nome) -> bool:
+    return chave(nome) in CONSULTORES_SEM_LANCAMENTO_ELABORE
+
+
+def eh_grupo_sem_lancamento_elabore(grupo) -> bool:
+    """Fazenda fora dos indicadores de consistência: todos os consultores de campo do grupo são isentos.
+    Se houver um co-consultor que lança no Elabore, a fazenda continua contando."""
+    de_campo = sanitizar_consultores(grupo)
+    return bool(de_campo) and all(eh_consultor_sem_lancamento_elabore(c) for c in de_campo)
 
 
 def eh_codigo_conta_consultor(codigo_lr) -> bool:
@@ -296,7 +315,7 @@ def sanitizar_regiao(regiao_bruta, contexto=None) -> str | None:
 
 
 class ResolvedorRegiao:
-    """Resolve a região canônica usando o de-para oficial de sq_dim_regiao."""
+    """Resolve a região canônica usando o de-para oficial de tab_dim_regiao."""
 
     def __init__(self, dim_regiao: Iterable[dict]):
         self.de_para: dict[str, str] = {}
@@ -323,6 +342,48 @@ class ResolvedorRegiao:
             if k in self.de_para:
                 return self.de_para[k]
         return sanitizar_regiao(bruto, projeto or agroindustria) or "NÃO INFORMADA"
+
+
+# ─── Procampo / Piracanjuba ───────────────────────────────────────────────────
+
+def eh_fazenda_smartquestion(codigo_lr) -> bool:
+    """Código LR###### = fazenda gerenciada pelo SmartQuestion (visitas, carteira e movimentação), mesmo
+    quando é da Piracanjuba. PRO#### e o provisório MAT... são gerenciados pelo Procampo/Esteio."""
+    return re.fullmatch(r"LR\d+", limpar_codigo_lr(codigo_lr)) is not None
+
+
+def classificar_movimentacao_procampo(status_movimentacao) -> str | None:
+    """'ENTRADA', 'SAIDA' ou None. Legado (já estava na base) e trocas de consultor/titularidade
+    não são entrada nem saída de produtor."""
+    k = chave(status_movimentacao)
+    if k.startswith("INCLUSAO"):
+        return "ENTRADA"
+    if k.startswith("SAIDA") or k.startswith("INATIVACAO"):
+        return "SAIDA"
+    return None
+
+
+def consultor_procampo(nome, aliases: dict | None = None) -> str:
+    """Nome do consultor do Procampo no BI: maiúsculas, sem acento e com a grafia canônica (config:
+    procampo.aliases_consultor), porque base mestra e planilhas de visitas divergem para o mesmo consultor."""
+    aliases = aliases or {}
+    partes = [chave(p) for p in ("" if nome is None else str(nome)).split("/")]   # grupo "A / B" = co-consultores
+    return " / ".join(aliases.get(p, p) for p in partes if p)
+
+
+def ids_atendimento_procampo(chaves: Iterable[str]) -> dict[str, int]:
+    """Número de atendimento estável para visitas do Procampo (a planilha não tem um). Faixa de 10 dígitos
+    (1.000.000.000+), acima de qualquer id do SmartQuestion (9 dígitos); colisão resolvida em ordem determinística."""
+    import hashlib
+    usados: set[int] = set()
+    resultado: dict[str, int] = {}
+    for k in sorted(set(chaves)):
+        n = 1_000_000_000 + int(hashlib.md5(k.encode("utf-8")).hexdigest()[:10], 16) % 9_000_000_000
+        while n in usados:
+            n += 1
+        usados.add(n)
+        resultado[k] = n
+    return resultado
 
 
 # ─── Consistência Elabore ─────────────────────────────────────────────────────

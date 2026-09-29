@@ -9,6 +9,9 @@ caminhos:
   # Pasta principal de leitura dos relatórios exportados do SmartQuestion
   bd_smartquestion: "C:/Users/Guilherme/LABOR RURAL/Analytics - Departamento Analytics/POWER_BI/PROJETOS/BI_LABOR_RURAL/BD_SMARTQUESTION"
   
+  # Pasta principal de leitura dos relatórios do Procampo (Piracanjuba)
+  bd_procampo: "C:/Users/Guilherme/LABOR RURAL/Analytics - Departamento Analytics/POWER_BI/PROJETOS/BI_LABOR_RURAL/BD_PROCAMPO"
+
   # Pastas de origem dos relatórios do Elabore (Consistência)
   elabore_mensal: "C:/Users/Guilherme/LABOR RURAL/Analytics - Departamento Analytics/FERRAMENTAS/ELABORE/ELABORE_NOVO_SISTEMA/ANALISE_INDICADORES/lr-indicadores-elabore/data/outputs/monthly"
   elabore_anual: "C:/Users/Guilherme/LABOR RURAL/Analytics - Departamento Analytics/FERRAMENTAS/ELABORE/ELABORE_NOVO_SISTEMA/ANALISE_INDICADORES/lr-indicadores-elabore/data/outputs/annual"
@@ -36,6 +39,9 @@ supabase:
     movimentacao_fato: "tab_fato_movimentacao"
     carteira_fato: "tab_fato_carteira_mensal"
     economico_fato: "tab_fato_economico"
+    procampo_fazendas_raw: "pro_raw_fazendas"
+    procampo_visitas_raw: "pro_raw_visitas"
+    procampo_movimentacao_raw: "pro_raw_movimentacao"
     fazendas_raw: "sq_raw_fazendas_grupo"
     fazendas_grupo_raw: "sq_raw_fazendas_grupo"
     fazendas_grupo_ativas_raw: "sq_raw_fazendas_grupo_ativas"
@@ -43,9 +49,9 @@ supabase:
     fazendas_ativas_fato: "tab_dim_fazendas_ativas"
     fazendas_ativas_base: "tab_dim_fazendas_ativas"
     produtores_ativos_base: "tab_dim_fazendas_ativas"
-    agroindustria_dim: "sq_dim_agroindustria"
-    regiao_dim: "sq_dim_regiao"
-    consultor_dim: "sq_dim_consultor"
+    agroindustria_dim: "tab_dim_agroindustria"
+    regiao_dim: "tab_dim_regiao"
+    consultor_dim: "tab_dim_consultor"
     fazenda_dim: "tab_dim_fazendas_ativas"
 
 # 📄 NOMES E PADRÕES DOS ARQUIVOS DE RELATÓRIO EXCEL
@@ -71,6 +77,54 @@ smartquestion:
       - "LISTA_GERAL_VISITAS_2025_1.xlsx"
       - "LISTA_GERAL_VISITAS_2025_2.xlsx"
       - "LISTA_GERAL_VISITAS_2026_1.xlsx"
+
+# 🐄 PROCAMPO (fazendas Piracanjuba fora do SmartQuestion, identificadas pelo código PRO no Elabore)
+procampo:
+  id_agroindustry: "098fc29f-3f54-4186-8529-1a4945fbaef3"   # Piracanjuba no Elabore (vw_dim_property.id_agroindustry)
+  padrao_codigo: "^PRO[0-9]{4}$"                            # não usar LIKE 'PRO%': PRODUTOR_TESTE também casa
+  # Visitas: 1 arquivo por mês de exportação (AAAA_MM_VISITAS_PIRACANJUBA_ESTEIO.xlsx). O histórico fica em
+  # BD_PROCAMPO/VISITAS; o(s) arquivo(s) do mês corrente ficam direto em BD_PROCAMPO. O nome do arquivo NÃO é o mês
+  # das visitas (o 2026_10 traz visitas de 21 a 28/09): a mesma visita pode estar em dois arquivos, vale a do mais novo.
+  pasta_visitas_historico: "VISITAS"
+  padrao_arquivo_visitas: "*_VISITAS_PIRACANJUBA_ESTEIO.xlsx"
+  aba_visitas: "Sheet1"
+  linha_cabecalho_visitas: 1                                # a linha 0 é o título "Relatório de visitas"
+  limite_remocao_visitas_pct: 0.10                          # a raw espelha os arquivos; aborta se mais que isso sumir (arquivo movido?)
+  arquivo_base: "BASE_PRODUTORES_PROCAMPO_PIRACANJUBA.xlsx"   # base mestra: abas ATIVOS + ROTATIVIDADE
+  aba_base_ativos: "ATIVOS"
+  aba_base_rotatividade: "ROTATIVIDADE"
+  prefixo_codigo_provisorio: "MAT"                          # fazenda fora do Elabore: MAT + matrícula (cadastro é do consultor)
+  agroindustria_bi: "Piracanjuba"
+  projeto_bi: "PROCAMPO"
+  unidade_atendimento_bi: "PROCAMPO"                        # marca as linhas do Procampo em tab_dim_fazendas_ativas
+  # Fazenda LR###### da Piracanjuba (Regenera/Alvoar) é gerenciada pelo SmartQuestion: as visitas da planilha do
+  # Procampo nessas fazendas ficam só na pro_raw_visitas e na auditoria. Mudar para true se o coordenador decidir
+  # que elas contam (elas entram na tab_fato_visitas com origem_dados = PROCAMPO, ligadas ao código LR).
+  contar_visitas_em_fazenda_lr: false
+  # O mesmo consultor tem grafias diferentes na base mestra e nas planilhas de visitas (sem acento, maiúsculas):
+  # variante -> nome canônico. Sem isso ele apareceria duas vezes no BI (na carteira e nas visitas).
+  # CONFIRMAR o nome canônico de cada um (escolhido o mais completo).
+  aliases_consultor:
+    "BRUNO FERRONI RODRIGUES": "BRUNO ANTONIO FERRONI RODRIGUES"
+    "FRANCISCO HENRIQUE GRANVILLE": "FRANCISCO HENRIQUE GRANVILLE DE OLIVEIRA"
+    "HUGO HENRIQUE MARTIN CAMPOS": "HUGO HENRIQUE MARTINS CAMPOS"
+    "JOSE AUGUSTO MENDES DOS SANTO": "JOSE AUGUSTO MENDES DOS SANTOS"
+    "MARCOS PAULO FLECHA": "MARCOS PAULO DE PINHO FLECHA"
+    "MARIA FERRO MENDONCA": "MARIA FERRO CONSTANCIO MENDONCA"
+    "MATEUS ALCANTARA JARDIM": "MATHEUS ALCANTARA JARDIM"
+    "TASSO VILELA VIANA": "TASSO VILELA LEMOS VIANA"
+    "WELLINGTON MARTINS": "WELLINGTON MARTINS GOMES"
+    "LUCAS GONCAVES E SILVA FERREIRA": "LUCAS GONCALVES E SILVA FERREIRA"          # erro de digitação na base (8 fazendas)
+    "GUSTAVO GOUVEIA FONSECA - PROLE CONSULTORIA - 10005195": "GUSTAVO GOUVEIA FONSECA"   # sufixo da consultoria na base
+    "TIAGO MASSING - ALLIANCE": "TIAGO MASSING"                                     # sufixo da consultoria na base
+  # Sigla de PROPRIEDADE.REGIONAL da base -> nome da região no Elabore (= tab_dim_regiao / Piracanjuba)
+  regioes_por_sigla:
+    CCO: "CCO - Centro Oeste"
+    CCS: "CCS - Centro Sul"
+    CND: "CND - Nordeste"
+    NSG: "CND - Nordeste"                                   # NSG é Nordeste
+    CSE: "CSE - Sudeste"
+    CSU: "CSU - Sul"
 
 # ⚙️ PARÂMETROS DE EXECUÇÃO DO PIPELINE
 execucao:

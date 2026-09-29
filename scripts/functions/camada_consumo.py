@@ -26,7 +26,7 @@ import json
 import math
 import os
 import sys
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
 from zoneinfo import ZoneInfo
@@ -57,6 +57,9 @@ TAB_CARTEIRA = "tab_fato_carteira_mensal"
 TAB_CONSISTENCIA = "tab_fato_consistencia"
 TAB_MOVIMENTACAO = "tab_fato_movimentacao"
 TAB_MOVIMENTACAO_RAW = "sq_raw_movimentacao"
+TAB_PRO_FAZENDAS = "pro_raw_fazendas"
+TAB_PRO_VISITAS = "pro_raw_visitas"
+TAB_PRO_MOVIMENTACAO = "pro_raw_movimentacao"
 
 # Não deixa uma carga de raw incompleta esvaziar a fato: aborta se algum mês perder
 # mais que esta fração das visitas já publicadas.
@@ -79,12 +82,20 @@ class Fontes:
     dim_regiao: pd.DataFrame
     elabore_propriedades: pd.DataFrame
     elabore_blocos: pd.DataFrame
+    # Procampo (Piracanjuba fora do SmartQuestion): raws carregadas por carregar_procampo.py
+    pro_fazendas: pd.DataFrame = field(default_factory=pd.DataFrame)
+    pro_visitas: pd.DataFrame = field(default_factory=pd.DataFrame)
+    pro_movimentacao: pd.DataFrame = field(default_factory=pd.DataFrame)
+    cfg_procampo: dict = field(default_factory=dict)   # bloco `procampo:` do config.yaml
 
 
-def _buscar_tudo(supabase, tabela: str, colunas: str = "*") -> pd.DataFrame:
+def _buscar_tudo(supabase, tabela: str, colunas: str = "*", ordem: str | None = None) -> pd.DataFrame:
     registros, inicio = [], 0
     while True:
-        dados = supabase.table(tabela).select(colunas).range(inicio, inicio + LOTE - 1).execute().data or []
+        consulta = supabase.table(tabela).select(colunas)
+        if ordem:
+            consulta = consulta.order(ordem)   # sem order() o range() repete/perde linhas entre páginas
+        dados = consulta.range(inicio, inicio + LOTE - 1).execute().data or []
         registros.extend(dados)
         if len(dados) < LOTE:
             break
@@ -166,8 +177,18 @@ def carregar_fontes(supabase, conexao_elabore, data_inicio_elabore: str) -> Font
                                                 "codigo_lr,mes_referencia,mes_elabore,consistencia_mensal,detalhamento_inconsistencia,nome_produtor"),
         "raw_consistencia_anual": _buscar_tudo(supabase, "elabore_raw_consistencia_anual",
                                                "codigo_lr,mes_referencia,consistencia_anual,detalhamento_inconsistencia"),
-        "dim_consultor": _buscar_tudo(supabase, "sq_dim_consultor", "nome_consultor,formacao_consultor,excluido"),
-        "dim_regiao": _buscar_tudo(supabase, "sq_dim_regiao", "nome_regiao,nome_regiao_formatada,agroindustria,status"),
+        "dim_consultor": _buscar_tudo(supabase, "tab_dim_consultor", "nome_consultor,formacao_consultor,excluido"),
+        "dim_regiao": _buscar_tudo(supabase, "tab_dim_regiao", "nome_regiao,nome_regiao_formatada,agroindustria,status"),
+        "pro_fazendas": _buscar_tudo(supabase, TAB_PRO_FAZENDAS,
+                                     "matricula,codigo_lr,situacao,nome_produtor,nome_propriedade,data_inicio,data_conclusao",
+                                     ordem="matricula"),
+        "pro_visitas": _buscar_tudo(supabase, TAB_PRO_VISITAS,
+                                    "id_composto,matricula,codigo_lr,nome_propriedade,nome_produtor,nome_consultor,tipo_visita,"
+                                    "data_visita,rascunho,producao_l_dia,vacas_lactacao,ccs_mensal,cpp_mensal,gordura_mensal,"
+                                    "proteina_mensal", ordem="id_composto"),
+        "pro_movimentacao": _buscar_tudo(supabase, TAB_PRO_MOVIMENTACAO,
+                                         "id_composto,matricula,codigo_lr,data_inicio,data_conclusao,consultor,"
+                                         "status_movimentacao,motivo_saida", ordem="id_composto"),
     }
     for nome, df in t.items():
         print(f"   -> {nome}: {len(df)} linhas")
@@ -307,6 +328,21 @@ class Contexto:
                 atual = self.inativacao_mais_recente.get(cod)
                 if atual is None or pd.isna(atual):
                     self.inativacao_mais_recente[cod] = dt
+
+        # Procampo: início na carteira = DATA.INÍCIO da base; fazenda que saiu é "inativada" na DATA.CONCLUSÃO.
+        # Fazenda LR###### é do SmartQuestion e mantém os dados de lá.
+        self.pro_cfg = f.cfg_procampo
+        if not f.pro_fazendas.empty:
+            pf = f.pro_fazendas.copy()
+            pf["codigo_lr"] = pf["codigo_lr"].map(rn.limpar_codigo_lr)
+            pf = pf[~pf["codigo_lr"].map(rn.eh_fazenda_smartquestion)]
+            pf["data_inicio"] = _data(pf["data_inicio"])
+            pf["data_conclusao"] = _data(pf["data_conclusao"])
+            for r in pf.to_dict("records"):
+                if pd.notna(r["data_inicio"]):
+                    self.data_associacao.setdefault(r["codigo_lr"], r["data_inicio"])
+                if r["situacao"] == "SAIU" and pd.notna(r["data_conclusao"]):
+                    self.inativacao_mais_recente.setdefault(r["codigo_lr"], r["data_conclusao"])
 
         cm = f.raw_consistencia_mensal.copy()
         cm["codigo_lr"] = cm["codigo_lr"].map(rn.limpar_codigo_lr)
@@ -480,7 +516,95 @@ def construir_fato_visitas(f: Fontes, ctx: Contexto) -> tuple[pd.DataFrame, pd.D
             "origem_dados": _texto(r.get("origem_dados")),
             **elab,
         })
-    return pd.DataFrame(linhas), pd.DataFrame(auditoria)
+    linhas_pro, auditoria_pro = construir_visitas_procampo(f, ctx)
+    return (pd.DataFrame(linhas + linhas_pro),
+            pd.DataFrame(auditoria + auditoria_pro))
+
+
+def construir_visitas_procampo(f: Fontes, ctx: Contexto) -> tuple[list[dict], list[dict]]:
+    """Visitas da planilha do Procampo (pro_raw_visitas) no mesmo layout das visitas do SmartQuestion.
+
+    Sem whitelist de tipo: todos os tipos de visita do Procampo contam. Ficam de fora rascunhos, visitas sem
+    fazenda na base e — enquanto procampo.contar_visitas_em_fazenda_lr for false — visitas em fazenda LR######,
+    cujas visitas são gerenciadas pelo SmartQuestion. A planilha não traz número de atendimento: o id é gerado.
+    """
+    if f.pro_visitas.empty:
+        return [], []
+    cfg = ctx.pro_cfg
+    contar_lr = bool(cfg.get("contar_visitas_em_fazenda_lr", False))
+    projeto_padrao = cfg.get("projeto_bi", "PROCAMPO")
+    v = f.pro_visitas.copy()
+    v["data_visita"] = _data(v["data_visita"])
+    v["codigo_lr"] = v["codigo_lr"].map(lambda c: rn.limpar_codigo_lr(c) if _texto(c) else "")
+    v["mes_referencia"] = v["data_visita"].dt.to_period("M").dt.to_timestamp()
+    ids = rn.ids_atendimento_procampo(v["id_composto"])
+
+    linhas, auditoria = [], []
+    for r in v.to_dict("records"):
+        cod, mes = r["codigo_lr"], r["mes_referencia"]
+        id_atend = ids[r["id_composto"]]
+        consultores = rn.sanitizar_consultores(r.get("nome_consultor"))
+        rascunho = r.get("rascunho")
+        if rascunho is not None and not (isinstance(rascunho, float) and math.isnan(rascunho)) and bool(rascunho):
+            motivo = "RASCUNHO"
+        elif pd.isna(r["data_visita"]):
+            motivo = "SEM_DATA_VISITA"
+        elif r["data_visita"] > ctx.agora:
+            motivo = "DATA_VISITA_FUTURA"
+        elif not cod:
+            motivo = "SEM_FAZENDA_NA_BASE"
+        elif rn.eh_fazenda_smartquestion(cod) and not contar_lr:
+            motivo = "FAZENDA_GERENCIADA_PELO_SMARTQUESTION"
+        elif rn.eh_grupo_excluido(r.get("nome_consultor")):
+            motivo = "CONSULTOR_EXCLUIDO_BI"
+        elif not consultores:
+            motivo = "CONSULTOR_NAO_CAMPO"
+        else:
+            motivo = None
+        auditoria.append({
+            "id_atendimento": id_atend, "codigo_lr": cod, "nome_consultor": r.get("nome_consultor"),
+            "data_visita": r["data_visita"], "tipo_visita": r.get("tipo_visita"), "projeto": projeto_padrao,
+            "status_reconciliacao": "MANTIDA_FATO" if motivo is None else f"EXCLUIDA_{motivo}",
+        })
+        if motivo:
+            continue
+
+        faz = ctx.fazenda(cod, mes)
+        projeto = ctx.projeto(cod, mes, fallback=projeto_padrao)
+        agro = ctx.agroindustria(cod, projeto, mes)
+        linhas.append({
+            "id_composto": hashlib.sha256(f"PROCAMPO_VISITA_{r['id_composto']}".encode("utf-8")).hexdigest(),
+            "id_atendimento": id_atend,
+            "codigo_lr": cod,
+            "nome_consultor": rn.consultor_procampo(consultores[0], cfg.get("aliases_consultor")),   # = consultor da carteira (dim)
+            "profissao_consultor": ctx.profissao.get(rn.consultor_procampo(consultores[0], cfg.get("aliases_consultor"))),
+            "mes_referencia": mes,
+            "data_visita": r["data_visita"],
+            "tipo_visita": _texto(r.get("tipo_visita")),
+            "nome_produtor": _texto(faz.get("nome_produtor")) or _texto(r.get("nome_produtor")) or "NÃO INFORMADO",
+            "nome_propriedade": _propriedade_valida(faz.get("nome_propriedade")) or _propriedade_valida(r.get("nome_propriedade")) or "PROPRIEDADE",
+            "projeto": projeto or projeto_padrao,
+            "agroindustria": agro,
+            "regiao": ctx.regiao_de(cod, agro, projeto, mes),
+            "codigo_agroindustria": _texto(faz.get("codigo_agroindustria")) or _texto(r.get("matricula")),
+            "id_farm": None,
+            "valor_pago_produtor": 0.0,
+            "valor_pago_agroindustria": 0.0,
+            "area_pecuaria_ha": None,
+            "mdo_dias_homem": None,
+            "producao_l_dia": _numero(r.get("producao_l_dia")),
+            "ccs_mensal": _numero(r.get("ccs_mensal")),
+            "cpp_mensal": _numero(r.get("cpp_mensal")),
+            "gordura_mensal": _numero(r.get("gordura_mensal")),
+            "proteina_mensal": _numero(r.get("proteina_mensal")),
+            "vacas_lactacao": _inteiro(r.get("vacas_lactacao")),
+            "vacas_secas": None, "bezerras_aleitamento": None, "bezerros_aleitamento": None,
+            "novilhas": None, "reprodutores": None, "receptoras": None, "rebanho_total": None,
+            "status_produtor": "ATIVO",   # visita no mês mantém a fazenda na carteira do mês
+            "origem_dados": "PROCAMPO",
+            **ctx.elabore(cod, mes),
+        })
+    return linhas, auditoria
 
 
 # ─── tab_fato_carteira_mensal ──────────────────────────────────────────────────
@@ -520,6 +644,7 @@ def construir_carteira_mensal(f: Fontes, ctx: Contexto, visitas: pd.DataFrame) -
         if rn.eh_grupo_excluido(grupo):
             continue  # carteira só de consultor removido do BI (CONSULTORES_EXCLUIDOS_BI)
         consultores = rn.sanitizar_consultores(grupo) or [rn.NAO_ATRIBUIDO]
+        sem_lancamento = rn.eh_grupo_sem_lancamento_elabore(grupo)   # regra 13 do AGENTS.md
 
         fim_mes = mes + pd.offsets.MonthEnd(0) + pd.Timedelta(hours=23, minutes=59, seconds=59)
         data_corte = min(ctx.agora, fim_mes)
@@ -578,6 +703,7 @@ def construir_carteira_mensal(f: Fontes, ctx: Contexto, visitas: pd.DataFrame) -
                 "status_visita_classe": classe,
                 **consist,
                 "excecao": False,
+                "sem_lancamento_elabore": sem_lancamento,
                 "em_carencia": bool(carencia_fim is not None and carencia_fim > ctx.agora),
                 **elab,
             })
@@ -602,6 +728,7 @@ def construir_fato_consistencia(f: Fontes, ctx: Contexto, carteira: pd.DataFrame
             p = principal.loc[(cod, mes)]
             projeto, agro, regiao, consultor = p["projeto"], p["agroindustria"], p["regiao"], p["consultor"]
             nome = p["nome_produtor"]
+            sem_lancamento = bool(p["sem_lancamento_elabore"])
         else:
             faz = ctx.fazenda(cod)
             inat = ctx.inativacao_meta.get(cod, {})
@@ -613,6 +740,7 @@ def construir_fato_consistencia(f: Fontes, ctx: Contexto, carteira: pd.DataFrame
             if rn.eh_grupo_excluido(grupo):
                 continue
             consultor =(rn.sanitizar_consultores(grupo) or [rn.NAO_ATRIBUIDO])[0]
+            sem_lancamento = rn.eh_grupo_sem_lancamento_elabore(grupo)
             agro = ctx.agroindustria(cod, projeto)
             regiao = ctx.regiao_de(cod, agro, projeto)
             nome = _texto(faz.get("nome_produtor")) or _texto(vinc.get("nome_produtor")) or _texto(r.get("nome_produtor")) or cod
@@ -632,6 +760,7 @@ def construir_fato_consistencia(f: Fontes, ctx: Contexto, carteira: pd.DataFrame
             "status_code": "active_approved",
             **ctx.consistencia(cod, mes),
             "excecao": 0,
+            "sem_lancamento_elabore": sem_lancamento,
             "na_carteira": ativo,
             **ctx.elabore(cod, mes),
         })
@@ -668,7 +797,60 @@ def construir_fato_movimentacao(f: Fontes, ctx: Contexto) -> pd.DataFrame:
             "agroindustria": agro,
             "regiao": ctx.regiao_de(cod, agro, projeto),
         })
-    return pd.DataFrame(linhas)
+    return pd.DataFrame(linhas + construir_movimentacao_procampo(f, ctx))
+
+
+def construir_movimentacao_procampo(f: Fontes, ctx: Contexto) -> list[dict]:
+    """Entradas e saídas do Procampo (pro_raw_movimentacao), só de fazendas PRO#### e provisórias.
+
+    ENTRADA = "Inclusão do produtor na Consultoria", na DATA.INÍCIO. SAÍDA = "SAÍDA"/"Inativação", na
+    DATA.CONCLUSÃO. "Legado" e trocas de consultor/titularidade não são movimentação de produtor.
+    Eventos anteriores ao primeiro mês da carteira ficam de fora (a carteira do BI começa em 2026).
+    """
+    if f.pro_movimentacao.empty:
+        return []
+    projeto_padrao = ctx.pro_cfg.get("projeto_bi", "PROCAMPO")
+    piso = ctx.dim_leite["mes_referencia"].min() if not ctx.dim_leite.empty else pd.NaT
+    m = f.pro_movimentacao.copy()
+    m["data_inicio"] = _data(m["data_inicio"])
+    m["data_conclusao"] = _data(m["data_conclusao"])
+    linhas, sem_data, antigos = [], 0, 0
+    for r in m.to_dict("records"):
+        cod = rn.limpar_codigo_lr(r.get("codigo_lr")) if _texto(r.get("codigo_lr")) else ""
+        tipo = rn.classificar_movimentacao_procampo(r.get("status_movimentacao"))
+        if not cod or rn.eh_fazenda_smartquestion(cod) or tipo is None:
+            continue
+        consultores = rn.sanitizar_consultores(r.get("consultor"))
+        if rn.eh_grupo_excluido(r.get("consultor")):
+            continue
+        data = r["data_conclusao"] if tipo == "SAIDA" else r["data_inicio"]
+        if pd.isna(data):
+            sem_data += 1
+            continue
+        if pd.notna(piso) and data < piso:
+            antigos += 1
+            continue
+        projeto = ctx.projeto(cod, fallback=projeto_padrao)
+        agro = ctx.agroindustria(cod, projeto)
+        faz = ctx.fazenda(cod)
+        saida = tipo == "SAIDA"
+        linhas.append({
+            "id_composto": hashlib.sha256(f"PROCAMPO_MOV_{r['id_composto']}".encode("utf-8")).hexdigest(),
+            "codigo_lr": cod,
+            "numero_atendimento": None,
+            "data_movimentacao": data,
+            "data_solicitacao": None,
+            "nome_produtor": _texto(faz.get("nome_produtor")) or cod,
+            "consultor": rn.consultor_procampo(consultores[0], ctx.pro_cfg.get("aliases_consultor")) if consultores else rn.NAO_ATRIBUIDO,
+            "tipo": "SAÍDA" if saida else "ENTRADA",
+            "motivo": _texto(r.get("motivo_saida")) or ("Desligamento" if saida else "Novo Cadastro"),
+            "projeto": projeto or projeto_padrao,
+            "agroindustria": agro,
+            "regiao": ctx.regiao_de(cod, agro, projeto),
+        })
+    if sem_data or antigos:
+        print(f"   ℹ️ Movimentação Procampo: {sem_data} eventos sem data e {antigos} anteriores a {piso:%Y-%m} ficaram de fora.")
+    return linhas
 
 
 # ─── Gravação idempotente ─────────────────────────────────────────────────────
@@ -772,7 +954,7 @@ COLS_VISITAS = ["id_composto", "id_atendimento", "codigo_lr", "nome_consultor", 
 
 COLS_CONSISTENCIA = ["id_composto", "codigo_lr", "nome_consultor", "profissao_consultor", "projeto", "mes_referencia",
                      "data_carencia_fim", "mes_elabore", "consistencia_mensal", "consistencia_anual",
-                     "status_code", "excecao", "meses_sequenciais", "detalhamento_inconsistencia",
+                     "status_code", "excecao", "sem_lancamento_elabore", "meses_sequenciais", "detalhamento_inconsistencia",
                      "agroindustria", "regiao", "na_carteira", "detalhamento_anual",
                      "cadastro_elabore", "dados_elabore_pct", "dados_elabore_status", "blocos_elabore"]
 
@@ -825,13 +1007,16 @@ def executar_camada_consumo(raiz: Path | None = None, gravar: bool = True) -> di
         fontes = carregar_fontes(supabase, conexao, ref["data_inicial_elabore"])
     finally:
         conexao.close()
+    fontes.cfg_procampo = cfg.get("procampo", {})
 
     validar_cobertura_raw_visitas(fontes.raw_visitas, ref["data_corte_estatica_visitas"], ref["data_inicial_fato_visitas"])
     r = construir_tudo(fontes, data_inicial_consistencia=ref["data_inicial_analise"])
     auditoria = r["auditoria"]
     print("\n📊 Resultado:")
-    print(f"   -> visitas válidas: {len(r['visitas'])} de {len(auditoria)} na raw")
+    print(f"   -> visitas válidas: {len(r['visitas'])} de {len(auditoria)} na raw (SmartQuestion + Procampo)")
     print(auditoria["status_reconciliacao"].value_counts().to_string())
+    if not r["visitas"].empty and "origem_dados" in r["visitas"].columns:
+        print(f"   -> visitas do Procampo na fato: {int((r['visitas']['origem_dados'] == 'PROCAMPO').sum())}")
     print(f"   -> carteira (fazenda×mês×consultor): {len(r['carteira'])}")
     print(f"   -> consistência (fazenda×mês): {len(r['consistencia'])}")
     print(f"   -> movimentações de leite: {len(r['movimentacao'])}")

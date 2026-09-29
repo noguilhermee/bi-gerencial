@@ -9,7 +9,7 @@ function daCarteira(r) {
     agroindustria: r.agroindustria, regiao: r.regiao, mes_referencia: r.mes_referencia, status: 'ATIVO',
     consistencia_mensal: r.consistencia_mensal, consistencia_anual: r.consistencia_anual,
     detalhamento_mensal: r.detalhamento_mensal, detalhamento_anual: r.detalhamento_anual,
-    meses_sequenciais: r.meses_sequenciais, em_carencia: r.em_carencia, excecao: r.excecao,
+    meses_sequenciais: r.meses_sequenciais, em_carencia: r.em_carencia, excecao: r.excecao, sem_lancamento_elabore: r.sem_lancamento_elabore,
     cadastro_elabore: r.cadastro_elabore, dados_elabore_pct: r.dados_elabore_pct,
     dados_elabore_status: r.dados_elabore_status, blocos_elabore: r.blocos_elabore
   };
@@ -22,7 +22,7 @@ function foraDaCarteira(c) {
     consistencia_mensal: c.consistencia_mensal, consistencia_anual: c.consistencia_anual,
     detalhamento_mensal: c.detalhamento_inconsistencia, detalhamento_anual: c.detalhamento_anual,
     meses_sequenciais: c.meses_sequenciais, em_carencia: Boolean(c.data_carencia_fim && new Date(c.data_carencia_fim) > new Date()),
-    excecao: Boolean(c.excecao), cadastro_elabore: c.cadastro_elabore, dados_elabore_pct: c.dados_elabore_pct,
+    excecao: Boolean(c.excecao), sem_lancamento_elabore: c.sem_lancamento_elabore, cadastro_elabore: c.cadastro_elabore, dados_elabore_pct: c.dados_elabore_pct,
     dados_elabore_status: c.dados_elabore_status, blocos_elabore: c.blocos_elabore
   };
 }
@@ -67,7 +67,8 @@ module.exports = async (req, res) => {
     consistenciaTodos.filter(c => doMes(c) && !c.na_carteira).forEach(c => {
       porFazenda.set(`${c.codigo_lr}|${String(c.mes_referencia).slice(0, 10)}`, foraDaCarteira(c));
     });
-    const base = [...porFazenda.values()].filter(r => rowMatchesFilters(r, filters));
+    // Regra 13 (AGENTS.md): fazendas de consultor que não lança no Elabore ficam fora dos indicadores (flag gravada pelo ETL)
+    const base = [...porFazenda.values()].filter(r => !r.sem_lancamento_elabore && rowMatchesFilters(r, filters));
 
     const conta = (campo, valor) => base.filter(r => r[campo] === valor).length;
     const consistentes = conta('consistencia_mensal', 'Consistente');
@@ -84,7 +85,7 @@ module.exports = async (req, res) => {
     base.forEach(r => { histograma[faixaSequencia(Number(r.meses_sequenciais) || 0)]++; });
 
     // Evolução: registros Elabore de cada mês (fato de consistência), respeitando os filtros
-    const historico = consistenciaTodos.filter(c => rowMatchesFilters({ ...c, status: c.na_carteira ? 'ATIVO' : 'INATIVO' }, filters));
+    const historico = consistenciaTodos.filter(c => !c.sem_lancamento_elabore && rowMatchesFilters({ ...c, status: c.na_carteira ? 'ATIVO' : 'INATIVO' }, filters));
     const referencias = [...new Set(historico.map(c => String(c.mes_referencia).slice(0, 10)))].filter(m => !refMonth || m <= refMonth).sort();
     // Taxa = Consistentes ÷ registros avaliados (exclui "Sem dados")
     const taxa = (linhas, campo) => {

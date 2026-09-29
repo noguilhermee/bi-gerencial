@@ -102,6 +102,15 @@ def ler_excel_seguro(caminho_arquivo: Path) -> pd.DataFrame:
             pass
 
 
+def _descartar_sem_codigo(df: pd.DataFrame, rotulo: str) -> pd.DataFrame:
+    """Remove linhas cujo Código LR veio vazio do Excel (astype(str) o transforma em 'nan')."""
+    sem_codigo = df["codigo_lr"].str.strip().str.lower().isin(["", "nan", "none", "nat", "<na>"])
+    if sem_codigo.any():
+        print(f"   ⚠️ {int(sem_codigo.sum())} linhas da planilha {rotulo} sem 'Código LR' foram descartadas "
+              f"(fazenda ainda sem código no Elabore).")
+    return df[~sem_codigo].copy()
+
+
 def obter_mapa_idfazenda(supabase) -> dict[str, int]:
     """
     Busca o mapeamento existente de 'codigo_lr' -> 'idfazenda' para garantir
@@ -244,6 +253,9 @@ def atualizar_consistencia_mensal(
     agora_iso = datetime.now(ZoneInfo("America/Sao_Paulo")).isoformat()
     df_carga["data_processamento"] = agora_iso
 
+    # Linha sem "Código LR" viraria o texto 'nan' e todas se misturariam num único idfazenda
+    df_carga = _descartar_sem_codigo(df_carga, "mensal")
+
     # Atribuir idfazenda
     df_carga, _ = atribuir_idfazenda(df_carga, "codigo_lr", id_map)
 
@@ -363,6 +375,8 @@ def atualizar_consistencia_anual(
 
     agora_iso = datetime.now(ZoneInfo("America/Sao_Paulo")).isoformat()
     df_carga["data_processamento"] = agora_iso
+
+    df_carga = _descartar_sem_codigo(df_carga, "anual")
 
     # Atribuir idfazenda
     df_carga, _ = atribuir_idfazenda(df_carga, "codigo_lr", id_map)

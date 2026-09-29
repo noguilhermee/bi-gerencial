@@ -65,7 +65,7 @@ const COLUNAS = {
     'nome_propriedade', 'projeto', 'agroindustria', 'regiao', 'data_associacao', 'visitado_mes',
     'data_ultima_visita', 'data_visita_mes_anterior', 'dias_sem_visita', 'status_visita',
     'status_visita_classe', 'consistencia_mensal', 'detalhamento_mensal', 'consistencia_anual',
-    'detalhamento_anual', 'meses_sequenciais', 'excecao', 'em_carencia', 'cadastro_elabore',
+    'detalhamento_anual', 'meses_sequenciais', 'excecao', 'sem_lancamento_elabore', 'em_carencia', 'cadastro_elabore',
     'dados_elabore_pct', 'dados_elabore_status', 'blocos_elabore'
   ].join(','),
   visitas: [
@@ -81,7 +81,7 @@ const COLUNAS = {
   consistencia: [
     'id_composto', 'codigo_lr', 'nome_consultor', 'projeto', 'agroindustria', 'regiao', 'mes_referencia',
     'na_carteira', 'data_carencia_fim', 'consistencia_mensal', 'consistencia_anual',
-    'detalhamento_inconsistencia', 'detalhamento_anual', 'meses_sequenciais', 'excecao',
+    'detalhamento_inconsistencia', 'detalhamento_anual', 'meses_sequenciais', 'excecao', 'sem_lancamento_elabore',
     'cadastro_elabore', 'dados_elabore_pct', 'dados_elabore_status', 'blocos_elabore'
   ].join(','),
   economico: [

@@ -37,7 +37,8 @@ module.exports = async (req, res) => {
     const percVisitados = totalAtivos > 0 ? ((codigosVisitados.size / totalAtivos) * 100).toFixed(1) : '0.0';
     const visitasPorProdutor = totalAtivos > 0 ? (totalVisitas / totalAtivos).toFixed(1) : '0.0';
 
-    const fazendasMes = [...new Map(carteiraFiltrada.map(r => [r.codigo_lr, r])).values()];
+    // Regra 13 (AGENTS.md): fazendas de consultor que não lança no Elabore não entram nos indicadores de consistência
+    const fazendasMes = [...new Map(carteiraFiltrada.filter(r => !r.sem_lancamento_elabore).map(r => [r.codigo_lr, r])).values()];
     const comDados = fazendasMes.filter(r => r.consistencia_mensal !== 'Sem dados');
     const consistentes = comDados.filter(r => r.consistencia_mensal === 'Consistente');
     const percConsistente = comDados.length > 0 ? ((consistentes.length / comDados.length) * 100).toFixed(1) : '0.0';

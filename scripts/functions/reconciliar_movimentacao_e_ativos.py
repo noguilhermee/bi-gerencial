@@ -1032,10 +1032,10 @@ def executar_reconciliacao(reindex_completo: bool = False):
     except Exception:
         pass
 
-    # Carregar sq_dim_regiao do Supabase para ter o de-para sempre atualizado dinamicamente
+    # Carregar tab_dim_regiao do Supabase para ter o de-para sempre atualizado dinamicamente
     dim_regiao_cache = {}
     try:
-        res_dim = supabase.table("sq_dim_regiao").select("nome_regiao, nome_regiao_formatada, agroindustria").eq("status", "Ativo").execute()
+        res_dim = supabase.table("tab_dim_regiao").select("nome_regiao, nome_regiao_formatada, agroindustria").eq("status", "Ativo").execute()
         for r_dim in (res_dim.data or []):
             raw_n = str(r_dim.get("nome_regiao") or "").strip().upper()
             fmt_n = str(r_dim.get("nome_regiao_formatada") or "").strip()
@@ -1071,7 +1071,7 @@ def executar_reconciliacao(reindex_completo: bool = False):
         t_upper = t_str.upper()
         agro_upper = str(agro or "").strip().upper()
 
-        # 1. Consulta ao cache dinâmico da sq_dim_regiao
+        # 1. Consulta ao cache dinâmico da tab_dim_regiao
         if agro_upper and f"{agro_upper}|{t_upper}" in dim_regiao_cache:
             return dim_regiao_cache[f"{agro_upper}|{t_upper}"]
         if t_upper in dim_regiao_cache:
@@ -1294,9 +1294,9 @@ def executar_reconciliacao(reindex_completo: bool = False):
         arq_vinc_excel = bd_path / "BD_BI_VINCULOS_COMPLETO.xlsx"
         if arq_vinc_excel.exists():
             try:
-                from functions.carregar_fato_visitas import ler_excel_seguro
+                from functions.atualizar_detalhamento_consistencia import ler_excel_seguro
             except ImportError:
-                from carregar_fato_visitas import ler_excel_seguro
+                from atualizar_detalhamento_consistencia import ler_excel_seguro
             df_vinc_ex = ler_excel_seguro(arq_vinc_excel)
             if "Ativo" in df_vinc_ex.columns and "Código LR" in df_vinc_ex.columns:
                 m_at_ex = df_vinc_ex["Ativo"].astype(str).str.strip().str.lower().isin(["true", "sim", "ativo", "1"])

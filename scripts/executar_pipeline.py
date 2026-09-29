@@ -128,6 +128,17 @@ def main():
 
         try:
             try:
+                from functions.carregar_procampo import executar_carga_procampo
+            except ImportError:
+                from FUNCTIONS.carregar_procampo import executar_carga_procampo
+            print("\n🐄 [PÓS-ETL] Carregando raw do Procampo (pro_raw_fazendas + pro_raw_visitas)...")
+            executar_carga_procampo(raiz_projeto)
+        except Exception as e_procampo:
+            # Não bloqueia o SmartQuestion: as fazendas PRO ficam com a última carga bem-sucedida.
+            print(f"⚠️ Falha na carga da raw do Procampo (fazendas PRO seguem com a carga anterior): {e_procampo}")
+
+        try:
+            try:
                 from functions.reconciliar_movimentacao_e_ativos import executar_reconciliacao
             except ImportError:
                 from FUNCTIONS.reconciliar_movimentacao_e_ativos import executar_reconciliacao
@@ -135,6 +146,19 @@ def main():
             executar_reconciliacao(reindex_completo=True)
         except Exception as e_rec:
             print(f"❌ Falha na reconciliação (a camada de consumo depende dela): {e_rec}")
+            sys.exit(1)
+
+        # A reconciliação apaga e reconstrói cada mês de tab_dim_fazendas_ativas só com o SmartQuestion:
+        # as fazendas do Procampo precisam ser republicadas logo depois dela.
+        try:
+            try:
+                from functions.publicar_dim_procampo import executar_publicacao_dim_procampo
+            except ImportError:
+                from FUNCTIONS.publicar_dim_procampo import executar_publicacao_dim_procampo
+            print("\n🐄 [PÓS-ETL] Publicando fazendas do Procampo em tab_dim_fazendas_ativas...")
+            executar_publicacao_dim_procampo(raiz_projeto)
+        except Exception as e_dim_pro:
+            print(f"❌ Falha ao publicar as fazendas do Procampo (a carteira ficaria sem elas): {e_dim_pro}")
             sys.exit(1)
 
         if not raw_visitas_ok:

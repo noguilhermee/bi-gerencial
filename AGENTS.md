@@ -172,7 +172,7 @@ CAMINHO_ARQUIVO = PASTA_SAIDA / f"{DATA_EXPORTACAO}_nome_do_arquivo.ext"
     - `tab_fato_*`: Tabelas fato analíticas (ex: `tab_fato_visitas`, `tab_fato_carteira_mensal`, `tab_fato_consistencia`, `tab_fato_movimentacao`, `tab_fato_economico`).
     - `tab_dim_*`: Dimensões com mais de uma origem (ex: `tab_dim_fazendas_ativas`).
     - `tab_base_*`: Snapshots periódicos e bases congeladas mês a mês (ex: `tab_base_metas_mensal`).
-  - **Dimensões de origem única** continuam com o prefixo da origem (ex: `sq_dim_consultor`, `sq_dim_regiao`, `sq_dim_agroindustria`).
+  - **Dimensões cadastrais** (consultor, região, agroindústria) também ficam na camada de consumo: `tab_dim_consultor`, `tab_dim_regiao`, `tab_dim_agroindustria` (antes `sq_dim_*`, renomeadas em 2026-09-29 pelo script `db/input/2026_09_29_renomear_dims_e_coluna_sem_lancamento_elabore.sql`).
   - **Colunas**: Sempre em `snake_case` minúsculo com timestamps `data_processamento` e chaves `id_composto`.
 
 ---
@@ -190,6 +190,16 @@ CAMINHO_ARQUIVO = PASTA_SAIDA / f"{DATA_EXPORTACAO}_nome_do_arquivo.ext"
 ## 🛠️ 12. Proibição de Correção Paliativa no Frontend/API e Foco no ETL
 - **Regra Absoluta**: **NUNCA fazer "gambiarras", tratamentos paliativos ou manipulações artificiais de dados no front-end ou nos arquivos JS de API** (`dashboard/api/*`, `dashboard/public/*`).
 - **Procedimento Obrigatório**: Caso seja identificada qualquer inconsistência, divergência de contagem ou ausência de dados na interface, a correção deve ser realizada na raiz da fonte de dados (nos scripts de ETL/Python). O assistente de IA deve **obrigatoriamente estruturar um plano de implementação para ajustar a regra diretamente nos scripts de ETL** (`scripts/`), garantindo que o banco de dados (Supabase) permaneça como a única fonte da verdade e que os dados sejam reconciliados e persistidos corretamente na origem.
+
+---
+
+## 👤 13. Exceção de Consultor: Marcos Paulo de Pinho Flecha (sem lançamento no Elabore)
+- **Regra de negócio (BI Gerencial)**: o consultor **Marcos Paulo de Pinho Flecha** é uma exceção em relação aos demais, pois **não faz lançamento de dados no Elabore**.
+- **Efeito**: em indicadores de consistência, como **"Número de fazendas consistentes no mês"**, as fazendas deste consultor **não devem entrar no cálculo**. Vale para numerador e denominador, para não distorcer os percentuais.
+- **Continua valendo**: ele permanece na carteira, nas visitas e na movimentação. A exceção se restringe aos indicadores que dependem de dados do Elabore.
+- **Co-consultoria**: a fazenda só fica de fora quando **todos** os consultores de campo do grupo são isentos. Se houver um co-consultor que lança no Elabore, ela continua contando.
+- **Como é aplicada**: o ETL (`camada_consumo.py`) grava `sem_lancamento_elabore = true` em `tab_fato_carteira_mensal` e `tab_fato_consistencia`; a API apenas ignora essas linhas nos cálculos de consistência (`overview.js`, `consistency.js`). A coluna `excecao` (lista de produtores exceção) é independente e não foi alterada.
+- **Fonte única da verdade**: `CONSULTORES_SEM_LANCAMENTO_ELABORE`, `eh_consultor_sem_lancamento_elabore()` e `eh_grupo_sem_lancamento_elabore()` em `scripts/functions/regras_negocio.py`. Novos consultores isentos são adicionados nesse conjunto, nunca no frontend nem na API (regra 12).
 
 
 
