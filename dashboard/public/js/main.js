@@ -1308,15 +1308,15 @@ document.addEventListener('DOMContentLoaded', () => {
     updateTableHeadIcons('tbodyMbRankingDetalhe', tableSort.tbodyMbRankingDetalhe.colKey, tableSort.tbodyMbRankingDetalhe.dir);
     const pMbDetalhe = getPaginatedSlice('tableMbRankingDetalhe', mbDetalhe);
     if (el('tbodyMbRankingDetalhe')) el('tbodyMbRankingDetalhe').innerHTML = rowsOrEmpty(pMbDetalhe, 10, (row) => `<tr>
-      <td class="col-center font-tabular">${row.posicao ?? '—'}</td>
+      <td class="col-right font-tabular">${row.posicao ?? '—'}</td>
       <td class="col-left" title="${escapeHtml(row.nome_fazenda)}"><strong>${escapeHtml(row.nome_fazenda)}</strong></td>
       <td class="col-left" title="${escapeHtml(row.produtor)}">${escapeHtml(row.produtor)}</td>
       <td class="col-left" title="${escapeHtml(row.consultor)}">${escapeHtml(row.consultor)}</td>
       <td class="col-center">${escapeHtml(row.mes_label)}</td>
-      <td class="col-center font-tabular">${number(row.volume_diario_litros)}</td>
-      <td class="col-center font-tabular">R$ ${number(row.preco_medio_litro)}</td>
-      <td class="col-center font-tabular">R$ ${number(row.coe_por_litro)}</td>
-      <td class="col-center font-tabular"><strong class="${row.flag_positiva ? 'text-positive' : 'text-negative'}">R$ ${number(row.margem_bruta_por_litro)}</strong></td>
+      <td class="col-right font-tabular">${number(row.volume_diario_litros)}</td>
+      <td class="col-right font-tabular">R$ ${number(row.preco_medio_litro)}</td>
+      <td class="col-right font-tabular">R$ ${number(row.coe_por_litro)}</td>
+      <td class="col-right font-tabular"><strong class="${row.flag_positiva ? 'text-positive' : 'text-negative'}">R$ ${number(row.margem_bruta_por_litro)}</strong></td>
       <td class="col-center">${consistenciaBadge(row)}</td>
     </tr>`);
     renderTablePagination('paginationMbRankingDetalhe', 'tableMbRankingDetalhe', mbDetalhe.length);
@@ -1333,14 +1333,14 @@ document.addEventListener('DOMContentLoaded', () => {
       <td class="col-left" title="${escapeHtml(row.nome_fazenda)}"><strong>${escapeHtml(row.nome_fazenda)}</strong></td>
       <td class="col-left" title="${escapeHtml(row.produtor)}">${escapeHtml(row.produtor)}</td>
       <td class="col-center">${escapeHtml(row.mes_label)}</td>
-      <td class="col-center font-tabular">${number(row.volume_leite_mes)}</td>
-      <td class="col-center font-tabular">${reais(row.coe_total_reais)}</td>
-      <td class="col-center font-tabular">R$ ${number(row.coe_por_litro)}</td>
-      <td class="col-center font-tabular">${percent(row.perc_concentrado)}</td>
-      <td class="col-center font-tabular">${percent(row.perc_volumoso)}</td>
-      <td class="col-center font-tabular">${percent(row.perc_mao_de_obra)}</td>
-      <td class="col-center font-tabular">${percent(row.perc_sanidade)}</td>
-      <td class="col-center font-tabular">${percent(row.perc_outros)}</td>
+      <td class="col-right font-tabular">${number(row.volume_leite_mes)}</td>
+      <td class="col-right font-tabular">${reais(row.coe_total_reais)}</td>
+      <td class="col-right font-tabular">R$ ${number(row.coe_por_litro)}</td>
+      <td class="col-right font-tabular">${percent(row.perc_concentrado)}</td>
+      <td class="col-right font-tabular">${percent(row.perc_volumoso)}</td>
+      <td class="col-right font-tabular">${percent(row.perc_mao_de_obra)}</td>
+      <td class="col-right font-tabular">${percent(row.perc_sanidade)}</td>
+      <td class="col-right font-tabular">${percent(row.perc_outros)}</td>
       <td class="col-center">${escapeHtml(row.maior_item)}</td>
       <td class="col-center">${consistenciaBadge(row)}</td>
     </tr>`);
@@ -1461,7 +1461,7 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     }
 
-    // 0. Base Mestre Direta da sq_dim_fazendas_ativas
+    // 0. Base Mestre Direta da tab_dim_fazendas_ativas
     if (o.dim_fazendas && Array.isArray(o.dim_fazendas)) {
       o.dim_fazendas.forEach((r) => addRow(r, r.status || 'ATIVO'));
     }

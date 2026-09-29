@@ -48,9 +48,9 @@ module.exports = async (req, res) => {
 
     const [carteiraTodos, consistenciaTodos] = await Promise.all([
       fetchWithCache('CARTEIRA_MENSAL_ALL', () =>
-        fetchAll(() => supabase.from('sq_fato_carteira_mensal').select(COLUNAS.carteira).order('mes_referencia', { ascending: false }), undefined, 'id_composto')),
+        fetchAll(() => supabase.from('tab_fato_carteira_mensal').select(COLUNAS.carteira).order('mes_referencia', { ascending: false }), undefined, 'id_composto')),
       fetchWithCache('FATO_CONSISTENCIA_ALL', () =>
-        fetchAll(() => supabase.from('sq_fato_consistencia').select(COLUNAS.consistencia).order('mes_referencia', { ascending: false }), undefined, 'id_composto'))
+        fetchAll(() => supabase.from('tab_fato_consistencia').select(COLUNAS.consistencia).order('mes_referencia', { ascending: false }), undefined, 'id_composto'))
     ]);
 
     const ultimosMeses = [...new Set([...carteiraTodos, ...consistenciaTodos].map(c => String(c.mes_referencia).slice(0, 10)))].filter(Boolean).sort();

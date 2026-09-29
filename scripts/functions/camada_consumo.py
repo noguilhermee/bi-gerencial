@@ -5,11 +5,11 @@ Camada de consumo do dashboard (etapa final do pipeline).
 Lê as camadas raw/dim do Supabase e o Elabore (Azure PostgreSQL), aplica as
 regras de `regras_negocio` e grava tabelas prontas para leitura direta pela API:
 
-  sq_fato_visitas          1 linha por visita técnica de leite válida (id_atendimento)
-  sq_fato_carteira_mensal  1 linha por fazenda ativa × mês × consultor de campo
-  sq_fato_consistencia     1 linha por fazenda × mês de referência do Elabore
-  sq_fato_movimentacao     entradas/saídas de leite enriquecidas (lê o bruto gravado em
-                           sq_raw_movimentacao por reconciliar_movimentacao_e_ativos.py)
+  tab_fato_visitas          1 linha por visita técnica de leite válida (id_atendimento)
+  tab_fato_carteira_mensal  1 linha por fazenda ativa × mês × consultor de campo
+  tab_fato_consistencia     1 linha por fazenda × mês de referência do Elabore
+  tab_fato_movimentacao     entradas/saídas de leite enriquecidas (lê o bruto gravado em
+                            sq_raw_movimentacao por reconciliar_movimentacao_e_ativos.py)
 
 Todas as gravações são idempotentes: upsert pela chave + remoção das chaves que
 deixaram de existir. A API não aplica nenhuma regra de negócio sobre esses dados.
@@ -52,10 +52,10 @@ except ImportError:
 FUSO_SP = ZoneInfo("America/Sao_Paulo")
 LOTE = 1000
 
-TAB_VISITAS = "sq_fato_visitas"
-TAB_CARTEIRA = "sq_fato_carteira_mensal"
-TAB_CONSISTENCIA = "sq_fato_consistencia"
-TAB_MOVIMENTACAO = "sq_fato_movimentacao"
+TAB_VISITAS = "tab_fato_visitas"
+TAB_CARTEIRA = "tab_fato_carteira_mensal"
+TAB_CONSISTENCIA = "tab_fato_consistencia"
+TAB_MOVIMENTACAO = "tab_fato_movimentacao"
 TAB_MOVIMENTACAO_RAW = "sq_raw_movimentacao"
 
 # Não deixa uma carga de raw incompleta esvaziar a fato: aborta se algum mês perder
@@ -151,7 +151,7 @@ def carregar_fontes(supabase, conexao_elabore, data_inicio_elabore: str) -> Font
                                     "area_pecuaria_ha,mdo_dias_homem,producao_l_dia,ccs_mensal,cpp_mensal,gordura_mensal,"
                                     "proteina_mensal,vacas_lactacao,vacas_secas,bezerras_aleitamento,bezerros_aleitamento,"
                                     "novilhas,reprodutores,receptoras,rebanho_total,data_processamento"),
-        "dim_fazendas": _buscar_tudo(supabase, "sq_dim_fazendas_ativas"),
+        "dim_fazendas": _buscar_tudo(supabase, "tab_dim_fazendas_ativas"),
         "raw_fazendas_grupo": _buscar_tudo(supabase, "sq_raw_fazendas_grupo",
                                            "codigo_produtor,grupo_ponto_atendimento,nome_grupo_ponto_atendimento"),
         "raw_vinculos": _buscar_tudo(supabase, "sq_raw_vinculos",
@@ -162,9 +162,9 @@ def carregar_fontes(supabase, conexao_elabore, data_inicio_elabore: str) -> Font
         "fato_movimentacao": _buscar_tudo(supabase, TAB_MOVIMENTACAO_RAW,
                                           "id_composto,codigo_lr,nome_consultor,nome_produtor,numero_atendimento,data_movimentacao,"
                                           "movimentacao,motivo_inativacao,outro_motivo,data_solicitacao,data_processamento"),
-        "raw_consistencia_mensal": _buscar_tudo(supabase, "sq_raw_consistencia_mensal",
+        "raw_consistencia_mensal": _buscar_tudo(supabase, "elabore_raw_consistencia_mensal",
                                                 "codigo_lr,mes_referencia,mes_elabore,consistencia_mensal,detalhamento_inconsistencia,nome_produtor"),
-        "raw_consistencia_anual": _buscar_tudo(supabase, "sq_raw_consistencia_anual",
+        "raw_consistencia_anual": _buscar_tudo(supabase, "elabore_raw_consistencia_anual",
                                                "codigo_lr,mes_referencia,consistencia_anual,detalhamento_inconsistencia"),
         "dim_consultor": _buscar_tudo(supabase, "sq_dim_consultor", "nome_consultor,formacao_consultor,excluido"),
         "dim_regiao": _buscar_tudo(supabase, "sq_dim_regiao", "nome_regiao,nome_regiao_formatada,agroindustria,status"),
@@ -382,7 +382,7 @@ class Contexto:
         }
 
 
-# ─── sq_fato_visitas ──────────────────────────────────────────────────────────
+# ─── tab_fato_visitas ──────────────────────────────────────────────────────────
 
 def construir_fato_visitas(f: Fontes, ctx: Contexto) -> tuple[pd.DataFrame, pd.DataFrame]:
     """Retorna (fato de visitas válidas, auditoria com o motivo de cada exclusão)."""
@@ -483,7 +483,7 @@ def construir_fato_visitas(f: Fontes, ctx: Contexto) -> tuple[pd.DataFrame, pd.D
     return pd.DataFrame(linhas), pd.DataFrame(auditoria)
 
 
-# ─── sq_fato_carteira_mensal ──────────────────────────────────────────────────
+# ─── tab_fato_carteira_mensal ──────────────────────────────────────────────────
 
 def _melhor_grupo(grupos: list) -> str:
     """Prefere o grupo com co-consultores ('/') ou o mais completo, como a LISTA_GERAL."""
@@ -584,7 +584,7 @@ def construir_carteira_mensal(f: Fontes, ctx: Contexto, visitas: pd.DataFrame) -
     return pd.DataFrame(linhas)
 
 
-# ─── sq_fato_consistencia ─────────────────────────────────────────────────────
+# ─── tab_fato_consistencia ─────────────────────────────────────────────────────
 
 def construir_fato_consistencia(f: Fontes, ctx: Contexto, carteira: pd.DataFrame, data_inicial: str) -> pd.DataFrame:
     na_carteira = set(zip(carteira["codigo_lr"], carteira["mes_referencia"])) if not carteira.empty else set()
@@ -639,7 +639,7 @@ def construir_fato_consistencia(f: Fontes, ctx: Contexto, carteira: pd.DataFrame
     return df.rename(columns={"detalhamento_mensal": "detalhamento_inconsistencia"})
 
 
-# ─── sq_fato_movimentacao ─────────────────────────────────────────────────────
+# ─── tab_fato_movimentacao ─────────────────────────────────────────────────────
 
 def construir_fato_movimentacao(f: Fontes, ctx: Contexto) -> pd.DataFrame:
     linhas = []
@@ -848,7 +848,7 @@ def executar_camada_consumo(raiz: Path | None = None, gravar: bool = True) -> di
     sincronizar_tabela(supabase, TAB_VISITAS, _registros_json(r["visitas"][COLS_VISITAS], d, ts))
     sincronizar_tabela(supabase, TAB_CARTEIRA, _registros_json(r["carteira"], d, ts))
     cols_cons = [c for c in COLS_CONSISTENCIA if c in r["consistencia"].columns]
-    # A grain de sq_fato_consistencia é fazenda×mês e já vem materializada em id_composto
+    # A grain de tab_fato_consistencia é fazenda×mês e já vem materializada em id_composto
     # (f"{cod}|{mes}"), que é a PK da tabela. O on_conflict pelo trio
     # (codigo_lr, nome_consultor, mes_referencia) não tem unique constraint correspondente
     # e fazia o Postgres recusar todo o upsert com 42P10, deixando a tabela vazia.

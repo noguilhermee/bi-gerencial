@@ -2,7 +2,7 @@
 """
 Módulo Oficial de Carga e Sincronização de Consistência (Mensal e Anual)
 Lê os relatórios mais recentes exportados pelo Elabore e executa a carga completa
-nas tabelas 'sq_raw_consistencia_mensal' e 'sq_raw_consistencia_anual' do Supabase.
+nas tabelas 'elabore_raw_consistencia_mensal' e 'elabore_raw_consistencia_anual' do Supabase.
 """
 from __future__ import annotations
 
@@ -111,7 +111,7 @@ def obter_mapa_idfazenda(supabase) -> dict[str, int]:
     id_map = {}
     try:
         res_map = (
-            supabase.table("sq_raw_consistencia_mensal")
+            supabase.table("elabore_raw_consistencia_mensal")
             .select("codigo_lr, idfazenda")
             .not_.is_("idfazenda", "null")
             .execute()
@@ -177,9 +177,9 @@ def limpar_tabela_supabase(supabase, nome_tabela: str) -> bool:
 def atualizar_consistencia_mensal(
     supabase, raiz_projeto: Path, config: dict, id_map: dict[str, int], limpar_antes: bool = True
 ) -> int:
-    """Processa e executa carga em 'sq_raw_consistencia_mensal'."""
+    """Processa e executa carga em 'elabore_raw_consistencia_mensal'."""
     print("\n" + "=" * 70)
-    print("📊 ETAPA: ATUALIZANDO TABELA DE CONSISTÊNCIA MENSAL (sq_raw_consistencia_mensal)")
+    print("📊 ETAPA: ATUALIZANDO TABELA DE CONSISTÊNCIA MENSAL (elabore_raw_consistencia_mensal)")
     print("=" * 70)
 
     dir_elabore = Path(config.get("caminhos", {}).get("elabore_mensal", ""))
@@ -255,18 +255,18 @@ def atualizar_consistencia_mensal(
     print(f"📊 Total de registros válidos para carga mensal: {len(df_carga)}")
 
     if limpar_antes:
-        limpar_tabela_supabase(supabase, "sq_raw_consistencia_mensal")
+        limpar_tabela_supabase(supabase, "elabore_raw_consistencia_mensal")
 
     # Enviar ao Supabase em lotes
     records = df_carga.to_dict(orient="records")
     chunk_size = config.get("execucao", {}).get("chunk_size_upsert", 1000)
     sucessos = 0
 
-    print("🚀 Enviando registros para o Supabase (sq_raw_consistencia_mensal)...")
+    print("🚀 Enviando registros para o Supabase (elabore_raw_consistencia_mensal)...")
     for i in range(0, len(records), chunk_size):
         chunk = records[i : i + chunk_size]
         try:
-            supabase.table("sq_raw_consistencia_mensal").upsert(
+            supabase.table("elabore_raw_consistencia_mensal").upsert(
                 chunk, on_conflict="idfazenda,mes_referencia"
             ).execute()
             sucessos += len(chunk)
@@ -274,16 +274,16 @@ def atualizar_consistencia_mensal(
         except Exception as e:
             print(f"   ❌ Erro no lote {i // chunk_size + 1}: {e}")
 
-    print(f"✨ Concluído! {sucessos} registros sincronizados em 'sq_raw_consistencia_mensal'.")
+    print(f"✨ Concluído! {sucessos} registros sincronizados em 'elabore_raw_consistencia_mensal'.")
     return sucessos
 
 
 def atualizar_consistencia_anual(
     supabase, raiz_projeto: Path, config: dict, id_map: dict[str, int], limpar_antes: bool = True
 ) -> int:
-    """Processa e executa carga em 'sq_raw_consistencia_anual'."""
+    """Processa e executa carga em 'elabore_raw_consistencia_anual'."""
     print("\n" + "=" * 70)
-    print("📈 ETAPA: ATUALIZANDO TABELA DE CONSISTÊNCIA ANUAL (sq_raw_consistencia_anual)")
+    print("📈 ETAPA: ATUALIZANDO TABELA DE CONSISTÊNCIA ANUAL (elabore_raw_consistencia_anual)")
     print("=" * 70)
 
     dir_elabore = Path(config.get("caminhos", {}).get("elabore_anual", ""))
@@ -375,24 +375,24 @@ def atualizar_consistencia_anual(
     print(f"📊 Total de registros válidos para carga anual: {len(df_carga)}")
 
     if limpar_antes:
-        limpar_tabela_supabase(supabase, "sq_raw_consistencia_anual")
+        limpar_tabela_supabase(supabase, "elabore_raw_consistencia_anual")
 
     # Enviar ao Supabase em lotes
     records = df_carga.to_dict(orient="records")
     chunk_size = config.get("execucao", {}).get("chunk_size_upsert", 1000)
     sucessos = 0
 
-    print("🚀 Enviando registros para o Supabase (sq_raw_consistencia_anual)...")
+    print("🚀 Enviando registros para o Supabase (elabore_raw_consistencia_anual)...")
     for i in range(0, len(records), chunk_size):
         chunk = records[i : i + chunk_size]
         try:
-            supabase.table("sq_raw_consistencia_anual").upsert(chunk).execute()
+            supabase.table("elabore_raw_consistencia_anual").upsert(chunk).execute()
             sucessos += len(chunk)
             print(f"   ✅ Lote {i // chunk_size + 1}: {len(chunk)} registros inseridos/atualizados.")
         except Exception as e:
             print(f"   ❌ Erro no lote {i // chunk_size + 1}: {e}")
 
-    print(f"✨ Concluído! {sucessos} registros sincronizados em 'sq_raw_consistencia_anual'.")
+    print(f"✨ Concluído! {sucessos} registros sincronizados em 'elabore_raw_consistencia_anual'.")
     return sucessos
 
 

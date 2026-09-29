@@ -25,7 +25,7 @@ module.exports = async (req, res) => {
     const key = process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_KEY || process.env.SUPABASE_ANON_KEY;
     if (!url || !key) throw new Error('Credenciais Supabase ausentes');
     const supabase = createClient(url, key);
-    const { data, error } = await supabase.from('sq_fato_visitas').select('codigo_lr').limit(1);
+    const { data, error } = await supabase.from('tab_fato_visitas').select('codigo_lr').limit(1);
     if (error) throw error;
     checks.supabase = { ok: true, rows: (data || []).length };
   } catch (err) {

@@ -166,7 +166,7 @@ def ler_lista_geral(caminho: Path, origem: str) -> pd.DataFrame:
     if "Propriedade:" in df.columns and "Propriedade" not in df.columns:
         df = df.rename(columns={"Propriedade:": "Propriedade"})
     # As exportações atuais da LISTA_GERAL não trazem mais "Propriedade"; o nome vem dos
-    # relatórios específicos e de sq_dim_fazendas_ativas (camada_consumo).
+    # relatórios específicos e de tab_dim_fazendas_ativas (camada_consumo).
     faltando = [c for c in MAPA_COLUNAS if c not in df.columns and c not in COLUNAS_OPCIONAIS]
     if faltando:
         raise ValueError(f"{caminho.name}: colunas ausentes {faltando}")
@@ -359,7 +359,7 @@ def preservar_nome_propriedade(supabase, base: pd.DataFrame) -> None:
     base.loc[sem_nome, "nome_propriedade"] = base.loc[sem_nome, "id_atendimento"].map(existentes)
     faltam = int(base["nome_propriedade"].isna().sum())
     print(f"   ℹ️ LISTA_GERAL sem coluna 'Propriedade': nome preservado da raw para "
-          f"{int(sem_nome.sum()) - faltam} atendimentos; {faltam} ficam sem nome (camada de consumo usa sq_dim_fazendas_ativas).")
+          f"{int(sem_nome.sum()) - faltam} atendimentos; {faltam} ficam sem nome (camada de consumo usa tab_dim_fazendas_ativas).")
 
 
 def executar_carga_historico_visitas(raiz: Path | None = None) -> pd.DataFrame:

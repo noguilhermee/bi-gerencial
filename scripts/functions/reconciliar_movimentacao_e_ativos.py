@@ -242,8 +242,8 @@ def executar_reconciliacao(reindex_completo: bool = False):
     df_inats_existentes = consultar_tabela_supabase("sq_raw_inativacoes_produtor", "*", raiz=raiz_projeto)
     print(f"   -> Total de inativações existentes no banco: {len(df_inats_existentes)}")
 
-    # 4. Construir Movimentações Consolidadas (sq_fato_movimentacao)
-    print("\n🔄 4. Consolidando tabela fato de movimentação (sq_fato_movimentacao)...")
+    # 4. Construir Movimentações Consolidadas (tab_fato_movimentacao)
+    print("\n🔄 4. Consolidando tabela fato de movimentação (tab_fato_movimentacao)...")
     
     PROJETOS_OFICIAIS = ['ALVOAR ASSIST', 'ALVOAR ECO', 'ATEG_CCPR', 'LPA', 'REGENERA', 'SEMEAR']
 
@@ -300,7 +300,7 @@ def executar_reconciliacao(reindex_completo: bool = False):
 
     # ─── Resolução de codigo_lr dos cadastros ──────────────────────────────────
     # Os cadastros (LISTA_CADASTRO.xlsx / sq_raw_visitas) trazem um "código do produtor"
-    # provisório que não bate com nenhuma chave de sq_raw_vinculos nem de sq_dim_fazendas_ativas.
+    # provisório que não bate com nenhuma chave de sq_raw_vinculos nem de tab_dim_fazendas_ativas.
     # Resolvemos o codigo_lr real só pelo nome, em 3 critérios de prioridade decrescente; se
     # nenhum resolver de forma inequívoca, o cadastro NÃO entra em sq_raw_movimentacao — vai para
     # a planilha de auditoria em db/output/logs/ e é resolvido sozinho numa execução futura,
@@ -742,7 +742,7 @@ def executar_reconciliacao(reindex_completo: bool = False):
     # mais em df_mov_final (id_composto legado, cadastro duplicado, etc.). Esta é a ÚNICA escrita
     # de movimentação do pipeline — grava sempre no bruto; camada_consumo.py lê daqui e publica
     # a versão enriquecida (consultor/tipo/motivo/projeto/agroindustria/regiao) em
-    # sq_fato_movimentacao. Antes, este script escrevia direto em sq_fato_movimentacao só com os
+    # tab_fato_movimentacao. Antes, este script escrevia direto em tab_fato_movimentacao só com os
     # campos brutos, apagando o enriquecimento sempre que rodava sem a camada de consumo na
     # sequência (ex.: execução interrompida no meio) e deixando linhas duplicadas por
     # (codigo_lr, mês, movimentação) que nunca eram limpas fora da janela 2026+.
@@ -788,7 +788,7 @@ def executar_reconciliacao(reindex_completo: bool = False):
     tabela_raw = cfg_raw.get("supabase", {}).get("tabelas", {}).get("fazendas_raw", "sq_raw_fazendas")
     tabela_grupo_raw = cfg_raw.get("supabase", {}).get("tabelas", {}).get("fazendas_grupo_raw", "sq_raw_fazendas_grupo")
     tabela_grupo_ativas_raw = cfg_raw.get("supabase", {}).get("tabelas", {}).get("fazendas_grupo_ativas_raw", "sq_raw_fazendas_grupo_ativas")
-    tabela_ativos = cfg_raw.get("supabase", {}).get("tabelas", {}).get("fazendas_ativas_dim", cfg_raw.get("supabase", {}).get("tabelas", {}).get("fazendas_ativas_fato", "sq_dim_fazendas_ativas"))
+    tabela_ativos = cfg_raw.get("supabase", {}).get("tabelas", {}).get("fazendas_ativas_dim", cfg_raw.get("supabase", {}).get("tabelas", {}).get("fazendas_ativas_fato", "tab_dim_fazendas_ativas"))
 
     print(f"\n🌱 6. Processando espelhos e base ativa mensal de fazendas...")
 
@@ -1023,7 +1023,7 @@ def executar_reconciliacao(reindex_completo: bool = False):
 
     regiao_map = {}
     try:
-        res_reg = supabase.table("sq_dim_fazendas_ativas").select("codigo_produtor, regiao").not_.is_("regiao", "null").limit(5000).execute()
+        res_reg = supabase.table("tab_dim_fazendas_ativas").select("codigo_produtor, regiao").not_.is_("regiao", "null").limit(5000).execute()
         for r_reg in (res_reg.data or []):
             c_lr = str(r_reg.get("codigo_produtor") or "").strip().upper()
             reg_val = r_reg.get("regiao")
@@ -1183,7 +1183,7 @@ def executar_reconciliacao(reindex_completo: bool = False):
     df_ativas_todas = df_todos[df_todos["status"] == "Ativo"].copy()
     df_leite_todos = df_todos[df_todos["tipo_ponto_atendimento"].str.contains("LEITE", na=False)].copy()
 
-    # Mapeamento de grupos completos da LISTA_GERAL (para garantir co-consultores em sq_dim_fazendas_ativas)
+    # Mapeamento de grupos completos da LISTA_GERAL (para garantir co-consultores em tab_dim_fazendas_ativas)
     mapa_grupos_lista_geral = {}
     for item_g in lista_todos:
         c_prod = str(item_g.get("codigo_produtor") or "").strip().upper()
@@ -1288,7 +1288,7 @@ def executar_reconciliacao(reindex_completo: bool = False):
 
     # ── FONTE DE VERDADE: Ler BD_BI_VINCULOS_COMPLETO.xlsx para saber quem está ATIVO oficialmente ──
     # O campo vinculo_ativo em sq_raw_vinculos pode estar obsoleto (ETL antigo não deletou registros).
-    # Produtores inativados e removidos da planilha mestre devem ser excluídos de sq_dim_fazendas_ativas.
+    # Produtores inativados e removidos da planilha mestre devem ser excluídos de tab_dim_fazendas_ativas.
     codigos_ativos_excel: set = set()
     try:
         arq_vinc_excel = bd_path / "BD_BI_VINCULOS_COMPLETO.xlsx"
@@ -1439,7 +1439,7 @@ def executar_reconciliacao(reindex_completo: bool = False):
                 })
 
     df_base_candidatos = pd.DataFrame(candidatos_list).drop_duplicates(subset=["codigo_lr"])
-    print(f"   -> {len(df_base_candidatos)} produtores ativas mapeados como candidatos a sq_dim_fazendas_ativas.")
+    print(f"   -> {len(df_base_candidatos)} produtores ativas mapeados como candidatos a tab_dim_fazendas_ativas.")
 
     for ref_m in meses_reconciliacao:
         novos_ativos_m = []
@@ -1487,7 +1487,7 @@ def executar_reconciliacao(reindex_completo: bool = False):
                 elif not consultores_do_grupo and cons_resp in consultores_inativos:
                     continue
 
-            # 0.3 Movimentação oficial (sq_fato_movimentacao) manda no recorte temporal do vínculo.
+            # 0.3 Movimentação oficial (tab_fato_movimentacao) manda no recorte temporal do vínculo.
             # Vale mesmo havendo visita no mês: Entrada e Saída são eventos datados e auditados,
             # e a convenção é que a saída do mês M já não compõe a carteira de M.
             if vinculo_encerrado_em(c, ref_m):

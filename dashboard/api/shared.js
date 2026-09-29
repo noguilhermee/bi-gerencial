@@ -105,7 +105,7 @@ const COLUNAS = {
  * IMPORTANTE: sem uma ordenação explícita e estável, o Postgrest/Supabase não garante
  * que duas chamadas .range() sucessivas vejam o mesmo "snapshot" de ordenação em tabelas
  * grandes — o que causa linhas duplicadas e/ou linhas nunca retornadas entre páginas
- * (detectado em 2026-09-23 em sq_fato_economico: .range() sem order() devolvia 15.872
+ * (detectado em 2026-09-23 em tab_fato_economico: .range() sem order() devolvia 15.872
  * linhas onde a contagem real, via SQL direto, era 12.519). Por isso, sempre que a tabela
  * tiver uma coluna de chave natural, ela deve ser passada em `orderColumn`.
  */

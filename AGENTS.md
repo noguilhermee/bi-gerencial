@@ -150,7 +150,7 @@ CAMINHO_ARQUIVO = PASTA_SAIDA / f"{DATA_EXPORTACAO}_nome_do_arquivo.ext"
 - **Escopo do Assistente de IA**: O assistente de IA pode **CONSULTAR (`SELECT`) e INSERIR dados (`INSERT`)** no Supabase sem pedir autorização prévia.
 - **Criação exige confirmação**: Antes de **criar qualquer objeto** no banco (tabelas, colunas, views, funções, triggers, índices, policies, buckets etc.), o assistente deve **perguntar ao usuário e aguardar aprovação explícita**, descrevendo o que será criado e a nomenclatura proposta (seguindo a regra 10).
 - **Demais alterações**: `UPDATE`, `DELETE`, `ALTER`, `DROP` ou `TRUNCATE` em objetos já existentes podem ser executados pelo assistente sem pedir autorização prévia.
-- **Escopo do Pipeline ETL**: Os scripts oficiais de pipeline (`reconciliar_movimentacao_e_ativos.py`, `ETL_BI_LR.ipynb`, etc.) possuem autorização para executar operações controladas de gravação/upsert exclusivamente nas tabelas gerenciadas pelo projeto (`sq_*`).
+- **Escopo do Pipeline ETL**: Os scripts oficiais de pipeline (`reconciliar_movimentacao_e_ativos.py`, `ETL_BI_LR.ipynb`, etc.) possuem autorização para executar operações controladas de gravação/upsert exclusivamente nas tabelas gerenciadas pelo projeto (`sq_*`, `pro_*`, `elabore_*` e `tab_*`).
 
 ---
 
@@ -161,13 +161,18 @@ CAMINHO_ARQUIVO = PASTA_SAIDA / f"{DATA_EXPORTACAO}_nome_do_arquivo.ext"
 ---
 
 ## 🏛️ 10. Padrão Oficial de Nomenclatura de Tabelas no Supabase (`lr-analytics-db`)
-- **Regra**: No banco de dados central `lr-analytics-db` (Workspace `LaborRural Interno`), todas as tabelas devem obrigatoriamente seguir a taxonomia de prefixos por projeto e camadas analíticas:
-  - **Estrutura**: `<prefixo_projeto>_<camada>_<entidade>`
-  - **Prefixos de Projetos**: `sq_` (SmartQuestion), `elabore_` (Elabore), `meta_` (Metas), etc.
-  - **Camadas Oficiais**:
-    - `*_fato_*`: Tabelas fato analíticas agregadas (ex: `sq_fato_visitas`, `sq_fato_consistencia`, `sq_fato_movimentacao`).
-    - `*_base_*`: Snapshots periódicos e bases congeladas mês a mês (ex: `sq_base_fazendas_ativas`, `sq_base_metas_mensal`).
-    - `*_raw_*`: Ingestão bruta de relatórios e planilhas operacionais (ex: `sq_raw_visitas`, `sq_raw_vinculos`, `sq_raw_consistencia_mensal`).
+- **Regra**: No banco de dados central `lr-analytics-db` (Workspace `LaborRural Interno`), todas as tabelas devem obrigatoriamente seguir a taxonomia de prefixos por origem e camadas analíticas:
+  - **Estrutura**: `<prefixo>_<camada>_<entidade>`
+  - **Camada raw (prefixo = origem do dado)**: a tabela guarda o dado como veio da fonte e preserva o histórico.
+    - `sq_raw_*`: SmartQuestion (ex: `sq_raw_visitas`, `sq_raw_vinculos`).
+    - `pro_raw_*`: Procampo (ex: `pro_raw_fazendas`, `pro_raw_visitas`).
+    - `elabore_raw_*`: Elabore (ex: `elabore_raw_consistencia_mensal`, `elabore_raw_consistencia_anual`).
+    - `meta_raw_*`: Metas.
+  - **Camada de consumo (prefixo `tab_`)**: tabelas que misturam as origens e são lidas pelo BI Gerencial.
+    - `tab_fato_*`: Tabelas fato analíticas (ex: `tab_fato_visitas`, `tab_fato_carteira_mensal`, `tab_fato_consistencia`, `tab_fato_movimentacao`, `tab_fato_economico`).
+    - `tab_dim_*`: Dimensões com mais de uma origem (ex: `tab_dim_fazendas_ativas`).
+    - `tab_base_*`: Snapshots periódicos e bases congeladas mês a mês (ex: `tab_base_metas_mensal`).
+  - **Dimensões de origem única** continuam com o prefixo da origem (ex: `sq_dim_consultor`, `sq_dim_regiao`, `sq_dim_agroindustria`).
   - **Colunas**: Sempre em `snake_case` minúsculo com timestamps `data_processamento` e chaves `id_composto`.
 
 ---

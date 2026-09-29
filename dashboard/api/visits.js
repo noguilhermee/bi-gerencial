@@ -15,9 +15,9 @@ module.exports = async (req, res) => {
 
     const [carteiraTodos, visitasTodas] = await Promise.all([
       fetchWithCache('CARTEIRA_MENSAL_ALL', () =>
-        fetchAll(() => supabase.from('sq_fato_carteira_mensal').select(COLUNAS.carteira).order('mes_referencia', { ascending: false }), undefined, 'id_composto')),
+        fetchAll(() => supabase.from('tab_fato_carteira_mensal').select(COLUNAS.carteira).order('mes_referencia', { ascending: false }), undefined, 'id_composto')),
       fetchWithCache('FATO_VISITAS_ALL', () =>
-        fetchAll(() => supabase.from('sq_fato_visitas').select(COLUNAS.visitas).order('data_visita', { ascending: false }), undefined, 'id_atendimento'))
+        fetchAll(() => supabase.from('tab_fato_visitas').select(COLUNAS.visitas).order('data_visita', { ascending: false }), undefined, 'id_atendimento'))
     ]);
     const carteiraMes = refMonth ? carteiraTodos.filter(r => String(r.mes_referencia).slice(0, 10) === refMonth) : carteiraTodos;
     const carteiraFiltrada = carteiraMes.filter(r => rowMatchesFilters({ ...r, status: r.status_visita }, filters));

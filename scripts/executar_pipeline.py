@@ -108,7 +108,7 @@ def main():
                 from functions.carregar_fato_economico import processar_e_carregar_fato_economico
             except ImportError:
                 from FUNCTIONS.carregar_fato_economico import processar_e_carregar_fato_economico
-            print("\n💰 [PÓS-ETL] Processando e alimentando a tabela fato econômica (sq_fato_economico)...")
+            print("\n💰 [PÓS-ETL] Processando e alimentando a tabela fato econômica (tab_fato_economico)...")
             processar_e_carregar_fato_economico(raiz_projeto)
         except Exception as e_econ:
             print(f"❌ Falha na carga econômica: {e_econ}")
@@ -145,8 +145,8 @@ def main():
                 from functions.camada_consumo import executar_camada_consumo
             except ImportError:
                 from FUNCTIONS.camada_consumo import executar_camada_consumo
-            print("\n🧱 [PÓS-ETL] Publicando camada de consumo (sq_fato_visitas, sq_fato_carteira_mensal,")
-            print("             sq_fato_consistencia, sq_fato_movimentacao)...")
+            print("\n🧱 [PÓS-ETL] Publicando camada de consumo (tab_fato_visitas, tab_fato_carteira_mensal,")
+            print("             tab_fato_consistencia, tab_fato_movimentacao)...")
             executar_camada_consumo(raiz_projeto, gravar=True)
         except Exception as e_consumo:
             print(f"❌ Falha na publicação da camada de consumo: {e_consumo}")

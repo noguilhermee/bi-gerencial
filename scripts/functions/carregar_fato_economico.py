@@ -3,7 +3,7 @@
 Módulo: carregar_fato_economico.py
 Responsável por consolidar, calcular indicadores econômicos e zootécnicos a partir
 do relatório de indicadores MENSAIS do Elabore, e executar a carga upsert na
-tabela fato 'sq_fato_economico' do Supabase.
+tabela fato 'tab_fato_economico' do Supabase.
 
 Regra de negócio (validada por reconciliação 1:1 contra os indicadores ANUAIS do
 Elabore — soma dos 12 meses de cada janela == valor anual, em 100% das janelas
@@ -28,7 +28,7 @@ testadas em 2026-09-23):
     volume_leite_mes = Produção Total de Leite (litros)    (NÃO é Volume de Leite Vendido)
     receita_leite_total = Receita Total do Leite (R$)      (Venda + Derivados)
 
-Estrutura da Tabela no Supabase (sq_fato_economico):
+Estrutura da Tabela no Supabase (tab_fato_economico):
 - Chave Primária: id_composto (codigo_lr + '_' + mes_referencia)
 - Campos: id_composto, codigo_lr, idfazenda, id_propriedade_elabore, nome_produtor,
   nome_consultor, projeto, agroindustria, regiao, mes_referencia, volume_leite_mes,
@@ -343,7 +343,7 @@ def processar_e_carregar_fato_economico(raiz: Path | None = None) -> int:
     supabase = obter_cliente_supabase(raiz)
 
     print("\n" + "=" * 70)
-    print("🚀 PROCESSANDO TABELA FATO: sq_fato_economico (regra COE validada 1:1 c/ Elabore Anual)")
+    print("🚀 PROCESSANDO TABELA FATO: tab_fato_economico (regra COE validada 1:1 c/ Elabore Anual)")
     print("=" * 70)
 
     # 1. Carregar cadastro de produtores / vínculos (fonte de verdade de projeto/consultor/data de associação)
@@ -569,11 +569,11 @@ def processar_e_carregar_fato_economico(raiz: Path | None = None) -> int:
     chunk_size = config.get("execucao", {}).get("chunk_size_upsert", 1000)
     sucessos = 0
 
-    print("🚀 Enviando registros para o Supabase (sq_fato_economico)...")
+    print("🚀 Enviando registros para o Supabase (tab_fato_economico)...")
     for i in range(0, len(records), chunk_size):
         chunk = records[i : i + chunk_size]
         try:
-            supabase.table("sq_fato_economico").upsert(
+            supabase.table("tab_fato_economico").upsert(
                 chunk, on_conflict="id_composto"
             ).execute()
             sucessos += len(chunk)
@@ -581,7 +581,7 @@ def processar_e_carregar_fato_economico(raiz: Path | None = None) -> int:
         except Exception as e:
             print(f"   ⚠️ Aviso no lote {i // chunk_size + 1}: {e}")
 
-    print(f"✨ Concluído! {sucessos} registros processados para 'sq_fato_economico'.")
+    print(f"✨ Concluído! {sucessos} registros processados para 'tab_fato_economico'.")
     return sucessos
 
 

@@ -1,4 +1,4 @@
-// Agroindústria e região já chegam resolvidas pelo ETL em sq_fato_economico (regra 12):
+// Agroindústria e região já chegam resolvidas pelo ETL em tab_fato_economico (regra 12):
 // a API apenas lê as colunas. As antigas importações sanitizeConsultorList/isTestData/
 // ehCadeiaLeite/mapAgroindustria não existem mais em shared.js e faziam esta rota
 // devolver HTTP 500 em toda requisição.
@@ -33,7 +33,7 @@ module.exports = async (req, res) => {
     // Leitura das tabelas econômicas e de vínculos
     const [rawEconData, rawVinculosData] = await Promise.all([
       fetchWithCache('FATO_ECONOMICO', () =>
-        fetchAll(() => supabase.from('sq_fato_economico').select(COLUNAS.economico).eq('possui_dados_economicos', 1), undefined, 'id_composto').catch(() => [])
+        fetchAll(() => supabase.from('tab_fato_economico').select(COLUNAS.economico).eq('possui_dados_economicos', 1), undefined, 'id_composto').catch(() => [])
       ),
       fetchWithCache('RAW_VINCULOS_ECON', () =>
         fetchAll(() => supabase.from('sq_raw_vinculos').select(COLUNAS.vinculosEconomico), undefined, 'id_composto').catch(() => [])

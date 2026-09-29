@@ -69,14 +69,14 @@ def obter_info_consistencia_supabase(raiz: Path) -> Dict[str, Any]:
     """Consulta segura (somente leitura) no Supabase dos metadados das tabelas de consistência."""
     info = {
         "consistencia_mensal": {
-            "tabela": "sq_raw_consistencia_mensal",
+            "tabela": "elabore_raw_consistencia_mensal",
             "ultima_atualizacao": None,
             "ultima_atualizacao_formatada": "Não disponível",
             "total_registros": None,
             "status": "Não sincronizado",
         },
         "consistencia_anual": {
-            "tabela": "sq_raw_consistencia_anual",
+            "tabela": "elabore_raw_consistencia_anual",
             "ultima_atualizacao": None,
             "ultima_atualizacao_formatada": "Não disponível",
             "total_registros": None,
@@ -106,8 +106,8 @@ def obter_info_consistencia_supabase(raiz: Path) -> Dict[str, Any]:
             
             # 1. Consistência Mensal
             try:
-                res_m = supabase.table("sq_raw_consistencia_mensal").select("data_processamento").order("data_processamento", desc=True).limit(1).execute()
-                res_m_count = supabase.table("sq_raw_consistencia_mensal").select("idfazenda", count="exact").limit(1).execute()
+                res_m = supabase.table("elabore_raw_consistencia_mensal").select("data_processamento").order("data_processamento", desc=True).limit(1).execute()
+                res_m_count = supabase.table("elabore_raw_consistencia_mensal").select("idfazenda", count="exact").limit(1).execute()
                 
                 dt_m = None
                 if res_m.data and res_m.data[0].get("data_processamento"):
@@ -118,19 +118,19 @@ def obter_info_consistencia_supabase(raiz: Path) -> Dict[str, Any]:
                     dt_m_fmt = "Sem registro"
                     
                 info["consistencia_mensal"] = {
-                    "tabela": "sq_raw_consistencia_mensal",
+                    "tabela": "elabore_raw_consistencia_mensal",
                     "ultima_atualizacao": dt_m.isoformat() if dt_m else None,
                     "ultima_atualizacao_formatada": dt_m_fmt,
                     "total_registros": res_m_count.count if hasattr(res_m_count, "count") and res_m_count.count is not None else len(res_m.data),
                     "status": "✅ Sincronizado",
                 }
             except Exception as e:
-                print(f"⚠️ Aviso ao consultar sq_raw_consistencia_mensal: {e}")
+                print(f"⚠️ Aviso ao consultar elabore_raw_consistencia_mensal: {e}")
 
             # 2. Consistência Anual
             try:
-                res_a = supabase.table("sq_raw_consistencia_anual").select("data_processamento").order("data_processamento", desc=True).limit(1).execute()
-                res_a_count = supabase.table("sq_raw_consistencia_anual").select("idfazenda", count="exact").limit(1).execute()
+                res_a = supabase.table("elabore_raw_consistencia_anual").select("data_processamento").order("data_processamento", desc=True).limit(1).execute()
+                res_a_count = supabase.table("elabore_raw_consistencia_anual").select("idfazenda", count="exact").limit(1).execute()
                 
                 dt_a = None
                 if res_a.data and res_a.data[0].get("data_processamento"):
@@ -141,14 +141,14 @@ def obter_info_consistencia_supabase(raiz: Path) -> Dict[str, Any]:
                     dt_a_fmt = "Sem registro"
                     
                 info["consistencia_anual"] = {
-                    "tabela": "sq_raw_consistencia_anual",
+                    "tabela": "elabore_raw_consistencia_anual",
                     "ultima_atualizacao": dt_a.isoformat() if dt_a else None,
                     "ultima_atualizacao_formatada": dt_a_fmt,
                     "total_registros": res_a_count.count if hasattr(res_a_count, "count") and res_a_count.count is not None else len(res_a.data),
                     "status": "✅ Sincronizado",
                 }
             except Exception as e:
-                print(f"⚠️ Aviso ao consultar sq_raw_consistencia_anual: {e}")
+                print(f"⚠️ Aviso ao consultar elabore_raw_consistencia_anual: {e}")
                 
     except Exception as e:
         print(f"⚠️ Aviso ao inicializar Supabase para metadados: {e}")

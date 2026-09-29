@@ -14,8 +14,8 @@ module.exports = async (req, res) => {
     const refMonth = isAllMonths ? null : filters.month;
 
     const [movimentacaoTodas, carteiraTodos] = await Promise.all([
-      fetchWithCache('FATO_MOVIMENTACAO_ALL', () => fetchAll(() => supabase.from('sq_fato_movimentacao').select(COLUNAS.movimentacao).order('data_movimentacao', { ascending: false }), undefined, 'id_composto')),
-      fetchWithCache('CARTEIRA_MENSAL_ALL', () => fetchAll(() => supabase.from('sq_fato_carteira_mensal').select(COLUNAS.carteira).order('mes_referencia', { ascending: false }), undefined, 'id_composto'))
+      fetchWithCache('FATO_MOVIMENTACAO_ALL', () => fetchAll(() => supabase.from('tab_fato_movimentacao').select(COLUNAS.movimentacao).order('data_movimentacao', { ascending: false }), undefined, 'id_composto')),
+      fetchWithCache('CARTEIRA_MENSAL_ALL', () => fetchAll(() => supabase.from('tab_fato_carteira_mensal').select(COLUNAS.carteira).order('mes_referencia', { ascending: false }), undefined, 'id_composto'))
     ]);
 
     const movimentacaoFiltrada = movimentacaoTodas.filter(m => rowMatchesFilters(m, filters));
