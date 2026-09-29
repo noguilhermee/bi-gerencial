@@ -121,8 +121,12 @@ RELATORIOS_ESPECIFICOS = {
         # arquivo não tem bezerras_aleitamento nem receptoras — ficam nulos).
         sheet="DADOS_DA_VISITA", header_row=4,
         projeto="CCPR", tipo_visita="RELATORIO DE VISITA ATEG/CCPR_GOIAS",
+        # Na exportação de 09/2026 as colunas 7 ("Data fim no sistema"), 8 ("Data da realização da visita")
+        # e 11 vêm vazias nas 334 linhas; os valores reais estão repetidos nas colunas 34–36. Por isso a data
+        # vem da 36 e a 8 fica como alternativa, caso o SmartQuestion volte ao layout anterior.
         colunas={"id_atendimento": 1, "nome_consultor": 2, "codigo_lr": 3, "nome_produtor": 4,
-                 "nome_propriedade": 5, "data_visita": 8},
+                 "nome_propriedade": 5, "data_visita": 36},
+        colunas_alternativas={"data_visita": 8},
         sheet_extra="DADOS_COLETADOS", header_row_extra=3,
         colunas_extra={"id_atendimento": 1,
                         "area_pecuaria_ha": 7, "mdo_dias_homem": 8, "producao_l_dia": 9,
@@ -184,6 +188,9 @@ def ler_relatorio_especifico(caminho: Path, layout: dict) -> pd.DataFrame:
     bruto = pd.read_excel(caminho, sheet_name=layout["sheet"], header=None,
                            skiprows=layout["header_row"] + 1)
     df = pd.DataFrame({campo: bruto.iloc[:, idx] for campo, idx in layout["colunas"].items()})
+    for campo, idx in layout.get("colunas_alternativas", {}).items():
+        if idx < bruto.shape[1]:
+            df[campo] = df[campo].where(df[campo].notna(), bruto.iloc[:, idx])
 
     if "sheet_extra" in layout:
         # Campos que não estão na aba principal (ex.: zootécnicos do CCPR): merge por

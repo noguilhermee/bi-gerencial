@@ -40,6 +40,10 @@
 - Hipótese (a confirmar): `carregar_procampo.montar_raw_movimentacao` (linha 346) inclui `aba_origem` no `id_composto`.
   Um mesmo "Inclusão do produtor" presente em ATIVOS e em ROTATIVIDADE (ou repetido com `data_conclusao` diferente) vira
   duas linhas em `pro_raw_movimentacao`, e `camada_consumo.construir_movimentacao_procampo` (linhas 803–853) as publica sem deduplicar.
+- **Confirmada em 29/09 (SELECT em `pro_raw_movimentacao`, 769 linhas):** 44 eventos de inclusão aparecem duas vezes,
+  sempre um em `ATIVOS` e outro em `ROTATIVIDADE`, com o mesmo `codigo_lr`/`matrícula`, `data_inicio` e `data_conclusao` vazia.
+  O texto do status varia entre as abas ("Inclusão Do Produtor…" × "Inclusão do produtor…"), então a deduplicação deve usar
+  a chave normalizada (`rn.chave`), não o texto cru. O consultor também pode variar ("Tiago Massing" × "Tiago Massing - Alliance").
 - Verificação (somente SELECT, no Supabase):
   ```sql
   select codigo_lr, status_movimentacao, data_inicio,

@@ -187,7 +187,7 @@ def carregar_fontes(supabase, conexao_elabore, data_inicio_elabore: str) -> Font
                                     "data_visita,rascunho,producao_l_dia,vacas_lactacao,ccs_mensal,cpp_mensal,gordura_mensal,"
                                     "proteina_mensal", ordem="id_composto"),
         "pro_movimentacao": _buscar_tudo(supabase, TAB_PRO_MOVIMENTACAO,
-                                         "id_composto,matricula,codigo_lr,data_inicio,data_conclusao,consultor,"
+                                         "id_composto,matricula,codigo_lr,aba_origem,data_inicio,data_conclusao,consultor,"
                                          "status_movimentacao,motivo_saida", ordem="id_composto"),
     }
     for nome, df in t.items():
@@ -814,7 +814,10 @@ def construir_movimentacao_procampo(f: Fontes, ctx: Contexto) -> list[dict]:
     m = f.pro_movimentacao.copy()
     m["data_inicio"] = _data(m["data_inicio"])
     m["data_conclusao"] = _data(m["data_conclusao"])
-    linhas, sem_data, antigos = [], 0, 0
+    # Um mesmo evento pode estar nas duas abas da base mestra (ex.: inclusão recente em ATIVOS e em ROTATIVIDADE).
+    # Fica um por (fazenda, tipo, data): ENTRADA vale a linha de ATIVOS; SAÍDA, a de ROTATIVIDADE.
+    unicas: dict[tuple, dict] = {}
+    sem_data, antigos, repetidos = 0, 0, 0
     for r in m.to_dict("records"):
         cod = rn.limpar_codigo_lr(r.get("codigo_lr")) if _texto(r.get("codigo_lr")) else ""
         tipo = rn.classificar_movimentacao_procampo(r.get("status_movimentacao"))
@@ -834,8 +837,14 @@ def construir_movimentacao_procampo(f: Fontes, ctx: Contexto) -> list[dict]:
         agro = ctx.agroindustria(cod, projeto)
         faz = ctx.fazenda(cod)
         saida = tipo == "SAIDA"
-        linhas.append({
-            "id_composto": hashlib.sha256(f"PROCAMPO_MOV_{r['id_composto']}".encode("utf-8")).hexdigest(),
+        chave_evento = (cod, tipo, data.strftime("%Y-%m-%d"))
+        aba_preferida = "ROTATIVIDADE" if saida else "ATIVOS"
+        if chave_evento in unicas:
+            repetidos += 1
+            if rn.chave(r.get("aba_origem")) != aba_preferida:
+                continue
+        linha = {
+            "id_composto": hashlib.sha256(f"PROCAMPO_MOV_{cod}|{tipo}|{chave_evento[2]}".encode("utf-8")).hexdigest(),
             "codigo_lr": cod,
             "numero_atendimento": None,
             "data_movimentacao": data,
@@ -847,10 +856,13 @@ def construir_movimentacao_procampo(f: Fontes, ctx: Contexto) -> list[dict]:
             "projeto": projeto or projeto_padrao,
             "agroindustria": agro,
             "regiao": ctx.regiao_de(cod, agro, projeto),
-        })
+        }
+        unicas[chave_evento] = linha
+    if repetidos:
+        print(f"   ℹ️ Movimentação Procampo: {repetidos} eventos repetidos entre ATIVOS e ROTATIVIDADE foram unificados.")
     if sem_data or antigos:
         print(f"   ℹ️ Movimentação Procampo: {sem_data} eventos sem data e {antigos} anteriores a {piso:%Y-%m} ficaram de fora.")
-    return linhas
+    return list(unicas.values())
 
 
 # ─── Gravação idempotente ─────────────────────────────────────────────────────

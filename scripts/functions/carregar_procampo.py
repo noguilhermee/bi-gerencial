@@ -246,6 +246,25 @@ def _remover_visitas_que_sairam(supabase, tabela: str, ids_novos: set[str], limi
           f"(mesma visita) e {len(sumidas)} visitas não existem mais nos arquivos.")
 
 
+def _remover_obsoletas(supabase, tabela: str, chave: str, ids_novos: set[str], limite: float = 0.2) -> None:
+    """A raw de movimentação espelha a base mestra: linha que deixou de existir (ex.: evento repetido entre abas, unificado
+    na carga) sai da tabela. Aborta sem remover nada se as obsoletas passarem de `limite` das linhas existentes."""
+    existentes, inicio = set(), 0
+    while True:
+        dados = supabase.table(tabela).select(chave).order(chave).range(inicio, inicio + LOTE - 1).execute().data or []
+        existentes.update(d[chave] for d in dados)
+        if len(dados) < LOTE:
+            break
+        inicio += LOTE
+    obsoletas = sorted(existentes - ids_novos)
+    if existentes and len(obsoletas) > limite * len(existentes):
+        raise RuntimeError(f"{len(obsoletas)} de {len(existentes)} linhas de {tabela} ({len(obsoletas) / len(existentes):.0%}) "
+                           f"não estão na base mestra — acima do limite de {limite:.0%}. Nada foi removido; confira o arquivo.")
+    for i in range(0, len(obsoletas), 200):
+        supabase.table(tabela).delete().in_(chave, obsoletas[i:i + 200]).execute()
+    print(f"   🧹 {len(obsoletas)} linhas obsoletas removidas de {tabela}.")
+
+
 def _ler_excel(caminho: Path, aba: str, header: int = 0) -> pd.DataFrame:
     """Lê o Excel por cópia temporária: a pasta é sincronizada e o Windows trava o arquivo aberto."""
     tmp = tempfile.NamedTemporaryFile(suffix=".xlsx", delete=False)
@@ -349,6 +368,16 @@ def montar_raw_movimentacao(ativos: pd.DataFrame, rotatividade: pd.DataFrame, ma
     if repetidas:
         print(f"   ℹ️ {repetidas} linhas idênticas repetidas na base foram unificadas.")
         df = df.drop_duplicates("id_composto")
+    # O mesmo evento pode constar em ATIVOS e em ROTATIVIDADE (ex.: inclusão recente). Como aba_origem entra no id_composto,
+    # as duas linhas sobreviviam e a movimentação do BI contava o evento em dobro. Vale a de ATIVOS (vem primeiro no concat).
+    # O texto do status varia entre as abas ("Inclusão Do Produtor…" × "…do produtor…"), então a comparação é normalizada.
+    df["_status_norm"] = df["status_movimentacao"].map(lambda s: str(_sem_acento(s) or "").strip().upper())
+    chave_evento = df[["matricula", "_status_norm", "data_inicio", "data_conclusao"]].fillna("").astype(str).agg("|".join, axis=1)
+    entre_abas = (df["aba_origem"] != "ATIVOS") & chave_evento.isin(set(chave_evento[df["aba_origem"] == "ATIVOS"]))
+    if entre_abas.any():
+        print(f"   ℹ️ {int(entre_abas.sum())} eventos repetidos entre ATIVOS e ROTATIVIDADE foram unificados (vale a linha de ATIVOS).")
+        df = df[~entre_abas]
+    df = df.drop(columns="_status_norm")
     df["codigo_lr"] = df["matricula"].map(mapa_codigo)
     df["arquivo_origem"] = arquivo
     df["data_processamento"] = _agora()
@@ -487,6 +516,7 @@ def executar_carga_procampo(raiz: Path | None = None) -> dict:
     print(f"⬆️ Enviando para {tabelas['procampo_movimentacao_raw']}...")
     _enviar(supabase, tabelas["procampo_movimentacao_raw"], _para_json(movimentacao), "id_composto")
     _conferir(supabase, tabelas["procampo_movimentacao_raw"], "id_composto", set(movimentacao["id_composto"]))
+    _remover_obsoletas(supabase, tabelas["procampo_movimentacao_raw"], "id_composto", set(movimentacao["id_composto"]))
 
     arquivos = localizar_arquivos_visitas(pasta, cfg_pro)
     print(f"\n📥 Lendo {len(arquivos)} arquivos de visitas ({arquivos[0].name} a {arquivos[-1].name})...")
