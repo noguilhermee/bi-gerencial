@@ -10,6 +10,11 @@ regras de `regras_negocio` e grava tabelas prontas para leitura direta pela API:
   tab_fato_consistencia     1 linha por fazenda × mês de referência do Elabore
   tab_fato_movimentacao     entradas/saídas de leite enriquecidas (lê o bruto gravado em
                             sq_raw_movimentacao por reconciliar_movimentacao_e_ativos.py)
+  tab_dim_consultor_atuacao ponte consultor × agroindústria × região × mês (relacionamento dos filtros);
+                            também completa tab_dim_consultor e alinha tab_fato_economico às dimensões
+
+Região e agroindústria só saem das dimensões: uma região que não pertence à agroindústria da fazenda vira
+"NÃO INFORMADA" e é listada em db/output/logs/*_divergencias_dimensoes.xlsx para correção na origem.
 
 Todas as gravações são idempotentes: upsert pela chave + remoção das chaves que
 deixaram de existir. A API não aplica nenhuma regra de negócio sobre esses dados.
@@ -60,6 +65,9 @@ TAB_MOVIMENTACAO_RAW = "sq_raw_movimentacao"
 TAB_PRO_FAZENDAS = "pro_raw_fazendas"
 TAB_PRO_VISITAS = "pro_raw_visitas"
 TAB_PRO_MOVIMENTACAO = "pro_raw_movimentacao"
+TAB_ECONOMICO = "tab_fato_economico"
+TAB_DIM_CONSULTOR = "tab_dim_consultor"
+TAB_CONSULTOR_ATUACAO = "tab_dim_consultor_atuacao"
 
 # Não deixa uma carga de raw incompleta esvaziar a fato: aborta se algum mês perder
 # mais que esta fração das visitas já publicadas.
@@ -80,6 +88,8 @@ class Fontes:
     raw_consistencia_anual: pd.DataFrame
     dim_consultor: pd.DataFrame
     dim_regiao: pd.DataFrame
+    dim_regiao_alias: pd.DataFrame
+    dim_agroindustria: pd.DataFrame
     elabore_propriedades: pd.DataFrame
     elabore_blocos: pd.DataFrame
     # Procampo (Piracanjuba fora do SmartQuestion): raws carregadas por carregar_procampo.py
@@ -177,8 +187,13 @@ def carregar_fontes(supabase, conexao_elabore, data_inicio_elabore: str) -> Font
                                                 "codigo_lr,mes_referencia,mes_elabore,consistencia_mensal,detalhamento_inconsistencia,nome_produtor"),
         "raw_consistencia_anual": _buscar_tudo(supabase, "elabore_raw_consistencia_anual",
                                                "codigo_lr,mes_referencia,consistencia_anual,detalhamento_inconsistencia"),
-        "dim_consultor": _buscar_tudo(supabase, "tab_dim_consultor", "nome_consultor,formacao_consultor,excluido"),
-        "dim_regiao": _buscar_tudo(supabase, "tab_dim_regiao", "nome_regiao,nome_regiao_formatada,agroindustria,status"),
+        "dim_consultor": _buscar_tudo(supabase, TAB_DIM_CONSULTOR, "id,nome_consultor,formacao_consultor,excluido,chave_consultor",
+                                      ordem="id"),
+        "dim_regiao": _buscar_tudo(supabase, "tab_dim_regiao", "id,id_agroindustria,nome_regiao,status", ordem="id"),
+        "dim_regiao_alias": _buscar_tudo(supabase, "tab_dim_regiao_alias", "id,id_agroindustria,nome_bruto,nome_regiao,status",
+                                         ordem="id"),
+        "dim_agroindustria": _buscar_tudo(supabase, "tab_dim_agroindustria", "id,nome_agroindustria,nome_bi,exibir_no_bi",
+                                          ordem="id"),
         "pro_fazendas": _buscar_tudo(supabase, TAB_PRO_FAZENDAS,
                                      "matricula,codigo_lr,situacao,nome_produtor,nome_propriedade,data_inicio,data_conclusao",
                                      ordem="matricula"),
@@ -266,7 +281,16 @@ def _hash_atendimento(id_atendimento: int) -> str:
 class Contexto:
     def __init__(self, f: Fontes, agora: datetime):
         self.agora = pd.Timestamp(agora).tz_localize(None) if pd.Timestamp(agora).tzinfo else pd.Timestamp(agora)
-        self.regiao = rn.ResolvedorRegiao(f.dim_regiao.to_dict("records"))
+        dim_agro = f.dim_agroindustria.to_dict("records")
+        self.regiao = rn.ResolvedorRegiao(f.dim_regiao.to_dict("records"), f.dim_regiao_alias.to_dict("records"), dim_agro)
+        self.agro_dim = {rn.chave(a.get("nome_bi") or a.get("nome_agroindustria")): a for a in dim_agro}
+        agro_por_id = {a["id"]: rn.chave(a.get("nome_bi") or a.get("nome_agroindustria")) for a in dim_agro}
+        self.regiao_ids = {
+            (agro_por_id[r["id_agroindustria"]], rn.chave(r["nome_regiao"])): int(r["id"])
+            for r in f.dim_regiao.to_dict("records") if r.get("id_agroindustria") in agro_por_id
+        }
+        # (tipo, código, agroindústria, região) -> linha do relatório de divergências entre fatos e dimensões
+        self.divergencias: dict[tuple, dict] = {}
 
         self.profissao: dict[str, str] = {}
         for r in f.dim_consultor.to_dict("records"):
@@ -281,7 +305,13 @@ class Contexto:
             r["codigo_lr"]: self.regiao.resolver(r["dairy_region"], rn.mapear_agroindustria(r["agroindustry_name"]))
             for r in aprovadas.dropna(subset=["dairy_region"]).to_dict("records")
         }
-        self.regiao_elabore = {k: v for k, v in self.regiao_elabore.items() if v != "NÃO INFORMADA"}
+        self.regiao_elabore = {k: v for k, v in self.regiao_elabore.items() if v != rn.REGIAO_NAO_INFORMADA}
+        # Agroindústria da fazenda segundo o Elabore: só entra quando a fazenda não tem agroindústria no SmartQuestion
+        self.agro_elabore = {}
+        for r in aprovadas.dropna(subset=["agroindustry_name"]).to_dict("records"):
+            agro = rn.mapear_agroindustria(r["agroindustry_name"])
+            if rn.chave(agro) in self.agro_dim and rn.chave(agro) != rn.chave(rn.AGRO_NAO_INFORMADA):
+                self.agro_elabore[r["codigo_lr"]] = self.agro_dim[rn.chave(agro)].get("nome_bi") or agro
         codigos_consistencia = set(f.raw_consistencia_mensal["codigo_lr"].map(rn.limpar_codigo_lr))
         self.cadastrados_elabore = set(props["codigo_lr"]) | codigos_consistencia
 
@@ -383,15 +413,57 @@ class Contexto:
         return (_texto(faz.get("projeto")) or _texto(self.vinculo_recente.get(codigo_lr, {}).get("projeto"))
                 or _texto(fallback))
 
+    def _divergencia(self, tipo: str, codigo_lr: str, agroindustria, regiao, **extra) -> None:
+        self.divergencias.setdefault((tipo, codigo_lr, agroindustria, regiao), {
+            "tipo": tipo, "codigo_lr": codigo_lr, "agroindustria": agroindustria, "regiao": regiao, **extra})
+
     def agroindustria(self, codigo_lr: str, projeto, mes=None) -> str:
+        """Agroindústria canônica (= tab_dim_agroindustria.nome_bi). Sem agroindústria no SmartQuestion, usa a
+        do Elabore e, na falta dela, a agroindústria dona da região do Elabore (só quando a região tem um único dono)."""
         faz = self.fazenda(codigo_lr, mes)
-        return rn.mapear_agroindustria(_texto(faz.get("agroindustria")) or projeto)
+        agro = rn.mapear_agroindustria(_texto(faz.get("agroindustria")) or projeto)
+        if rn.chave(agro) == rn.chave(rn.AGRO_NAO_INFORMADA):
+            inferida = self.agro_elabore.get(codigo_lr) or self._agro_pela_regiao(codigo_lr)
+            if inferida:
+                self._divergencia("AGRO_INFERIDA_DO_ELABORE", codigo_lr, inferida, self.regiao_elabore.get(codigo_lr))
+                return inferida
+        elif rn.chave(agro) not in self.agro_dim:
+            self._divergencia("AGRO_NAO_CADASTRADA", codigo_lr, agro, None)
+        return agro
+
+    def _agro_pela_regiao(self, codigo_lr: str) -> str | None:
+        regiao = self.regiao_elabore.get(codigo_lr)
+        donos = self.regiao.agroindustrias_da(regiao) if regiao else set()
+        if len(donos) != 1:
+            return None
+        dim = self.agro_dim.get(next(iter(donos)))
+        return (dim.get("nome_bi") or dim.get("nome_agroindustria")) if dim else None
 
     def regiao_de(self, codigo_lr: str, agroindustria: str, projeto, mes=None) -> str:
-        if codigo_lr in self.regiao_elabore:
-            return self.regiao_elabore[codigo_lr]
+        """Região canônica da fazenda, sempre uma região que a agroindústria possui em tab_dim_regiao.
+
+        Candidatas, em ordem: Elabore e cadastro da fazenda. Região de outra agroindústria, ou que não está no
+        cadastro, vira NÃO INFORMADA e entra no relatório de divergências, em vez de aparecer solta nos filtros."""
         faz = self.fazenda(codigo_lr, mes)
-        return self.regiao.resolver(_texto(faz.get("regiao")) or _texto(faz.get("unidade_atendimento")), agroindustria, projeto)
+        candidatas = []
+        if codigo_lr in self.regiao_elabore:
+            candidatas.append(self.regiao_elabore[codigo_lr])
+        candidatas.append(self.regiao.resolver(_texto(faz.get("regiao")) or _texto(faz.get("unidade_atendimento")),
+                                               agroindustria, projeto))
+        reais = [c for c in candidatas if rn.chave(c) != rn.chave(rn.REGIAO_NAO_INFORMADA)]
+        for c in reais:
+            if self.regiao.valida(agroindustria, c):
+                return self.regiao.canonica[(rn.chave(agroindustria), rn.chave(c))]
+        for c in reais:
+            if rn.chave(agroindustria) == rn.chave(rn.AGRO_NAO_INFORMADA):
+                tipo = "REGIAO_SEM_AGROINDUSTRIA"
+            elif self.regiao.agroindustrias_da(c):
+                tipo = "REGIAO_DE_OUTRA_AGROINDUSTRIA"
+            else:
+                tipo = "REGIAO_NAO_CADASTRADA"
+            self._divergencia(tipo, codigo_lr, agroindustria, c, regiao_elabore=self.regiao_elabore.get(codigo_lr),
+                              regiao_cadastro=_texto(faz.get("regiao")), unidade_atendimento=_texto(faz.get("unidade_atendimento")))
+        return rn.REGIAO_NAO_INFORMADA
 
     def elabore(self, codigo_lr: str, mes_referencia) -> dict:
         """Cadastro e blocos do Elabore referentes aos dados do mês anterior ao de referência."""
@@ -871,6 +943,7 @@ COLUNAS_INTEIRAS = {
     "id_atendimento", "vacas_lactacao", "vacas_secas", "bezerras_aleitamento",
     "bezerros_aleitamento", "novilhas", "reprodutores", "receptoras",
     "rebanho_total", "dados_elabore_pct",
+    "id_consultor", "id_agroindustria", "id_regiao", "qtd_fazendas", "qtd_visitas", "qtd_movimentacoes",
 }
 
 
@@ -954,6 +1027,157 @@ def validar_queda_visitas(supabase, novas: pd.DataFrame) -> None:
             )
 
 
+# ─── Dimensões relacionadas: consultor × agroindústria × região ────────────────
+
+def consultores_das_fatos(r: dict) -> list[str]:
+    """Nomes de consultor gravados nas fatos (exceto 'NÃO ATRIBUÍDO', que não é uma pessoa)."""
+    nomes: set[str] = set()
+    for fato, coluna in (("carteira", "consultor"), ("visitas", "nome_consultor"),
+                         ("movimentacao", "consultor"), ("consistencia", "nome_consultor")):
+        df = r.get(fato)
+        if df is not None and not df.empty and coluna in df.columns:
+            nomes.update(n for n in (_texto(x) for x in df[coluna].dropna().unique()) if n)
+    return sorted(n for n in nomes if n != rn.NAO_ATRIBUIDO)
+
+
+def sincronizar_dim_consultor(supabase, dim: pd.DataFrame, nomes: list[str]) -> dict[str, int]:
+    """Completa tab_dim_consultor e devolve chave_consultor -> id.
+
+    O cadastro veio só do Elabore: consultores do SmartQuestion/Procampo não existiam nele e a dimensão não
+    conseguia se relacionar com as fatos. Preenche chave_consultor dos cadastros sem chave e cria os que faltam
+    (origem = 'BI')."""
+    por_chave: dict[str, int] = {}
+    if not dim.empty:
+        for r in dim.to_dict("records"):
+            k = _texto(r.get("chave_consultor"))
+            if k:
+                por_chave[k] = int(r["id"])
+        for r in dim.to_dict("records"):
+            nome = _texto(r.get("nome_consultor"))
+            k = rn.chave(nome) if nome else ""
+            if _texto(r.get("chave_consultor")) or not k or k.startswith("CONSULTOR LABOR RURAL") or k in por_chave:
+                continue
+            supabase.table(TAB_DIM_CONSULTOR).update({"chave_consultor": k}).eq("id", int(r["id"])).execute()
+            por_chave[k] = int(r["id"])
+    novos = sorted({rn.chave(n): n for n in nomes if rn.chave(n) not in por_chave}.items())
+    if novos:
+        supabase.table(TAB_DIM_CONSULTOR).insert(
+            [{"nome_consultor": nome, "chave_consultor": k, "origem": "BI", "status": "Ativo", "excluido": 0}
+             for k, nome in novos]).execute()
+        atualizada = _buscar_tudo(supabase, TAB_DIM_CONSULTOR, "id,chave_consultor", ordem="id")
+        por_chave = {k: int(i) for k, i in zip(atualizada["chave_consultor"], atualizada["id"]) if _texto(k)}
+        print(f"   ➕ {TAB_DIM_CONSULTOR}: {len(novos)} consultores criados (só existiam no SmartQuestion/Procampo).")
+    return por_chave
+
+
+def construir_consultor_atuacao(ctx: Contexto, r: dict, ids_consultor: dict[str, int]) -> tuple[pd.DataFrame, int]:
+    """Ponte consultor × agroindústria × região × mês, a partir das fatos já resolvidas.
+
+    É o relacionamento que os filtros do dashboard usam: um consultor só aparece para as agroindústrias e regiões
+    em que realmente atua. Devolve (ponte, linhas ignoradas por consultor/agroindústria fora da dimensão)."""
+    acumulado: dict[tuple, dict] = {}
+
+    def somar(df, coluna_consultor, campo, coluna_mes=None, distinto=None):
+        if df is None or df.empty:
+            return
+        base = df.assign(_mes=_mes(df[coluna_mes]) if coluna_mes else df["mes_referencia"])
+        grupos = base.groupby(["_mes", coluna_consultor, "agroindustria", "regiao"], dropna=True)
+        contagem = grupos[distinto].nunique() if distinto else grupos.size()
+        for (mes, consultor, agro, regiao), qtd in contagem.items():
+            linha = acumulado.setdefault((mes, consultor, agro, regiao),
+                                         {"qtd_fazendas": 0, "qtd_visitas": 0, "qtd_movimentacoes": 0})
+            linha[campo] = int(qtd)
+
+    somar(r.get("carteira"), "consultor", "qtd_fazendas", distinto="codigo_lr")
+    somar(r.get("visitas"), "nome_consultor", "qtd_visitas")
+    somar(r.get("movimentacao"), "consultor", "qtd_movimentacoes", coluna_mes="data_movimentacao")
+
+    linhas: dict[str, dict] = {}
+    ignoradas = 0
+    for (mes, consultor, agro, regiao), q in acumulado.items():
+        if pd.isna(mes) or not consultor or consultor == rn.NAO_ATRIBUIDO:
+            continue
+        id_consultor = ids_consultor.get(rn.chave(consultor))
+        dim_agro = ctx.agro_dim.get(rn.chave(agro))
+        if id_consultor is None or dim_agro is None:
+            ignoradas += 1
+            continue
+        id_regiao = ctx.regiao_ids.get((rn.chave(agro), rn.chave(regiao)))
+        id_composto = f"{mes:%Y-%m-%d}|{id_consultor}|{dim_agro['id']}|{id_regiao or 0}"
+        atual = linhas.get(id_composto)
+        if atual:   # duas grafias do mesmo consultor (mesma chave) somam na mesma linha
+            for campo in q:
+                atual[campo] += q[campo]
+            continue
+        linhas[id_composto] = {
+            "id_composto": id_composto, "mes_referencia": mes, "id_consultor": id_consultor,
+            "id_agroindustria": int(dim_agro["id"]), "id_regiao": id_regiao,
+            "consultor": consultor, "agroindustria": dim_agro.get("nome_bi") or agro, "regiao": regiao, **q,
+        }
+    return pd.DataFrame(list(linhas.values())), ignoradas
+
+
+def alinhar_fato_economico(supabase, ctx: Contexto, gravar: bool) -> int:
+    """Dá a tab_fato_economico a mesma agroindústria/região canônicas das demais fatos.
+
+    carregar_fato_economico.py grava o texto bruto da planilha do Elabore ('NESTLÉ', 'LABOR RURAL'...), que não
+    casa com nenhuma dimensão: o filtro de região do dashboard ficava sem relação nas telas econômicas."""
+    eco = _buscar_tudo(supabase, TAB_ECONOMICO, "id_composto,codigo_lr,mes_referencia,agroindustria,regiao", ordem="id_composto")
+    if eco.empty:
+        return 0
+    eco["_mes"] = _mes(eco["mes_referencia"])
+    grupos: dict[tuple, list[str]] = {}
+    for r in eco.to_dict("records"):
+        cod = rn.limpar_codigo_lr(r.get("codigo_lr"))
+        mes = r["_mes"]
+        projeto = ctx.projeto(cod, mes)
+        agro = ctx.agroindustria(cod, projeto or rn.mapear_agroindustria(r.get("agroindustria")), mes)
+        regiao = ctx.regiao_de(cod, agro, projeto, mes)
+        if agro != r.get("agroindustria") or regiao != r.get("regiao"):
+            grupos.setdefault((agro, regiao), []).append(r["id_composto"])
+    total = sum(len(v) for v in grupos.values())
+    print(f"   🔗 {TAB_ECONOMICO}: {total} de {len(eco)} linhas com agroindústria/região fora do padrão canônico.")
+    if gravar:
+        for (agro, regiao), ids in grupos.items():
+            for i in range(0, len(ids), 200):
+                supabase.table(TAB_ECONOMICO).update({"agroindustria": agro, "regiao": regiao}) \
+                    .in_("id_composto", ids[i:i + 200]).execute()
+        print(f"   ✅ {TAB_ECONOMICO}: agroindústria/região alinhadas com as dimensões.")
+    return total
+
+
+def pares_fora_da_dimensao(ctx: Contexto, r: dict) -> pd.DataFrame:
+    """Pares agroindústria × região gravados nas fatos que não existem em tab_dim_regiao (esperado: nenhum).
+
+    'NÃO INFORMADA' é o único valor de região aceito fora da dimensão."""
+    achados = []
+    for fato in ("carteira", "visitas", "movimentacao", "consistencia"):
+        df = r.get(fato)
+        if df is None or df.empty:
+            continue
+        pares = df[["agroindustria", "regiao"]].drop_duplicates()
+        for agro, regiao in pares.itertuples(index=False):
+            if rn.chave(regiao) == rn.chave(rn.REGIAO_NAO_INFORMADA):
+                continue
+            if not ctx.regiao.valida(agro, regiao):
+                achados.append({"fato": fato, "agroindustria": agro, "regiao": regiao})
+    return pd.DataFrame(achados, columns=["fato", "agroindustria", "regiao"])
+
+
+def exportar_divergencias(ctx: Contexto, raiz: Path) -> Path | None:
+    """Relatório das fazendas cuja região/agroindústria não fecha com as dimensões (para corrigir na origem)."""
+    if not ctx.divergencias:
+        return None
+    pasta = raiz / "db" / "output" / "logs"
+    pasta.mkdir(parents=True, exist_ok=True)
+    caminho = pasta / f"{datetime.now():%Y_%m_%d_%H%M%S}_divergencias_dimensoes.xlsx"
+    df = pd.DataFrame(list(ctx.divergencias.values())).sort_values(["tipo", "agroindustria", "codigo_lr"], na_position="last")
+    with pd.ExcelWriter(caminho, engine="openpyxl") as w:
+        df.to_excel(w, sheet_name="Detalhamento", index=False)
+        df.groupby("tipo").agg(fazendas=("codigo_lr", "nunique")).reset_index().to_excel(w, sheet_name="Resumo", index=False)
+    return caminho
+
+
 # ─── Orquestração ─────────────────────────────────────────────────────────────
 
 COLS_VISITAS = ["id_composto", "id_atendimento", "codigo_lr", "nome_consultor", "profissao_consultor", "mes_referencia",
@@ -981,7 +1205,7 @@ def construir_tudo(f: Fontes, agora: datetime | None = None, data_inicial_consis
     consistencia = construir_fato_consistencia(f, ctx, carteira, data_inicial_consistencia)
     movimentacao = construir_fato_movimentacao(f, ctx)
     return {"visitas": visitas, "auditoria": auditoria, "carteira": carteira,
-            "consistencia": consistencia, "movimentacao": movimentacao}
+            "consistencia": consistencia, "movimentacao": movimentacao, "ctx": ctx}
 
 
 def exportar_auditoria(auditoria: pd.DataFrame, raiz: Path) -> Path:
@@ -1034,7 +1258,19 @@ def executar_camada_consumo(raiz: Path | None = None, gravar: bool = True) -> di
     print(f"   -> movimentações de leite: {len(r['movimentacao'])}")
     print(f"   📄 Auditoria: {exportar_auditoria(auditoria, raiz)}")
 
+    ctx = r["ctx"]
+    fora = pares_fora_da_dimensao(ctx, r)
+    print(f"   🔗 pares agroindústria×região fora de tab_dim_regiao nas fatos: {len(fora)} (esperado: 0)")
+    if not fora.empty:
+        print(fora.to_string(index=False))
+
     if not gravar:
+        alinhar_fato_economico(supabase, ctx, gravar=False)
+        chaves_dim = set(fontes.dim_consultor["chave_consultor"].dropna()) if "chave_consultor" in fontes.dim_consultor else set()
+        faltam = [n for n in consultores_das_fatos(r) if rn.chave(n) not in chaves_dim]
+        print(f"   🔗 consultores das fatos sem chave em tab_dim_consultor (serão criados na carga real): {len(faltam)}")
+        caminho = exportar_divergencias(ctx, raiz)
+        print(f"   📄 Divergências fatos × dimensões: {caminho or 'nenhuma'} ({len(ctx.divergencias)} ocorrências)")
         print("\n🧪 Dry-run: nada foi gravado no Supabase.")
         return r
 
@@ -1052,6 +1288,19 @@ def executar_camada_consumo(raiz: Path | None = None, gravar: bool = True) -> di
     sincronizar_tabela(supabase, TAB_CONSISTENCIA, _registros_json(r["consistencia"][cols_cons], d, ts))
     cols_mov = [c for c in COLS_MOVIMENTACAO if c in r["movimentacao"].columns]
     sincronizar_tabela(supabase, TAB_MOVIMENTACAO, _registros_json(r["movimentacao"][cols_mov], d, ts))
+
+    print("\n🔗 Relacionando dimensões (consultor × agroindústria × região)...")
+    ids_consultor = sincronizar_dim_consultor(supabase, fontes.dim_consultor, consultores_das_fatos(r))
+    ponte, ignoradas = construir_consultor_atuacao(ctx, r, ids_consultor)
+    if ponte.empty:
+        print(f"   ⚠️ {TAB_CONSULTOR_ATUACAO} não foi atualizada: nenhuma linha gerada.")
+    else:
+        sincronizar_tabela(supabase, TAB_CONSULTOR_ATUACAO, _registros_json(ponte, d, ts))
+        if ignoradas:
+            print(f"   ⚠️ {ignoradas} combinações ficaram fora da ponte (consultor ou agroindústria fora das dimensões).")
+    alinhar_fato_economico(supabase, ctx, gravar=True)
+    caminho = exportar_divergencias(ctx, raiz)
+    print(f"   📄 Divergências fatos × dimensões: {caminho or 'nenhuma'} ({len(ctx.divergencias)} ocorrências)")
     print("🎉 Camada de consumo publicada.")
     return r
 

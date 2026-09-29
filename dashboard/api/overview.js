@@ -22,6 +22,22 @@ module.exports = async (req, res) => {
         fetchAll(() => supabase.from('tab_fato_visitas').select(COLUNAS.visitas).order('data_visita', { ascending: false }), undefined, 'id_atendimento'))
     ]);
 
+    // Relacionamento oficial dos filtros (consultor × agroindústria × região × mês), gravado pelo ETL em
+    // tab_dim_consultor_atuacao. Falha (ex.: migration ainda não aplicada) não é cacheada e não derruba a rota:
+    // o front segue só com as opções derivadas das linhas.
+    const atuacao = await fetchWithCache('DIM_CONSULTOR_ATUACAO', () =>
+      fetchAll(() => supabase.from('tab_dim_consultor_atuacao').select('mes_referencia,agroindustria,regiao,consultor'), undefined, 'id_composto')
+    ).catch((error) => {
+      console.warn('tab_dim_consultor_atuacao indisponível:', error.message);
+      return null;
+    });
+    const relacoes = atuacao
+      ? [...new Map(atuacao.map(a => {
+          const linha = [String(a.mes_referencia).slice(0, 7), a.agroindustria, a.regiao, a.consultor];
+          return [linha.join('\u0001'), linha];
+        })).values()]
+      : null;
+
     const carteiraMes = refMonth ? carteiraTodos.filter(r => String(r.mes_referencia).slice(0, 10) === refMonth) : carteiraTodos;
     const carteiraFiltrada = carteiraMes.filter(r => rowMatchesFilters({ ...r, status: r.status_visita }, filters));
 
@@ -182,7 +198,8 @@ module.exports = async (req, res) => {
         projetos: [...new Set(carteiraTodos.map(r => r.projeto))].filter(Boolean).sort(),
         consultores: [...new Set(carteiraTodos.map(r => r.consultor))].filter(Boolean).sort(),
         status: ['ATIVO', 'INATIVO'],
-        meses: mesesUnicos
+        meses: mesesUnicos,
+        relacoes
       },
       dim_fazendas: dimFazendas,
       tabelas: { sem_visita: semVisita, visitados }

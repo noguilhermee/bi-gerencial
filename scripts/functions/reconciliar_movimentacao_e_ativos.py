@@ -1032,13 +1032,13 @@ def executar_reconciliacao(reindex_completo: bool = False):
     except Exception:
         pass
 
-    # Carregar tab_dim_regiao do Supabase para ter o de-para sempre atualizado dinamicamente
+    # Carregar o de-para de tab_dim_regiao_alias (nome bruto -> região canônica de tab_dim_regiao) do Supabase
     dim_regiao_cache = {}
     try:
-        res_dim = supabase.table("tab_dim_regiao").select("nome_regiao, nome_regiao_formatada, agroindustria").eq("status", "Ativo").execute()
+        res_dim = supabase.table("tab_dim_regiao_alias").select("nome_bruto, nome_regiao, agroindustria").eq("status", "Ativo").execute()
         for r_dim in (res_dim.data or []):
-            raw_n = str(r_dim.get("nome_regiao") or "").strip().upper()
-            fmt_n = str(r_dim.get("nome_regiao_formatada") or "").strip()
+            raw_n = str(r_dim.get("nome_bruto") or "").strip().upper()
+            fmt_n = str(r_dim.get("nome_regiao") or "").strip()
             agro_n = str(r_dim.get("agroindustria") or "").strip().upper()
             if raw_n and fmt_n:
                 if agro_n:

@@ -103,7 +103,46 @@
         <div class="grid-two grid-two--visits">
           <article class="panel-card"><div class="panel-heading panel-heading--with-controls"><h2>Evolução mensal da cobertura</h2><div class="panel-heading-actions"><div class="segmented-control chart-horizon-control" data-chart-horizon="coverage" aria-label="Período do gráfico"><button type="button" data-months="1">1M</button><button class="active" type="button" data-months="6" aria-pressed="true">6M</button><button type="button" data-months="12">12M</button><button type="button" data-months="0">Tudo</button></div><button class="btn-panel-fs" type="button" title="Tela cheia" aria-label="Expandir painel para tela cheia"><span class="material-symbols-rounded">fullscreen</span></button></div></div><div class="chart-box"><canvas id="chartVisitsCoverage"></canvas></div></article>
           <article class="panel-card">
-            <div class="panel-heading panel-heading--with-controls"><div><h2>Evolução das visitas</h2><p>Variação % em relação ao mês anterior</p></div><div class="panel-heading-actions"><div class="segmented-control chart-horizon-control chart-only-control" data-chart-horizon="visits" aria-label="Período do gráfico"><button type="button" data-months="1">1M</button><button class="active" type="button" data-months="6" aria-pressed="true">6M</button><button type="button" data-months="12">12M</button><button type="button" data-months="0">Tudo</button></div><button class="btn-panel-fs" type="button" title="Tela cheia" aria-label="Expandir painel para tela cheia"><span class="material-symbols-rounded">fullscreen</span></button></div></div>
+            <div class="panel-heading"><div><h2>Quantidade de visitas</h2><p id="rankingSubtitle">Ranking por consultor</p></div><div class="panel-heading-actions"><div class="segmented-control" aria-label="Dimensão do ranking"><button type="button" data-ranking="producer" aria-pressed="false">Produtor(a)</button><button class="active" type="button" data-ranking="consultant" aria-pressed="true">Consultor(a)</button></div><button class="btn-panel-fs" type="button" title="Tela cheia" aria-label="Expandir painel para tela cheia"><span class="material-symbols-rounded">fullscreen</span></button></div></div>
+            <div class="chart-box chart-box--ranking chart-box--with-table" id="rankingChartViewport"><div class="ranking-chart-inner" id="rankingChartInner"><canvas id="chartVisitsRanking"></canvas></div></div>
+            <div class="panel-table-view">
+              <div class="panel-table-view-heading"><span class="record-count" id="countRankingVisitas">0 registros</span><button class="btn-table-export" id="btnExportRankingVisitas" type="button" title="Exportar tabela para CSV (Excel)" aria-label="Exportar para CSV"><span class="material-symbols-rounded" aria-hidden="true">download</span><span>Exportar</span></button></div>
+              <div class="ranking-table-pane" data-ranking-pane="producer" hidden>
+                <div class="table-scroll"><table class="data-table" id="tableRankingProdutores">
+                  <colgroup><col style="width:6%"><col style="width:9%"><col style="width:24%"><col style="width:22%"><col class="col-fazenda" style="width:17%"><col style="width:8%"><col style="width:6%"><col style="width:8%"></colgroup>
+                  <thead><tr><th class="col-center">#</th><th class="col-center">ID</th><th class="col-left">Produtor(a)</th><th class="col-left">Consultor(a)</th><th class="col-left col-fazenda">Fazenda</th><th class="col-center">Nº Visitas</th><th class="col-center">% do Total</th><th class="col-center">Última Visita</th></tr><tr class="table-filter-row">
+                    <th><input type="text" class="table-col-filter" data-table="tableRankingProdutores" data-col="posicao" placeholder="Filtrar..." aria-label="Filtrar posição"></th>
+                    <th><input type="text" class="table-col-filter" data-table="tableRankingProdutores" data-col="codigo_lr" placeholder="Filtrar..." aria-label="Filtrar ID"></th>
+                    <th><input type="text" class="table-col-filter" data-table="tableRankingProdutores" data-col="produtor" placeholder="Filtrar..." aria-label="Filtrar Produtor"></th>
+                    <th><input type="text" class="table-col-filter" data-table="tableRankingProdutores" data-col="consultor" placeholder="Filtrar..." aria-label="Filtrar Consultor"></th>
+                    <th class="col-fazenda"><input type="text" class="table-col-filter" data-table="tableRankingProdutores" data-col="propriedade" placeholder="Filtrar..." aria-label="Filtrar Fazenda"></th>
+                    <th><input type="text" class="table-col-filter" data-table="tableRankingProdutores" data-col="total_visitas" placeholder="Filtrar..." aria-label="Filtrar Nº Visitas"></th>
+                    <th><input type="text" class="table-col-filter" data-table="tableRankingProdutores" data-col="perc_total_label" placeholder="Filtrar..." aria-label="Filtrar % do Total"></th>
+                    <th><input type="text" class="table-col-filter" data-table="tableRankingProdutores" data-col="data_ultima_visita" placeholder="Filtrar..." aria-label="Filtrar Última Visita"></th>
+                  </tr></thead><tbody id="tbodyRankingProdutores"><tr><td colspan="8" class="empty-cell">Carregando...</td></tr></tbody></table></div>
+                <div class="table-pagination" id="paginationRankingProdutores" data-table="tableRankingProdutores"></div>
+              </div>
+              <div class="ranking-table-pane" data-ranking-pane="consultant">
+                <div class="table-scroll"><table class="data-table" id="tableRankingConsultores">
+                  <colgroup><col style="width:6%"><col style="width:34%"><col style="width:12%"><col style="width:12%"><col style="width:12%"><col style="width:12%"><col style="width:12%"></colgroup>
+                  <thead><tr><th class="col-center">#</th><th class="col-left">Consultor(a)</th><th class="col-center">Nº Visitas</th><th class="col-center">Produtores Visitados</th><th class="col-center">Carteira Ativa</th><th class="col-center">% Cobertura</th><th class="col-center">Visitas / Produtor</th></tr><tr class="table-filter-row">
+                    <th><input type="text" class="table-col-filter" data-table="tableRankingConsultores" data-col="posicao" placeholder="Filtrar..." aria-label="Filtrar posição"></th>
+                    <th><input type="text" class="table-col-filter" data-table="tableRankingConsultores" data-col="consultor" placeholder="Filtrar..." aria-label="Filtrar Consultor"></th>
+                    <th><input type="text" class="table-col-filter" data-table="tableRankingConsultores" data-col="total_visitas" placeholder="Filtrar..." aria-label="Filtrar Nº Visitas"></th>
+                    <th><input type="text" class="table-col-filter" data-table="tableRankingConsultores" data-col="fazendas_visitadas" placeholder="Filtrar..." aria-label="Filtrar Produtores Visitados"></th>
+                    <th><input type="text" class="table-col-filter" data-table="tableRankingConsultores" data-col="total_fazendas" placeholder="Filtrar..." aria-label="Filtrar Carteira Ativa"></th>
+                    <th><input type="text" class="table-col-filter" data-table="tableRankingConsultores" data-col="perc_cobertura_label" placeholder="Filtrar..." aria-label="Filtrar % Cobertura"></th>
+                    <th><input type="text" class="table-col-filter" data-table="tableRankingConsultores" data-col="visitas_por_produtor_label" placeholder="Filtrar..." aria-label="Filtrar Visitas por Produtor"></th>
+                  </tr></thead><tbody id="tbodyRankingConsultores"><tr><td colspan="7" class="empty-cell">Carregando...</td></tr></tbody></table></div>
+                <div class="table-pagination" id="paginationRankingConsultores" data-table="tableRankingConsultores"></div>
+              </div>
+            </div>
+          </article>
+        </div>
+
+        <div class="grid-two grid-two--tables">
+          <article class="panel-card">
+            <div class="panel-heading panel-heading--with-controls"><div><h2>Evolução das visitas</h2><p>Variação % em relação ao mês anterior</p></div><div class="panel-heading-actions"><div class="segmented-control chart-horizon-control chart-only-control" data-chart-horizon="visits" aria-label="Período do gráfico"><button type="button" data-months="1">1M</button><button type="button" data-months="6" aria-pressed="false">6M</button><button class="active" type="button" data-months="12" aria-pressed="true">12M</button><button type="button" data-months="0">Tudo</button></div><button class="btn-panel-fs" type="button" title="Tela cheia" aria-label="Expandir painel para tela cheia"><span class="material-symbols-rounded">fullscreen</span></button></div></div>
             <div class="chart-box chart-box--with-table"><canvas id="chartVisitsEvolution"></canvas></div>
             <div class="panel-table-view">
               <div class="panel-table-view-heading"><span class="panel-table-view-title">Produtores visitados</span><span class="record-count" id="countVisited">0 registros</span><button class="btn-table-export" id="btnExportVisitados" type="button" title="Exportar tabela para CSV (Excel)" aria-label="Exportar para CSV"><span class="material-symbols-rounded" aria-hidden="true">download</span><span>Exportar</span></button></div>
@@ -122,9 +161,6 @@
               <div class="table-pagination" id="paginationVisitados" data-table="tableVisitados"></div>
             </div>
           </article>
-        </div>
-
-        <div class="grid-two grid-two--tables">
           <article class="panel-card table-card">
             <div class="panel-heading"><h2>Produtores sem visita</h2><div class="panel-actions"><span class="record-count" id="countWithoutVisit">0 registros</span><button class="btn-table-export" id="btnExportSemVisita" type="button" title="Exportar tabela para CSV (Excel)" aria-label="Exportar para CSV"><span class="material-symbols-rounded" aria-hidden="true">download</span><span>Exportar</span></button><button class="btn-panel-fs" type="button" title="Tela cheia" aria-label="Expandir painel para tela cheia"><span class="material-symbols-rounded">fullscreen</span></button></div></div>
             <div class="table-scroll"><table class="data-table" id="tableSemVisita">
@@ -141,42 +177,6 @@
               </colgroup>
               <thead><tr><th class="col-center">ID</th><th class="col-left">Consultor(a)</th><th class="col-left">Produtor(a)</th><th class="col-left col-fazenda">Fazenda</th><th class="col-center col-data-associacao">Data Associação</th><th class="col-center col-visita-mes-anterior">Visita Mês Anterior</th><th class="col-center">Última Visita</th><th class="col-center">Dias s/ Visita</th><th class="col-center">Status</th></tr><tr class="table-filter-row"><th><input type="text" class="table-col-filter" data-table="tableSemVisita" data-col="codigo_lr" placeholder="Filtrar..." aria-label="Filtrar ID"></th><th><input type="text" class="table-col-filter" data-table="tableSemVisita" data-col="consultor" placeholder="Filtrar..." aria-label="Filtrar Consultor"></th><th><input type="text" class="table-col-filter" data-table="tableSemVisita" data-col="produtor" placeholder="Filtrar..." aria-label="Filtrar Produtor"></th><th class="col-fazenda"><input type="text" class="table-col-filter" data-table="tableSemVisita" data-col="propriedade" placeholder="Filtrar..." aria-label="Filtrar Fazenda"></th><th class="col-data-associacao"><input type="text" class="table-col-filter" data-table="tableSemVisita" data-col="data_associacao" placeholder="Filtrar..." aria-label="Filtrar Data"></th><th class="col-visita-mes-anterior"><input type="text" class="table-col-filter" data-table="tableSemVisita" data-col="data_visita_mes_anterior" placeholder="Filtrar..." aria-label="Filtrar Visita Mês Anterior"></th><th><input type="text" class="table-col-filter" data-table="tableSemVisita" data-col="data_ultima_visita" placeholder="Filtrar..." aria-label="Filtrar Última Visita"></th><th><input type="text" class="table-col-filter" data-table="tableSemVisita" data-col="dias_sem_visita" placeholder="Filtrar..." aria-label="Filtrar Dias"></th><th><input type="text" class="table-col-filter" data-table="tableSemVisita" data-col="status" placeholder="Filtrar..." aria-label="Filtrar Status"></th></tr></thead><tbody id="tbodySemVisita"><tr><td colspan="9" class="empty-cell">Carregando...</td></tr></tbody></table></div>
             <div class="table-pagination" id="paginationSemVisita" data-table="tableSemVisita"></div>
-          </article>
-          <article class="panel-card">
-            <div class="panel-heading"><div><h2>Quantidade de visitas</h2><p id="rankingSubtitle">Ranking por produtor</p></div><div class="panel-heading-actions"><div class="segmented-control" aria-label="Dimensão do ranking"><button class="active" type="button" data-ranking="producer" aria-pressed="true">Produtor(a)</button><button type="button" data-ranking="consultant" aria-pressed="false">Consultor(a)</button></div><button class="btn-panel-fs" type="button" title="Tela cheia" aria-label="Expandir painel para tela cheia"><span class="material-symbols-rounded">fullscreen</span></button></div></div>
-            <div class="chart-box chart-box--ranking chart-box--with-table" id="rankingChartViewport"><div class="ranking-chart-inner" id="rankingChartInner"><canvas id="chartVisitsRanking"></canvas></div></div>
-            <div class="panel-table-view">
-              <div class="panel-table-view-heading"><span class="record-count" id="countRankingVisitas">0 registros</span><button class="btn-table-export" id="btnExportRankingVisitas" type="button" title="Exportar tabela para CSV (Excel)" aria-label="Exportar para CSV"><span class="material-symbols-rounded" aria-hidden="true">download</span><span>Exportar</span></button></div>
-              <div class="ranking-table-pane" data-ranking-pane="producer">
-                <div class="table-scroll"><table class="data-table" id="tableRankingProdutores">
-                  <colgroup><col style="width:6%"><col style="width:9%"><col style="width:24%"><col style="width:22%"><col class="col-fazenda" style="width:17%"><col style="width:8%"><col style="width:6%"><col style="width:8%"></colgroup>
-                  <thead><tr><th class="col-center">#</th><th class="col-center">ID</th><th class="col-left">Produtor(a)</th><th class="col-left">Consultor(a)</th><th class="col-left col-fazenda">Fazenda</th><th class="col-center">Nº Visitas</th><th class="col-center">% do Total</th><th class="col-center">Última Visita</th></tr><tr class="table-filter-row">
-                    <th><input type="text" class="table-col-filter" data-table="tableRankingProdutores" data-col="posicao" placeholder="Filtrar..." aria-label="Filtrar posição"></th>
-                    <th><input type="text" class="table-col-filter" data-table="tableRankingProdutores" data-col="codigo_lr" placeholder="Filtrar..." aria-label="Filtrar ID"></th>
-                    <th><input type="text" class="table-col-filter" data-table="tableRankingProdutores" data-col="produtor" placeholder="Filtrar..." aria-label="Filtrar Produtor"></th>
-                    <th><input type="text" class="table-col-filter" data-table="tableRankingProdutores" data-col="consultor" placeholder="Filtrar..." aria-label="Filtrar Consultor"></th>
-                    <th class="col-fazenda"><input type="text" class="table-col-filter" data-table="tableRankingProdutores" data-col="propriedade" placeholder="Filtrar..." aria-label="Filtrar Fazenda"></th>
-                    <th><input type="text" class="table-col-filter" data-table="tableRankingProdutores" data-col="total_visitas" placeholder="Filtrar..." aria-label="Filtrar Nº Visitas"></th>
-                    <th><input type="text" class="table-col-filter" data-table="tableRankingProdutores" data-col="perc_total_label" placeholder="Filtrar..." aria-label="Filtrar % do Total"></th>
-                    <th><input type="text" class="table-col-filter" data-table="tableRankingProdutores" data-col="data_ultima_visita" placeholder="Filtrar..." aria-label="Filtrar Última Visita"></th>
-                  </tr></thead><tbody id="tbodyRankingProdutores"><tr><td colspan="8" class="empty-cell">Carregando...</td></tr></tbody></table></div>
-                <div class="table-pagination" id="paginationRankingProdutores" data-table="tableRankingProdutores"></div>
-              </div>
-              <div class="ranking-table-pane" data-ranking-pane="consultant" hidden>
-                <div class="table-scroll"><table class="data-table" id="tableRankingConsultores">
-                  <colgroup><col style="width:6%"><col style="width:34%"><col style="width:12%"><col style="width:12%"><col style="width:12%"><col style="width:12%"><col style="width:12%"></colgroup>
-                  <thead><tr><th class="col-center">#</th><th class="col-left">Consultor(a)</th><th class="col-center">Nº Visitas</th><th class="col-center">Produtores Visitados</th><th class="col-center">Carteira Ativa</th><th class="col-center">% Cobertura</th><th class="col-center">Visitas / Produtor</th></tr><tr class="table-filter-row">
-                    <th><input type="text" class="table-col-filter" data-table="tableRankingConsultores" data-col="posicao" placeholder="Filtrar..." aria-label="Filtrar posição"></th>
-                    <th><input type="text" class="table-col-filter" data-table="tableRankingConsultores" data-col="consultor" placeholder="Filtrar..." aria-label="Filtrar Consultor"></th>
-                    <th><input type="text" class="table-col-filter" data-table="tableRankingConsultores" data-col="total_visitas" placeholder="Filtrar..." aria-label="Filtrar Nº Visitas"></th>
-                    <th><input type="text" class="table-col-filter" data-table="tableRankingConsultores" data-col="fazendas_visitadas" placeholder="Filtrar..." aria-label="Filtrar Produtores Visitados"></th>
-                    <th><input type="text" class="table-col-filter" data-table="tableRankingConsultores" data-col="total_fazendas" placeholder="Filtrar..." aria-label="Filtrar Carteira Ativa"></th>
-                    <th><input type="text" class="table-col-filter" data-table="tableRankingConsultores" data-col="perc_cobertura_label" placeholder="Filtrar..." aria-label="Filtrar % Cobertura"></th>
-                    <th><input type="text" class="table-col-filter" data-table="tableRankingConsultores" data-col="visitas_por_produtor_label" placeholder="Filtrar..." aria-label="Filtrar Visitas por Produtor"></th>
-                  </tr></thead><tbody id="tbodyRankingConsultores"><tr><td colspan="7" class="empty-cell">Carregando...</td></tr></tbody></table></div>
-                <div class="table-pagination" id="paginationRankingConsultores" data-table="tableRankingConsultores"></div>
-              </div>
-            </div>
           </article>
         </div>
       </section>

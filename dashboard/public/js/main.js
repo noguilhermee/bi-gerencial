@@ -12,7 +12,7 @@ document.addEventListener('DOMContentLoaded', () => {
     visits: null,
     turnover: null,
     consistency: null,
-    rankingDimension: 'producer',
+    rankingDimension: 'consultant',
     hasUserChangedMonth: false,
     chartHorizons: {
       coverage: 6,
@@ -20,7 +20,7 @@ document.addEventListener('DOMContentLoaded', () => {
       portfolio: 6,
       consistency: 6,
       volume: 6,
-      visits: 6
+      visits: 12
     }
   };
 
@@ -297,188 +297,6 @@ document.addEventListener('DOMContentLoaded', () => {
     return normalized;
   }
 
-  function fixMojibake(str) {
-    if (!str) return '';
-    return String(str)
-      .replace(/Ã§/g, 'ç')
-      .replace(/Ã‡/g, 'Ç')
-      .replace(/Ã¡/g, 'á')
-      .replace(/Ã /g, 'Á')
-      .replace(/Ã¢/g, 'â')
-      .replace(/Ã‚/g, 'Â')
-      .replace(/Ã£/g, 'ã')
-      .replace(/Ãƒ/g, 'Ã')
-      .replace(/Ã©/g, 'é')
-      .replace(/Ã‰/g, 'É')
-      .replace(/Ãª/g, 'ê')
-      .replace(/ÃŠ/g, 'Ê')
-      .replace(/Ã­/g, 'í')
-      .replace(/Ã /g, 'Í')
-      .replace(/Ã³/g, 'ó')
-      .replace(/Ã“/g, 'Ó')
-      .replace(/Ã´/g, 'ô')
-      .replace(/Ã”/g, 'Ô')
-      .replace(/Ãµ/g, 'õ')
-      .replace(/Ã•/g, 'Õ')
-      .replace(/Ãº/g, 'ú')
-      .replace(/Ãš/g, 'Ú');
-  }
-
-  const KNOWN_ACRONYMS = new Set(['AL', 'MG', 'SP', 'GO', 'CE', 'BA', 'SE', 'PE', 'RJ', 'PR', 'SC', 'RS', 'ES', 'MT', 'MS', 'RO', 'AC', 'AM', 'PA', 'MA', 'PI', 'RN', 'PB', 'TO', 'DF']);
-  const LOWERCASE_WORDS = new Set(['de', 'da', 'do', 'das', 'dos', 'e']);
-
-  const UF_TO_CANONICAL_REGION = {
-    'BA': 'Bahia',
-    'CE': 'Ceará',
-    'AL': 'Alagoas',
-    'SE': 'Sergipe',
-    'PE': 'Pernambuco',
-    'MT': 'Campinápolis',
-    'GO': 'Goiânia',
-    'SP': 'Araçatuba'
-  };
-
-  function formatSingleRegionName(raw) {
-    const str = fixMojibake(raw).trim();
-    if (!str) return null;
-
-    const explicitMap = {
-      'ba': 'Bahia',
-      'ce': 'Ceará',
-      'al': 'Alagoas',
-      'se': 'Sergipe',
-      'pe': 'Pernambuco',
-      'mt': 'Campinápolis',
-      'go': 'Goiânia',
-      'sp': 'Araçatuba',
-      'alagoas': 'Alagoas',
-      'aracatuba': 'Araçatuba',
-      'bahia': 'Bahia',
-      'batalha/al': 'Alagoas',
-      'batalha': 'Alagoas',
-      'ceara': 'Ceará',
-      'goiania': 'Goiânia',
-      'ibia': 'Ibiá',
-      'independente': 'Independente',
-      'itambacuri': 'Itambacuri',
-      'ituiutaba': 'Ituiutaba',
-      'minas gerais': 'Minas Gerais',
-      'montes claros': 'Montes Claros',
-      'patos de minas': 'Patos de Minas',
-      'pedra do forte': 'Bahia',
-      'pernambuco': 'Pernambuco',
-      'ponte nova': 'Ponte Nova',
-      'quixeramobim': 'Ceará',
-      'sergipe': 'Sergipe',
-      'sertao norte': 'Sertão Norte',
-      'sul de minas': 'Sul de Minas',
-      'triangulo mineiro': 'Triângulo Mineiro'
-    };
-
-    const suffixMatch = str.match(/\s*-\s*(\d+)\s*$/);
-    let base = str;
-    let suffix = '';
-    if (suffixMatch) {
-      base = str.substring(0, suffixMatch.index).trim();
-      suffix = ` - ${suffixMatch[1]}`;
-    }
-
-    const baseKey = base.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim();
-    if (explicitMap[baseKey]) {
-      return explicitMap[baseKey] + suffix;
-    }
-
-    const baseUpper = base.toUpperCase().trim();
-    if (UF_TO_CANONICAL_REGION[baseUpper]) {
-      return UF_TO_CANONICAL_REGION[baseUpper] + suffix;
-    }
-
-    const words = base.split(/\s+/);
-    const formattedWords = words.map((w, idx) => {
-      const wUpper = w.toUpperCase();
-      if (UF_TO_CANONICAL_REGION[wUpper]) return UF_TO_CANONICAL_REGION[wUpper];
-      if (KNOWN_ACRONYMS.has(wUpper)) return wUpper;
-      const wLower = w.toLowerCase();
-      if (idx > 0 && LOWERCASE_WORDS.has(wLower)) return wLower;
-      return w.charAt(0).toUpperCase() + w.slice(1).toLowerCase();
-    });
-
-    return formattedWords.join(' ') + suffix;
-  }
-
-  function mapRegiaoNestle(str) {
-    if (!str) return null;
-    const normalized = str.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim();
-    if (normalized === 'go' || normalized.includes('goiania') || normalized.includes('9655') || normalized.includes('goias')) {
-      return 'Goiânia';
-    }
-    if (normalized === 'mg' || normalized.includes('patos') || normalized.includes('ibia') || normalized.includes('9188') || normalized.includes('1215')) {
-      return 'Patos de Minas e Ibiá';
-    }
-    if (normalized.includes('ituiutaba') || normalized.includes('1217') || normalized.includes('triangulo')) {
-      return 'Ituiutaba';
-    }
-    if (normalized.includes('montes claros') || normalized.includes('9264') || normalized.includes('sertao norte')) {
-      return 'Montes Claros';
-    }
-    if (normalized.includes('aracatuba') || normalized.includes('0460') || normalized === 'sp') {
-      return 'Araçatuba';
-    }
-    return null;
-  }
-
-    function isNestleContext(context) {
-      if (!context) return false;
-      const upper = String(context).toUpperCase();
-      return upper.includes('NESTLE') || upper.includes('NESTLÉ') || upper.includes('REGENERA');
-    }
-
-    function sanitizeRegiao(rawRegion, context = null) {
-      if (!rawRegion) return null;
-      const str = fixMojibake(String(rawRegion).trim());
-      if (!str) return null;
-
-      const upper = str.toUpperCase().trim();
-      if (
-        upper === '1' ||
-        upper === '0' ||
-        upper === 'TESTE' ||
-        upper === 'TEST' ||
-        upper === 'LABOR RURAL' ||
-        upper === 'UNIDADE GENERICA' ||
-        upper === 'NÃO INFORMADA' ||
-        upper === 'NAO INFORMADA' ||
-        /^\d+$/.test(upper)
-      ) {
-        return null;
-      }
-
-      if (isNestleContext(context) || /\b(1215|9188|1217|9655|9264)\b/.test(upper)) {
-        const nestleReg = mapRegiaoNestle(str);
-        if (nestleReg) return nestleReg;
-      }
-
-      if (upper === 'BATALHA/AL' || upper.startsWith('BATALHA/')) {
-        return 'Alagoas';
-      }
-
-      if (str.includes('/')) {
-        const parts = str.split('/').map(p => p.trim()).filter(Boolean);
-        const cleanParts = parts.map(part => formatSingleRegionName(part)).filter(Boolean);
-        if (cleanParts.length === 0) return null;
-
-        // Deduplicate (ex: Alagoas/Alagoas -> Alagoas)
-        const uniqueParts = [...new Set(cleanParts)];
-        if (uniqueParts.length === 1) return uniqueParts[0];
-
-        // Ordenar alfabeticamente para estados compostos (ex: Sergipe/Bahia -> Bahia/Sergipe)
-        uniqueParts.sort((a, b) => a.localeCompare(b, 'pt-BR'));
-        return uniqueParts.join('/');
-      }
-
-      return formatSingleRegionName(str);
-    }
-
   const LAC_CONSULTORIA_RAW = new Set([
     'CELIO ROBERTO OLIVEIRA (REGENERA)',
     'SUELY DE JESUS OLIVEIRA (REGENERA)',
@@ -550,18 +368,18 @@ document.addEventListener('DOMContentLoaded', () => {
     const filterProd = (filter.producer || '').trim().toLocaleLowerCase('pt-BR');
     const producerMatch = !filterProd || producer === filterProd || producerCode === filterProd;
 
-    const rowRegion = sanitizeRegiao(row.regiao || row.regioes);
-    const filterRegion = sanitizeRegiao(filter.region);
+    // Agroindústria e região já chegam canônicas do ETL (tab_dim_*): comparação exata, sem reinterpretar
+    const rowRegions = [].concat(row.regiao ?? row.regioes ?? []).filter(Boolean);
+    const regionMatch = !filter.region || rowRegions.includes(filter.region);
     const rowMonth = String(row.mes_referencia || row.data_referencia || '').slice(0, 10);
     const monthMatch = ignoreMonth || !filter.month || !rowMonth || dimensionMatches(rowMonth, filter.month);
 
-    const rawAgroVal = row.agroindustria || row.agroindustrias || row.projeto || row.projetos;
-    const rowAgro = Array.isArray(rawAgroVal) ? rawAgroVal.map(mapAgroindustria) : mapAgroindustria(rawAgroVal);
+    const rowAgro = row.agroindustria || row.agroindustrias || 'NÃO INFORMADA';
 
     return consultantMatch &&
       producerMatch &&
       dimensionMatches(rowAgro, filter.industry) &&
-      (!filterRegion || rowRegion === filterRegion) &&
+      regionMatch &&
       dimensionMatches(row.projeto || row.projetos, filter.project) &&
       (!filter.status || normalizeStatus(row.status) === normalizeStatus(filter.status)) &&
       monthMatch;
@@ -1502,23 +1320,6 @@ document.addEventListener('DOMContentLoaded', () => {
       .join(' ');
   }
 
-  function mapAgroindustria(projeto) {
-    if (!projeto) return 'NÃO INFORMADA';
-    const p = String(projeto).trim().toUpperCase();
-    if (p === 'LEITE' || p === 'GERAL' || p === 'NÃO INFORMADA' || p === 'NAO INFORMADA') return 'NÃO INFORMADA';
-    if (p.includes('ALVOAR')) return 'Alvoar';
-    if (p.includes('CCPR')) return 'CCPR';
-    if (p.includes('LPA') || p.includes('PORTO ALEGRE')) return 'Laticínios Porto Alegre (LPA)';
-    if (p.includes('REGENERA') || p.includes('NESTLE') || p.includes('NESTLÉ')) return 'Nestlé';
-    if (p.includes('SEMEAR') || p.includes('DANONE')) return 'Danone';
-    if (p.includes('COPRIL')) return 'Copril';
-    if (p.includes('CAMPILEITE')) return 'CAMPILEITE';
-    if (p.includes('QUILLAYES')) return 'Quillayes';
-    if (p.includes('PIRACANJUBA')) return 'Piracanjuba';
-    if (p.includes('INDEPENDENTE')) return 'Independente';
-    return String(projeto).trim();
-  }
-
   function extractMasterRows(overview, visits, turnover, consistency) {
     const o = overview || emptyState.overview;
     const v = visits || emptyState.visits;
@@ -1534,8 +1335,9 @@ document.addEventListener('DOMContentLoaded', () => {
       const consultores = sanitizeConsultorList(r.consultor || r.nome_consultor);
       const produtor = String(r.produtor || r.nome_produtor || '').trim();
       const codigoLr = String(r.codigo_lr || '').trim();
-      const agro = mapAgroindustria(r.agroindustria || r.projeto);
-      const reg = sanitizeRegiao(r.regiao || r.unidade_atendimento, r.projeto || r.agroindustria);
+      // Valores canônicos gravados pelo ETL (tab_dim_agroindustria / tab_dim_regiao): nada é reinterpretado aqui
+      const agro = String(r.agroindustria || 'NÃO INFORMADA').trim();
+      const reg = String(r.regiao || '').trim() === 'NÃO INFORMADA' ? '' : String(r.regiao || '').trim();
       const proj = String(r.projeto || '').trim();
       const stat = normalizeStatus(r.status || defaultStatus);
       const mes = String(r.mes_referencia || r.data_referencia || '').slice(0, 10);
@@ -1587,7 +1389,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // 1. Tabela de consultores ativos da carteira oficial do mês
     (v.tabelaConsultores || []).forEach((tc) => {
       const consult = tc.consultor;
-      const agros = tc.agroindustrias && tc.agroindustrias.length ? tc.agroindustrias : [mapAgroindustria(tc.projeto)];
+      const agros = tc.agroindustrias && tc.agroindustrias.length ? tc.agroindustrias : ['NÃO INFORMADA'];
       const projs = tc.projetos && tc.projetos.length ? tc.projetos : [tc.projeto];
       const regs = tc.regioes && tc.regioes.length ? tc.regioes : [tc.regiao];
       agros.forEach((agro) => {
@@ -1678,6 +1480,27 @@ document.addEventListener('DOMContentLoaded', () => {
       return true;
     }
 
+    // Relacionamento oficial (tab_dim_consultor_atuacao, gravada pelo ETL): [mês AAAA-MM, agroindústria, região, consultor].
+    // Agroindústria, região e consultor só se oferecem entre si quando existe essa relação; sem a ponte publicada,
+    // valem apenas as opções derivadas das linhas.
+    const relacoes = state.overview?.filterOptions?.relacoes;
+    function opcoesRelacionadas(fieldKey) {
+      if (!Array.isArray(relacoes) || !relacoes.length) return null;
+      const permitidos = new Set();
+      relacoes.forEach(([mes, agro, regiao, consultor]) => {
+        if (curMonth && mes !== curMonth) return;
+        if (fieldKey !== 'industry' && curInd && agro !== curInd) return;
+        if (fieldKey !== 'region' && curReg && regiao !== curReg) return;
+        if (fieldKey !== 'consultant' && curCons && String(consultor).toLowerCase() !== curCons) return;
+        permitidos.add(String(fieldKey === 'industry' ? agro : fieldKey === 'region' ? regiao : consultor).toLowerCase());
+      });
+      return permitidos;
+    }
+    const restringirPelaRelacao = (lista, fieldKey) => {
+      const permitidos = opcoesRelacionadas(fieldKey);
+      return permitidos ? lista.filter((v) => permitidos.has(String(v).toLowerCase())) : lista;
+    };
+
     // 1. Agroindústria
     const indSelect = el('filterIndustry');
     if (indSelect) {
@@ -1688,6 +1511,7 @@ document.addEventListener('DOMContentLoaded', () => {
       if (oficiais && Array.isArray(oficiais) && oficiais.length > 0) {
         available = available.filter((ind) => oficiais.includes(ind));
       }
+      available = restringirPelaRelacao(available, 'industry');
       available.sort((a, b) => a.localeCompare(b, 'pt-BR'));
       indSelect.innerHTML = `<option value="">Todas</option>${available.map((ind) => `<option value="${escapeHtml(ind)}">${escapeHtml(ind)}</option>`).join('')}`;
       if (available.includes(prevVal)) indSelect.value = prevVal;
@@ -1700,7 +1524,8 @@ document.addEventListener('DOMContentLoaded', () => {
     if (regSelect) {
       const prevVal = regSelect.value;
       const validRows = rows.filter((r) => matchesActiveExcept(r, 'region'));
-      const available = [...new Set(validRows.map((r) => r.regiao).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'pt-BR'));
+      const available = restringirPelaRelacao([...new Set(validRows.map((r) => r.regiao).filter(Boolean))], 'region')
+        .sort((a, b) => a.localeCompare(b, 'pt-BR'));
       regSelect.innerHTML = `<option value="">Todas</option>${available.map((reg) => `<option value="${escapeHtml(reg)}">${escapeHtml(reg)}</option>`).join('')}`;
       if (available.includes(prevVal)) regSelect.value = prevVal;
       else regSelect.value = '';
@@ -1724,7 +1549,8 @@ document.addEventListener('DOMContentLoaded', () => {
     if (consultSelect) {
       const prevVal = consultSelect.value;
       const validRows = rows.filter((r) => matchesActiveExcept(r, 'consultant'));
-      const available = [...new Set(validRows.map((r) => r.consultor).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'pt-BR'));
+      const available = restringirPelaRelacao([...new Set(validRows.map((r) => r.consultor).filter(Boolean))], 'consultant')
+        .sort((a, b) => a.localeCompare(b, 'pt-BR'));
       consultSelect.innerHTML = `<option value="">Todos</option>${available.map((c) => `<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`).join('')}`;
       if (available.includes(prevVal)) consultSelect.value = prevVal;
       else consultSelect.value = '';

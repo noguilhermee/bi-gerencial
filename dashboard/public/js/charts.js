@@ -468,7 +468,9 @@ class DashboardCharts {
           const hasVariation = Number.isFinite(variation);
           const tone = toneOf(variation);
           const variationY = bar.y - 10;
-          const valueY = bar.y - 27;
+          const barHeight = Math.abs(bar.base - bar.y);
+          const valueInside = barHeight >= 24;
+          const valueY = valueInside ? bar.y + 12 : bar.y - 27;
 
           context.font = '700 11px Open Sans, Arial, sans-serif';
           const arrowWidth = 7;
@@ -503,10 +505,19 @@ class DashboardCharts {
             context.fillText(text, x + arrowWidth + 4, variationY);
           }
 
-          context.font = '600 11.5px Open Sans, Arial, sans-serif';
-          context.fillStyle = color.ink;
+          // Rótulo do valor: branco e negrito no topo da barra (mesmo estilo da cobertura);
+          // em barras baixas demais para caber, sobe para acima da variação.
+          context.font = '700 11.2px Open Sans, Arial, sans-serif';
           context.textAlign = 'center';
-          context.fillText(this.formatValue(values[idx]), bar.x, valueY);
+          const valueText = this.formatValue(values[idx]);
+          if (valueInside) {
+            context.lineWidth = 3;
+            context.lineJoin = 'round';
+            context.strokeStyle = String(color.green);
+            context.strokeText(valueText, bar.x, valueY);
+          }
+          context.fillStyle = valueInside ? '#ffffff' : color.ink;
+          context.fillText(valueText, bar.x, valueY);
         });
         context.restore();
       }
@@ -520,7 +531,7 @@ class DashboardCharts {
         datasets: [{ label: 'Visitas', data: values, variations, backgroundColor: color.green, borderRadius: 2, barPercentage: 0.78, categoryPercentage: 0.86 }]
       },
       options: {
-        layout: { padding: { top: 38 } },
+        layout: { padding: { top: 26 } },
         plugins: {
           legend: { display: false },
           tooltip: {
