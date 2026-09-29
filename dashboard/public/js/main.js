@@ -171,7 +171,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     updateValue('kpiTurnActive', number(kpi.produtores_ativos));
     updateValue('kpiDataProducers', number(kpi.produtores_com_dados));
-    updateValue('kpiDataEligible', number(state.consistency?.kpis?.fazendas_aptas || kpi.produtores_com_dados));
+    updateValue('kpiDataEligible', number(state.consistency?.kpis?.fazendas_aptas ?? kpi.produtores_com_dados));
 
     const coverageData = sliceTimeSeries(data.evolucaoMensal || emptyState.overview.evolucaoMensal, state.chartHorizons.coverage);
     charts.renderCoverage('chartVisitsCoverage', coverageData);
@@ -246,9 +246,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const kpi = data.kpis || {};
     const values = data.distribuicaoDonut?.values || [];
     const base = Number(kpi.base_analisada) || values.reduce((sum, item) => sum + Number(item || 0), 0);
-    const divergences = Number(kpi.registros_divergentes) || Number(values[1] || 0);
-    updateValue('kpiDataProducers', number(kpi.produtores_com_dados || state.overview?.kpis?.produtores_com_dados));
-    updateValue('kpiDataEligible', number(kpi.fazendas_aptas || kpi.produtores_com_dados || state.overview?.kpis?.produtores_com_dados));
+    const divergences = Number(kpi.registros_divergentes ?? values[2] ?? 0);
+    updateValue('kpiDataProducers', number(kpi.produtores_com_dados ?? state.overview?.kpis?.produtores_com_dados));
+    updateValue('kpiDataEligible', number(kpi.fazendas_aptas ?? kpi.produtores_com_dados ?? state.overview?.kpis?.produtores_com_dados));
     updateValue('kpiDataMonthly', percent(kpi.perc_consistente));
     updateValue('kpiDataAnnual', percent(kpi.perc_anual));
     updateValue('kpiDataDivergent', number(divergences));

@@ -431,11 +431,31 @@ def executar_sincronizacao_consistencia(raiz_projeto: Path | None = None, limpar
         print(f"   - Mensal: {total_m} registros (Snapshot Atual)")
         print(f"   - Anual:  {total_a} registros (Snapshot Atual)")
         print("=" * 70 + "\n")
+        atualizar_metadados_fontes(raiz)
         return True
 
     except Exception as e:
         print(f"\n❌ ERRO NA SINCRONIZAÇÃO DE CONSISTÊNCIA: {e}")
         return False
+
+
+def atualizar_metadados_fontes(raiz: Path) -> None:
+    """Regrava dashboard/public/data/fontes_metadados.json (painel de proveniência do dashboard).
+
+    Sem isso, rodar só a sincronização de consistência deixava o painel com a data e a contagem
+    da carga anterior. Falha aqui não invalida a carga: só avisa."""
+    try:
+        try:
+            from functions.metadata_tracker import obter_metadados_planilhas
+        except ImportError:
+            try:
+                from scripts.functions.metadata_tracker import obter_metadados_planilhas
+            except ImportError:
+                from FUNCTIONS.metadata_tracker import obter_metadados_planilhas
+        obter_metadados_planilhas(raiz)
+        print("🧾 Metadados de proveniência atualizados (fontes_metadados.json).")
+    except Exception as e:
+        print(f"⚠️ Não foi possível atualizar os metadados de proveniência: {e}")
 
 
 if __name__ == "__main__":

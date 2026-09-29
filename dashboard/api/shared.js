@@ -36,12 +36,23 @@ function setCached(key, data, ttlMs = DEFAULT_TTL_MS) {
   }
 }
 
+// Leituras em andamento por chave: com o cache frio, overview/visits/turnover/consistency pedem a
+// mesma tabela (ex.: tab_fato_carteira_mensal) ao mesmo tempo. Sem isto cada uma varria a tabela
+// inteira em paralelo, o Supabase estourava o timeout e a rota respondia HTTP 500.
+const emAndamento = new Map();
+
 async function fetchWithCache(cacheKey, fetcherFn, ttlMs = DEFAULT_TTL_MS) {
   const cached = getCached(cacheKey);
   if (cached !== null) return cached;
-  const result = await fetcherFn();
-  setCached(cacheKey, result, ttlMs);
-  return result;
+  if (emAndamento.has(cacheKey)) return emAndamento.get(cacheKey);
+  const leitura = fetcherFn()
+    .then(result => {
+      setCached(cacheKey, result, ttlMs);
+      return result;
+    })
+    .finally(() => emAndamento.delete(cacheKey));
+  emAndamento.set(cacheKey, leitura);
+  return leitura;
 }
 
 function getSupabaseClient() {
@@ -115,11 +126,15 @@ async function fetchAll(createQuery, pageSize = 2500, orderColumn = null, concur
   while (true) {
     const offsets = Array.from({ length: concurrency }, (_, i) => from + i * pageSize);
     const pages = await Promise.all(offsets.map(async (start) => {
-      let query = createQuery().range(start, start + pageSize - 1);
-      if (orderColumn) query = query.order(orderColumn, { ascending: true });
-      const { data, error } = await query;
-      if (error) throw error;
-      return data || [];
+      // Até 3 tentativas: timeouts pontuais do Supabase em páginas profundas não devem derrubar a rota
+      for (let tentativa = 1; ; tentativa++) {
+        let query = createQuery().range(start, start + pageSize - 1);
+        if (orderColumn) query = query.order(orderColumn, { ascending: true });
+        const { data, error } = await query;
+        if (!error) return data || [];
+        if (tentativa >= 3) throw error;
+        await new Promise(resolve => setTimeout(resolve, 400 * tentativa));
+      }
     }));
 
     const firstShort = pages.findIndex(page => page.length < pageSize);

@@ -71,9 +71,12 @@ module.exports = async (req, res) => {
     const base = [...porFazenda.values()].filter(r => !r.sem_lancamento_elabore && rowMatchesFilters(r, filters));
 
     const conta = (campo, valor) => base.filter(r => r[campo] === valor).length;
-    const consistentes = conta('consistencia_mensal', 'Consistente');
+    // Partição exclusiva da base: fazenda em carência conta como "incompleta" (ainda não é cobrada),
+    // nunca também como apta/divergente. Assim aptas + incompletas + divergentes = base analisada.
     const semDados = conta('consistencia_mensal', SEM_DADOS);
-    const inconsistentes = base.length - consistentes - semDados;
+    const incompletas = base.filter(r => r.em_carencia || r.consistencia_mensal === SEM_DADOS).length;
+    const consistentes = base.filter(r => !r.em_carencia && r.consistencia_mensal === 'Consistente').length;
+    const inconsistentes = base.length - consistentes - incompletas;
     const anualConsistentes = conta('consistencia_anual', 'Consistente');
     const anualSemDados = conta('consistencia_anual', SEM_DADOS);
     const anualInconsistentes = base.length - anualConsistentes - anualSemDados;
@@ -161,7 +164,7 @@ module.exports = async (req, res) => {
         produtores_carencia: carencia,
         excecoes_ativas: excecoes
       },
-      distribuicaoDonut: { labels: ['Registros aptos', 'Registros incompletos', 'Registros divergentes'], values: [consistentes, semDados + carencia, inconsistentes] },
+      distribuicaoDonut: { labels: ['Registros aptos', 'Registros incompletos', 'Registros divergentes'], values: [consistentes, incompletas, inconsistentes] },
       distribuicaoDonutAnual: { labels: ['Registros aptos', 'Registros incompletos', 'Registros divergentes'], values: [anualConsistentes, anualSemDados, anualInconsistentes] },
       evolucaoConsistencia,
       histogramaMeses: { labels: Object.keys(histograma), values: Object.values(histograma) },
