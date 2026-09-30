@@ -344,7 +344,11 @@ class ResolvedorRegiao:
             self.canonica[(agro, chave(nome))] = nome
         self.de_para: dict[str, str] = {}
         # aliases sem agroindústria primeiro: são eles que definem o fallback genérico (sem "agro|") de forma estável
-        for a in sorted(alias, key=lambda x: (x.get("id_agroindustria") is not None, x.get("id") or 0)):
+        # (o pandas devolve NULL como NaN, que não é None: `v == v` é falso só para NaN)
+        def _tem_agro(x):
+            v = x.get("id_agroindustria")
+            return v is not None and v == v
+        for a in sorted(alias, key=lambda x: (_tem_agro(x), x.get("id") or 0)):
             if chave(a.get("status")) != "ATIVO":
                 continue
             bruto, formatada = chave(a.get("nome_bruto")), str(a.get("nome_regiao") or "").strip()

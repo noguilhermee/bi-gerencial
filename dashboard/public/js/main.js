@@ -1483,7 +1483,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // Relacionamento oficial (tab_dim_consultor_atuacao, gravada pelo ETL): [mês AAAA-MM, agroindústria, região, consultor].
     // Agroindústria, região e consultor só se oferecem entre si quando existe essa relação; sem a ponte publicada,
     // valem apenas as opções derivadas das linhas.
-    const relacoes = state.overview?.filterOptions?.relacoes;
+    const relacoes = (state.overview || state.masterOverview)?.filterOptions?.relacoes;
     function opcoesRelacionadas(fieldKey) {
       if (!Array.isArray(relacoes) || !relacoes.length) return null;
       const permitidos = new Set();

@@ -173,6 +173,13 @@ CAMINHO_ARQUIVO = PASTA_SAIDA / f"{DATA_EXPORTACAO}_nome_do_arquivo.ext"
     - `tab_dim_*`: Dimensões com mais de uma origem (ex: `tab_dim_fazendas_ativas`).
     - `tab_base_*`: Snapshots periódicos e bases congeladas mês a mês (ex: `tab_base_metas_mensal`).
   - **Dimensões cadastrais** (consultor, região, agroindústria) também ficam na camada de consumo: `tab_dim_consultor`, `tab_dim_regiao`, `tab_dim_agroindustria` (antes `sq_dim_*`, renomeadas em 2026-09-29 pelo script `db/input/2026_09_29_renomear_dims_e_coluna_sem_lancamento_elabore.sql`).
+  - **Relacionamento das dimensões (filtros do dashboard)**, migration `db/input/2026_09_29_refatorar_dims_relacionamento.sql`:
+    - `tab_dim_agroindustria`: `nome_bi` é o nome exato gravado nas fatos (ex.: `Laticínios Porto Alegre (LPA)`); `exibir_no_bi = false` esconde agroindústrias inativas.
+    - `tab_dim_regiao`: 1 linha por (`id_agroindustria`, região canônica). Uma região só é válida para as agroindústrias que a possuem aqui.
+    - `tab_dim_regiao_alias`: nome bruto (SmartQuestion/Elabore/Procampo) → região canônica. Novo nome bruto entra aqui, nunca no ETL nem no frontend.
+    - `tab_dim_consultor`: `chave_consultor` = nome sem acento e maiúsculo (mesma normalização de `regras_negocio.chave`); o ETL cria os consultores que não existem no Elabore (`origem = 'BI'`).
+    - `tab_dim_consultor_atuacao`: ponte consultor × agroindústria × região × mês, gravada por `camada_consumo.py`; a API a expõe em `filterOptions.relacoes` e os filtros de agroindústria, região e consultor se restringem por ela.
+    - Uma região que não pertence à agroindústria da fazenda vira `NÃO INFORMADA` e é listada em `db/output/logs/*_divergencias_dimensoes.xlsx` para correção na origem (cadastro), nunca no frontend (regra 12).
   - **Colunas**: Sempre em `snake_case` minúsculo com timestamps `data_processamento` e chaves `id_composto`.
 
 ---

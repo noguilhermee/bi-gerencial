@@ -18,6 +18,7 @@ class DashboardCharts {
       dark: get('--green-950', '#004d49'),
       green: get('--green-700', '#11775d'),
       medium: '#29927d',
+      visits: '#014C49',
       light: '#a9d1c5',
       mint: get('--green-400', '#4fc9b0'),
       danger: get('--danger', '#e23e3b'),
@@ -513,7 +514,7 @@ class DashboardCharts {
           if (valueInside) {
             context.lineWidth = 3;
             context.lineJoin = 'round';
-            context.strokeStyle = String(color.green);
+            context.strokeStyle = color.visits;
             context.strokeText(valueText, bar.x, valueY);
           }
           context.fillStyle = valueInside ? '#ffffff' : color.ink;
@@ -528,7 +529,7 @@ class DashboardCharts {
       plugins: [variationLabels],
       data: {
         labels: data.labels || [],
-        datasets: [{ label: 'Visitas', data: values, variations, backgroundColor: color.green, borderRadius: 2, barPercentage: 0.78, categoryPercentage: 0.86 }]
+        datasets: [{ label: 'Visitas', data: values, variations, backgroundColor: color.visits, borderRadius: 2, barPercentage: 0.78, categoryPercentage: 0.86 }]
       },
       options: {
         layout: { padding: { top: 26 } },
@@ -560,7 +561,7 @@ class DashboardCharts {
     this.instances[id] = new Chart(ctx, {
       type: 'bar',
       plugins: [this.valueLabels((value) => this.formatValue(value), { fontSize: 11.2 })],
-      data: { labels: data.labels || [], datasets: [{ label: 'Visitas', data: data.values || [], backgroundColor: color.green, borderRadius: 2, barPercentage: 0.58 }] },
+      data: { labels: data.labels || [], datasets: [{ label: 'Visitas', data: data.values || [], backgroundColor: color.visits, borderRadius: 2, barPercentage: 0.58 }] },
       options: {
         indexAxis: 'y',
         layout: { padding: { right: 30 } },

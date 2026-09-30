@@ -423,21 +423,28 @@ class Contexto:
         faz = self.fazenda(codigo_lr, mes)
         agro = rn.mapear_agroindustria(_texto(faz.get("agroindustria")) or projeto)
         if rn.chave(agro) == rn.chave(rn.AGRO_NAO_INFORMADA):
-            inferida = self.agro_elabore.get(codigo_lr) or self._agro_pela_regiao(codigo_lr)
+            inferida = self.agro_elabore.get(codigo_lr)
             if inferida:
                 self._divergencia("AGRO_INFERIDA_DO_ELABORE", codigo_lr, inferida, self.regiao_elabore.get(codigo_lr))
+                return inferida
+            inferida = self._agro_pela_regiao(codigo_lr, faz)
+            if inferida:
+                self._divergencia("AGRO_INFERIDA_PELA_REGIAO", codigo_lr, inferida, _texto(faz.get("regiao")))
                 return inferida
         elif rn.chave(agro) not in self.agro_dim:
             self._divergencia("AGRO_NAO_CADASTRADA", codigo_lr, agro, None)
         return agro
 
-    def _agro_pela_regiao(self, codigo_lr: str) -> str | None:
-        regiao = self.regiao_elabore.get(codigo_lr)
-        donos = self.regiao.agroindustrias_da(regiao) if regiao else set()
-        if len(donos) != 1:
-            return None
-        dim = self.agro_dim.get(next(iter(donos)))
-        return (dim.get("nome_bi") or dim.get("nome_agroindustria")) if dim else None
+    def _agro_pela_regiao(self, codigo_lr: str, faz: dict) -> str | None:
+        """Agroindústria dona da região da fazenda, só quando o nome da região é exatamente um nome canônico de
+        tab_dim_regiao com um único dono (sigla ambígua como 'MG' ou 'Goiânia', que tem 2 donos, não infere)."""
+        for regiao in (self.regiao_elabore.get(codigo_lr), _texto(faz.get("regiao"))):
+            donos = self.regiao.agroindustrias_da(regiao) if regiao else set()
+            if len(donos) == 1:
+                dim = self.agro_dim.get(next(iter(donos)))
+                if dim:
+                    return dim.get("nome_bi") or dim.get("nome_agroindustria")
+        return None
 
     def regiao_de(self, codigo_lr: str, agroindustria: str, projeto, mes=None) -> str:
         """Região canônica da fazenda, sempre uma região que a agroindústria possui em tab_dim_regiao.
@@ -1132,11 +1139,15 @@ def alinhar_fato_economico(supabase, ctx: Contexto, gravar: bool) -> int:
         mes = r["_mes"]
         projeto = ctx.projeto(cod, mes)
         agro = ctx.agroindustria(cod, projeto or rn.mapear_agroindustria(r.get("agroindustria")), mes)
+        if rn.chave(agro) not in ctx.agro_dim:   # contas internas/teste ("LATICÍNIOS LABOR RURAL"): fora das dimensões
+            agro = rn.AGRO_NAO_INFORMADA
         regiao = ctx.regiao_de(cod, agro, projeto, mes)
         if agro != r.get("agroindustria") or regiao != r.get("regiao"):
             grupos.setdefault((agro, regiao), []).append(r["id_composto"])
     total = sum(len(v) for v in grupos.values())
-    print(f"   🔗 {TAB_ECONOMICO}: {total} de {len(eco)} linhas com agroindústria/região fora do padrão canônico.")
+    sem_regiao = sum(len(v) for (_, regiao), v in grupos.items() if regiao == rn.REGIAO_NAO_INFORMADA)
+    print(f"   🔗 {TAB_ECONOMICO}: {total} de {len(eco)} linhas com agroindústria/região fora do padrão canônico "
+          f"({sem_regiao} ficarão com região NÃO INFORMADA).")
     if gravar:
         for (agro, regiao), ids in grupos.items():
             for i in range(0, len(ids), 200):
