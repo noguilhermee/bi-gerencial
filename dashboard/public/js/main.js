@@ -2039,17 +2039,21 @@ document.addEventListener('DOMContentLoaded', () => {
     const slide5 = data.slide5 || {};
     const kpi = data.kpis || slide4.kpis || {};
 
-    const notice = el('econEmptyNotice');
-    if (notice) {
-      const aviso = data.aviso || {};
-      notice.hidden = !aviso.sem_dados_consistentes;
-      if (aviso.sem_dados_consistentes) {
-        const ultimo = aviso.ultimo_mes_consistente_label ? ` Último mês disponível: ${aviso.ultimo_mes_consistente_label}.` : '';
-        const parcial = aviso.linhas_no_mes > 0 ? ` (${aviso.linhas_no_mes} lançamento(s) ainda inconsistente(s))` : '';
-        const texto = el('econEmptyNoticeText');
-        if (texto) texto.textContent = `Sem dados econômicos consistentes em ${aviso.mes_selecionado_label}${parcial}.${ultimo}`;
-      }
-    }
+    // Mês sem fazenda-mês consistente: gráficos ficam esmaecidos com o aviso por cima (CSS).
+    const aviso = data.aviso || {};
+    const semDados = Boolean(aviso.sem_dados_consistentes);
+    const textoAviso = semDados
+      ? `Sem dados econômicos consistentes em ${aviso.mes_selecionado_label}` +
+        (aviso.ultimo_mes_consistente_label ? `
+Último mês disponível: ${aviso.ultimo_mes_consistente_label}` : '')
+      : '';
+    ['chartTop5CostsPie', 'chartCadastroBreakdownDonut', 'chartMbRankingHorizontal'].forEach(id => {
+      const box = el(id)?.parentElement;
+      if (!box) return;
+      box.classList.toggle('chart-box--sem-dados', semDados);
+      if (semDados) box.setAttribute('data-aviso', textoAviso);
+      else box.removeAttribute('data-aviso');
+    });
 
     updateValue('kpiEconVolTotal', number(kpi.volume_diario_total));
     updateValue('kpiEconProdutividade', number(kpi.produtividade_l_vl_dia));

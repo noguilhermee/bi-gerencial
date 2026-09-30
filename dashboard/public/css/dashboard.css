@@ -3735,19 +3735,24 @@ th.col-center .table-col-filter { text-align: center !important; }
 #tableElabore thead tr#elHead th.blk { font-size: 9.5px; overflow-wrap: normal; word-break: normal; hyphens: none; }
 #tableElabore thead tr#elHead th.blk::after { display: none; }
 
-/* Tela 4: aviso quando o mês selecionado não tem dado econômico consistente */
-.econ-empty-notice {
-  flex: 0 0 auto;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 6px 12px;
+/* Tela 4: gráficos sem dado consistente no mês ficam esmaecidos, com o aviso por cima */
+.chart-box--sem-dados > canvas { opacity: 0.22; filter: grayscale(0.6); transition: opacity 200ms ease; }
+.chart-box--sem-dados::after {
+  content: attr(data-aviso);
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  max-width: 80%;
+  padding: 10px 16px;
   border: 1px solid var(--warning);
   border-radius: 10px;
   background: var(--warning-soft);
   color: var(--text, inherit);
-  font-size: 0.82rem;
-  font-weight: 600;
+  font-size: 0.85rem;
+  font-weight: 700;
+  line-height: 1.35;
+  text-align: center;
+  white-space: pre-line;
+  pointer-events: none;
 }
-.econ-empty-notice[hidden] { display: none; }
-.econ-empty-notice .material-symbols-rounded { font-size: 18px; color: var(--warning); }
