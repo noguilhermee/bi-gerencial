@@ -161,6 +161,17 @@ def main():
             print(f"❌ Falha ao publicar as fazendas do Procampo (a carteira ficaria sem elas): {e_dim_pro}")
             sys.exit(1)
 
+        try:
+            try:
+                from functions.carregar_safra_forrageira import executar_carga_safra_forrageira
+            except ImportError:
+                from FUNCTIONS.carregar_safra_forrageira import executar_carga_safra_forrageira
+            print("\n🌽 [PÓS-ETL] Carregando raws de safra (base de custo de forrageira do Elabore)...")
+            executar_carga_safra_forrageira(raiz_projeto)
+        except Exception as e_safra:
+            # Não bloqueia o restante: o slide 7 fica com a última carga bem-sucedida.
+            print(f"⚠️ Falha na carga das raws de safra (slide 7 segue com a carga anterior): {e_safra}")
+
         if not raw_visitas_ok:
             print("\n⛔ Camada de consumo NÃO publicada: a raw de visitas não foi carregada por completo.")
             sys.exit(1)

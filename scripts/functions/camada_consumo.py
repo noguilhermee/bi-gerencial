@@ -17,6 +17,9 @@ regras de `regras_negocio` e grava tabelas prontas para leitura direta pela API:
   tab_dim_fazendas_ativas   (colunas latitude, longitude, origem_coordenada, coordenada_corrigida) coordenada saneada
                             de cada fazenda: visitas do SmartQuestion/base do Procampo, Elabore ou posição aproximada
                             pelo município (mediana das outras fazendas da cidade)
+  tab_fato_safra_forrageira fazenda × safra × cultura × ciclo × sistema de plantio (slide 7): área plantada e com
+                            cobertura (bloco AREA) e área colhida, toneladas e custo nominal por etapa das produções
+                            consistentes (bloco CUSTO), das raws elabore_raw_sistema_cobertura/elabore_raw_custo_forrageira
 
 Região e agroindústria só saem das dimensões: uma região que não pertence à agroindústria da fazenda vira
 "NÃO INFORMADA" e é listada em db/output/logs/*_divergencias_dimensoes.xlsx para correção na origem.
@@ -75,6 +78,15 @@ TAB_DIM_CONSULTOR = "tab_dim_consultor"
 TAB_CONSULTOR_ATUACAO = "tab_dim_consultor_atuacao"
 TAB_PRODUCAO = "tab_fato_producao_mensal"
 TAB_DIM_FAZENDAS = "tab_dim_fazendas_ativas"
+TAB_SAFRA = "tab_fato_safra_forrageira"
+TAB_SAFRA_CUSTO_RAW = "elabore_raw_custo_forrageira"
+TAB_SAFRA_SISTEMA_RAW = "elabore_raw_sistema_cobertura"
+COLS_RAW_SAFRA_CUSTO = ("id_production,codigo_lr,cultura,safra,ciclo,produto_colhido,categoria,area_colhida_ha,"
+                        "quantidade_kg,custo_pre_plantio_nom,custo_plantio_nom,custo_tratos_nom,"
+                        "custo_colheita_planta_inteira_nom,custo_colheita_grao_nom,custo_etapa_nao_informada_nom,"
+                        "custo_total_nom,sistema_plantio,sem_quantidade_produzida,ciclo_divergente,alerta_custo_ha")
+COLS_RAW_SAFRA_SISTEMA = ("id_plantio,fonte,codigo_lr,cultura,safra,ciclo,area_plantada_ha,sistema_plantio,"
+                          "cobertura_apos,sucessao_apos")
 
 # Não deixa uma carga de raw incompleta esvaziar a fato: aborta se algum mês perder
 # mais que esta fração das visitas já publicadas.
@@ -105,6 +117,10 @@ class Fontes:
     pro_movimentacao: pd.DataFrame = field(default_factory=pd.DataFrame)
     cfg_procampo: dict = field(default_factory=dict)   # bloco `procampo:` do config.yaml
     cfg_producao: dict = field(default_factory=dict)   # bloco `producao:` do config.yaml
+    # Safra (slide 7): raws carregadas por carregar_safra_forrageira.py
+    safra_custo: pd.DataFrame = field(default_factory=pd.DataFrame)
+    safra_sistema: pd.DataFrame = field(default_factory=pd.DataFrame)
+    cfg_safra: dict = field(default_factory=dict)      # bloco `safra_forrageira:` do config.yaml
 
 
 def _buscar_tudo(supabase, tabela: str, colunas: str = "*", ordem: str | None = None) -> pd.DataFrame:
@@ -215,6 +231,16 @@ def carregar_fontes(supabase, conexao_elabore, data_inicio_elabore: str) -> Font
                                          "id_composto,matricula,codigo_lr,aba_origem,data_inicio,data_conclusao,consultor,"
                                          "status_movimentacao,motivo_saida", ordem="id_composto"),
     }
+    # Raws da safra: enquanto a migration/carga não rodarem, a fato de safra só não é publicada.
+    for nome, tabela, colunas, ordem in (
+        ("safra_custo", TAB_SAFRA_CUSTO_RAW, COLS_RAW_SAFRA_CUSTO, "id_production"),
+        ("safra_sistema", TAB_SAFRA_SISTEMA_RAW, COLS_RAW_SAFRA_SISTEMA, "id_plantio"),
+    ):
+        try:
+            t[nome] = _buscar_tudo(supabase, tabela, colunas, ordem=ordem)
+        except Exception as e:
+            print(f"   ⚠️ {tabela} indisponível ({e}); a fato de safra não será publicada.")
+            t[nome] = pd.DataFrame()
     for nome, df in t.items():
         print(f"   -> {nome}: {len(df)} linhas")
 
@@ -1067,6 +1093,147 @@ def construir_producao_mensal(visitas: pd.DataFrame, cfg: dict) -> pd.DataFrame:
     return pd.DataFrame(linhas, columns=COLS_PRODUCAO)
 
 
+# ─── tab_fato_safra_forrageira (slide 7) ───────────────────────────────────────
+
+COLS_SAFRA = ["id_composto", "bloco", "codigo_lr", "nome_produtor", "nome_propriedade", "consultor", "consultores_grupo",
+              "projeto", "agroindustria", "regiao", "safra", "cultura", "ciclo", "produto", "sistema", "fonte",
+              "n_plantios", "area_plantada_ha", "area_com_cobertura_ha", "area_cobertura_declarada_ha",
+              "area_sucessao_ha", "n_producoes", "producoes_inconsistentes", "area_colhida_ha", "toneladas",
+              "custo_total", "custo_pre_plantio", "custo_plantio", "custo_tratos", "custo_colheita",
+              "custo_etapa_nao_informada"]
+
+# Ciclo da origem (já em maiúsculo sem acento) -> código estável usado pela API/tela
+CICLOS_SAFRA = {"1A SAFRA": "1_SAFRA", "2A SAFRA": "2_SAFRA", "3A SAFRA": "3_SAFRA",
+                "PLANTAS DE COBERTURA": "COBERTURA", "FORMACAO": "FORMACAO", "PRODUCAO": "PRODUCAO"}
+SISTEMAS_SAFRA = {"PLANTIO DIRETO", "CULTIVO MINIMO", "CONVENCIONAL"}
+SISTEMA_NAO_INFORMADO = "NAO INFORMADO"
+ALIAS_CULTURA_SAFRA = {"BRACHIARIA": "BRAQUIARIA"}
+
+
+def _cultura_safra(v) -> str | None:
+    c = rn.chave(_texto(v)) if _texto(v) else None
+    return ALIAS_CULTURA_SAFRA.get(c, c) if c else None
+
+
+def _sistema_safra(v) -> str:
+    s = rn.chave(_texto(v)) if _texto(v) else ""
+    return s if s in SISTEMAS_SAFRA else SISTEMA_NAO_INFORMADO
+
+
+def _ciclo_safra(v) -> str:
+    return CICLOS_SAFRA.get(rn.chave(_texto(v)) if _texto(v) else "", "NAO_INFORMADO")
+
+
+def _verdade(serie: pd.Series) -> pd.Series:
+    return serie.map(lambda v: v is True or str(v).strip().lower() == "true")
+
+
+def construir_safra_forrageira(f: Fontes, carteira: pd.DataFrame) -> tuple[pd.DataFrame, dict]:
+    """Indicadores de safra por fazenda × safra × cultura × ciclo × sistema, em dois blocos:
+
+      AREA   (elabore_raw_sistema_cobertura): área plantada por sistema de plantio e quanto dela recebeu cobertura.
+             "Com cobertura" segue safra_forrageira.regra_cobertura: 'cobertura' = só planta de cobertura declarada;
+             'sucessao' = também cultivo de 2ª/3ª safra no mesmo talhão até 365 dias depois.
+      CUSTO  (elabore_raw_custo_forrageira): por produto colhido, área colhida, toneladas e custo NOMINAL por etapa,
+             só das produções consistentes (com quantidade, sem ciclo divergente, sem alerta de custo/ha e com
+             categoria válida); as demais ficam contadas em producoes_inconsistentes.
+
+    Agroindústria, região e consultor vêm do registro mais recente da fazenda na carteira (a mesma resolução dos
+    demais slides e dos filtros). Fazenda fora da carteira de leite não entra (é contada no resumo)."""
+    resumo = {"sem_carteira": 0, "codigos_sem_carteira": [], "linhas_sem_codigo": 0}
+    if f.safra_custo.empty and f.safra_sistema.empty:
+        return pd.DataFrame(columns=COLS_SAFRA), resumo
+    cfg = f.cfg_safra or {}
+    regra = str(cfg.get("regra_cobertura", "sucessao")).lower()
+    categorias = {rn.chave(c) for c in cfg.get("categorias_validas", ["VOLUMOSO", "CONCENTRADO"])}
+
+    # Cadastro da fazenda: linha mais recente da carteira (1 consultor por fazenda; o grupo inteiro fica no texto)
+    cadastro: dict[str, dict] = {}
+    if carteira is not None and not carteira.empty:
+        base = carteira.sort_values(["codigo_lr", "mes_referencia", "consultor"], ascending=[True, False, True])
+        cadastro = {r["codigo_lr"]: r for r in base.drop_duplicates("codigo_lr").to_dict("records")}
+
+    def preparar(df: pd.DataFrame) -> pd.DataFrame:
+        d = df.copy()
+        d["codigo_lr"] = d["codigo_lr"].map(rn.limpar_codigo_lr)
+        sem_codigo = d["codigo_lr"].isna() | (d["codigo_lr"] == "")
+        resumo["linhas_sem_codigo"] += int(sem_codigo.sum())
+        d = d[~sem_codigo].copy()
+        d["cultura"] = d["cultura"].map(_cultura_safra)
+        d["ciclo"] = d["ciclo"].map(_ciclo_safra)
+        d["sistema"] = d["sistema_plantio"].map(_sistema_safra)
+        d["safra"] = d["safra"].map(_texto)
+        return d[d["safra"].notna() & d["cultura"].notna()]
+
+    linhas = []
+
+    if not f.safra_sistema.empty:
+        s = preparar(f.safra_sistema)
+        s["fonte"] = s["fonte"].map(lambda v: rn.chave(_texto(v, "ELABORE")))
+        s["area_plantada_ha"] = pd.to_numeric(s["area_plantada_ha"], errors="coerce").fillna(0.0)
+        cob, suc = _verdade(s["cobertura_apos"]), _verdade(s["sucessao_apos"])
+        s["_cob"] = s["area_plantada_ha"].where(cob, 0.0)
+        s["_suc"] = s["area_plantada_ha"].where(suc, 0.0)
+        s["_com"] = s["area_plantada_ha"].where(suc if regra == "sucessao" else cob, 0.0)
+        g = s.groupby(["codigo_lr", "safra", "cultura", "ciclo", "sistema", "fonte"], dropna=False).agg(
+            n_plantios=("id_plantio", "size"), area_plantada_ha=("area_plantada_ha", "sum"),
+            area_com_cobertura_ha=("_com", "sum"), area_cobertura_declarada_ha=("_cob", "sum"),
+            area_sucessao_ha=("_suc", "sum")).reset_index()
+        g["bloco"], g["produto"] = "AREA", None
+        linhas.append(g)
+
+    if not f.safra_custo.empty:
+        c = preparar(f.safra_custo)
+        c["produto"] = c["produto_colhido"].map(lambda v: rn.chave(_texto(v)) if _texto(v) else None)
+        num = lambda col: pd.to_numeric(c[col], errors="coerce").fillna(0.0)
+        consistente = (
+            (num("quantidade_kg") > 0) & (num("area_colhida_ha") > 0)
+            & ~_verdade(c["sem_quantidade_produzida"]) & ~_verdade(c["ciclo_divergente"])
+            & ~_verdade(c["alerta_custo_ha"])
+            & c["categoria"].map(lambda v: rn.chave(_texto(v, "")) in categorias)
+        )
+        medidas = {
+            "area_colhida_ha": num("area_colhida_ha"), "toneladas": num("quantidade_kg") / 1000.0,
+            "custo_total": num("custo_total_nom"), "custo_pre_plantio": num("custo_pre_plantio_nom"),
+            "custo_plantio": num("custo_plantio_nom"), "custo_tratos": num("custo_tratos_nom"),
+            "custo_colheita": num("custo_colheita_planta_inteira_nom") + num("custo_colheita_grao_nom"),
+            "custo_etapa_nao_informada": num("custo_etapa_nao_informada_nom"),
+        }
+        for col, valores in medidas.items():
+            c[col] = valores.where(consistente, 0.0)
+        c["_ok"] = consistente.astype(int)
+        c["_nok"] = (~consistente).astype(int)
+        c["fonte"] = "ELABORE"
+        g = c.groupby(["codigo_lr", "safra", "cultura", "ciclo", "produto", "sistema", "fonte"], dropna=False).agg(
+            n_producoes=("_ok", "sum"), producoes_inconsistentes=("_nok", "sum"),
+            **{col: (col, "sum") for col in medidas}).reset_index()
+        g["bloco"] = "CUSTO"
+        linhas.append(g)
+
+    fato = pd.concat(linhas, ignore_index=True, sort=False)
+    no_cadastro = fato["codigo_lr"].isin(cadastro.keys())
+    resumo["sem_carteira"] = int(fato.loc[~no_cadastro, "codigo_lr"].nunique())
+    resumo["codigos_sem_carteira"] = sorted(fato.loc[~no_cadastro, "codigo_lr"].unique())
+    fato = fato[no_cadastro].copy()
+    for campo in ("nome_produtor", "nome_propriedade", "consultor", "consultores_grupo", "projeto", "agroindustria", "regiao"):
+        fato[campo] = fato["codigo_lr"].map(lambda cod: cadastro[cod].get(campo))
+    fato["id_composto"] = fato.apply(
+        lambda r: "|".join(str(x) for x in (r["bloco"], r["codigo_lr"], r["safra"], r["cultura"], r["ciclo"],
+                                             r["produto"] or "-", r["sistema"], r["fonte"])), axis=1)
+    if fato["id_composto"].duplicated().any():
+        raise ValueError("tab_fato_safra_forrageira com id_composto repetido.")
+    for col in COLS_SAFRA:
+        if col not in fato.columns:
+            fato[col] = None
+    for col in ("n_plantios", "n_producoes", "producoes_inconsistentes"):
+        fato[col] = pd.to_numeric(fato[col], errors="coerce").astype("Int64")
+    for col in ("area_plantada_ha", "area_com_cobertura_ha", "area_cobertura_declarada_ha", "area_sucessao_ha",
+                "area_colhida_ha", "toneladas", "custo_total", "custo_pre_plantio", "custo_plantio", "custo_tratos",
+                "custo_colheita", "custo_etapa_nao_informada"):
+        fato[col] = pd.to_numeric(fato[col], errors="coerce").round(3)
+    return fato[COLS_SAFRA].reset_index(drop=True), resumo
+
+
 # ─── Coordenadas das fazendas (colunas de tab_dim_fazendas_ativas) ─────────────
 
 COLS_LOCALIZACAO = ["codigo_lr", "latitude", "longitude", "origem_coordenada", "coordenada_corrigida", "cidade", "estado"]
@@ -1229,7 +1396,7 @@ COLUNAS_INTEIRAS = {
     "bezerros_aleitamento", "novilhas", "reprodutores", "receptoras",
     "rebanho_total", "dados_elabore_pct",
     "id_consultor", "id_agroindustria", "id_regiao", "qtd_fazendas", "qtd_visitas", "qtd_movimentacoes",
-    "n_visitas_mes",
+    "n_visitas_mes", "n_plantios", "n_producoes", "producoes_inconsistentes",
 }
 
 
@@ -1445,7 +1612,7 @@ def pares_fora_da_dimensao(ctx: Contexto, r: dict) -> pd.DataFrame:
 
     'NÃO INFORMADA' é o único valor de região aceito fora da dimensão."""
     achados = []
-    for fato in ("carteira", "visitas", "movimentacao", "consistencia", "producao"):
+    for fato in ("carteira", "visitas", "movimentacao", "consistencia", "producao", "safra"):
         df = r.get(fato)
         if df is None or df.empty:
             continue
@@ -1500,9 +1667,11 @@ def construir_tudo(f: Fontes, agora: datetime | None = None, data_inicial_consis
     movimentacao = construir_fato_movimentacao(f, ctx)
     producao = construir_producao_mensal(visitas, f.cfg_producao)
     localizacao = construir_localizacao(f, carteira)
+    safra, resumo_safra = construir_safra_forrageira(f, carteira)
     return {"visitas": visitas, "auditoria": auditoria, "carteira": carteira,
             "consistencia": consistencia, "movimentacao": movimentacao,
-            "producao": producao, "localizacao": localizacao, "ctx": ctx}
+            "producao": producao, "localizacao": localizacao, "safra": safra, "resumo_safra": resumo_safra,
+            "ctx": ctx}
 
 
 def exportar_auditoria(auditoria: pd.DataFrame, raiz: Path) -> Path:
@@ -1542,6 +1711,7 @@ def executar_camada_consumo(raiz: Path | None = None, gravar: bool = True) -> di
         conexao.close()
     fontes.cfg_procampo = cfg.get("procampo", {})
     fontes.cfg_producao = cfg.get("producao", {})
+    fontes.cfg_safra = cfg.get("safra_forrageira", {})
 
     validar_cobertura_raw_visitas(fontes.raw_visitas, ref["data_corte_estatica_visitas"], ref["data_inicial_fato_visitas"])
     r = construir_tudo(fontes, data_inicial_consistencia=ref["data_inicial_analise"])
@@ -1563,6 +1733,16 @@ def executar_camada_consumo(raiz: Path | None = None, gravar: bool = True) -> di
     print(f"   -> localização: {len(loc)} fazendas | " + " | ".join(
         f"{k}: {n}" for k, n in loc["origem_coordenada"].value_counts().items()) +
         f" | corrigidas: {int(loc['coordenada_corrigida'].sum())}")
+    safra, rs = r["safra"], r["resumo_safra"]
+    if safra.empty:
+        print("   -> safra: sem dados nas raws de safra (carregar_safra_forrageira.py pendente?)")
+    else:
+        print(f"   -> safra: {len(safra)} linhas ({int((safra['bloco'] == 'AREA').sum())} de área, "
+              f"{int((safra['bloco'] == 'CUSTO').sum())} de custo) | fazendas: {safra['codigo_lr'].nunique()} | "
+              f"fora da carteira de leite (não entram): {rs['sem_carteira']} | linhas sem código LR: {rs['linhas_sem_codigo']}")
+        print(safra.groupby(["agroindustria", "safra"]).agg(fazendas=("codigo_lr", "nunique")).unstack(fill_value=0).to_string())
+        if rs["codigos_sem_carteira"]:
+            print(f"      fora da carteira (ex.): {', '.join(rs['codigos_sem_carteira'][:15])}")
     caminho_loc = exportar_localizacao(loc, raiz)
     print(f"   📄 Conferência de localização: {caminho_loc or 'nenhuma pendência'}")
     print(f"   📄 Auditoria: {exportar_auditoria(auditoria, raiz)}")
@@ -1598,6 +1778,11 @@ def executar_camada_consumo(raiz: Path | None = None, gravar: bool = True) -> di
     cols_mov = [c for c in COLS_MOVIMENTACAO if c in r["movimentacao"].columns]
     sincronizar_tabela(supabase, TAB_MOVIMENTACAO, _registros_json(r["movimentacao"][cols_mov], d, ts))
     sincronizar_tabela(supabase, TAB_PRODUCAO, _registros_json(r["producao"][COLS_PRODUCAO], d, ts))
+    if r["safra"].empty:
+        # Raw vazia/indisponível não pode apagar a fato já publicada.
+        print(f"   ⚠️ {TAB_SAFRA} não foi atualizada: raws de safra vazias.")
+    else:
+        sincronizar_tabela(supabase, TAB_SAFRA, _registros_json(r["safra"], d, ts))
     publicar_coordenadas_dim(supabase, fontes, r["localizacao"])
 
     print("\n🔗 Relacionando dimensões (consultor × agroindústria × região)...")

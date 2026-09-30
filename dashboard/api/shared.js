@@ -109,6 +109,12 @@ const COLUNAS = {
     'produtividade_l_vaca_dia', 'ccs', 'cpp', 'gordura', 'proteina', 'producao_suspeita', 'producao_imputada',
     'ccs_acima_limite', 'cpp_acima_limite', 'qualidade_descartada'
   ].join(','),
+  safra: [
+    'id_composto', 'bloco', 'codigo_lr', 'nome_produtor', 'nome_propriedade', 'consultor', 'projeto', 'agroindustria',
+    'regiao', 'safra', 'cultura', 'ciclo', 'produto', 'sistema', 'fonte', 'area_plantada_ha', 'area_com_cobertura_ha',
+    'n_producoes', 'producoes_inconsistentes', 'area_colhida_ha', 'toneladas', 'custo_total', 'custo_pre_plantio',
+    'custo_plantio', 'custo_tratos', 'custo_colheita', 'custo_etapa_nao_informada'
+  ].join(','),
   // Coordenada de cada fazenda vive em tab_dim_fazendas_ativas (1 linha por fazenda × mês; ver AGENTS.md, regra 10)
   dimLocalizacao: [
     'codigo_produtor', 'latitude', 'longitude', 'origem_coordenada', 'coordenada_corrigida', 'cidade', 'estado'

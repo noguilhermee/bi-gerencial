@@ -15,6 +15,8 @@ caminhos:
   # Pastas de origem dos relatórios do Elabore (Consistência)
   elabore_mensal: "C:/Users/Guilherme/LABOR RURAL/Analytics - Departamento Analytics/FERRAMENTAS/ELABORE/ELABORE_NOVO_SISTEMA/ANALISE_INDICADORES/lr-indicadores-elabore/data/outputs/monthly"
   elabore_anual: "C:/Users/Guilherme/LABOR RURAL/Analytics - Departamento Analytics/FERRAMENTAS/ELABORE/ELABORE_NOVO_SISTEMA/ANALISE_INDICADORES/lr-indicadores-elabore/data/outputs/annual"
+  # Base de custo de forrageira (*_base_custo_forrageira.xlsx, seção 5 do notebook do lr-indicadores-elabore)
+  elabore_forrageira: "C:/Users/Guilherme/LABOR RURAL/Analytics - Departamento Analytics/FERRAMENTAS/ELABORE/ELABORE_NOVO_SISTEMA/ANALISE_INDICADORES/lr-indicadores-elabore/data/outputs/forrageira"
   
   # Pastas internas do projeto
   input: "db/input"
@@ -53,6 +55,9 @@ supabase:
     regiao_dim: "tab_dim_regiao"
     consultor_dim: "tab_dim_consultor"
     fazenda_dim: "tab_dim_fazendas_ativas"
+    safra_custo_raw: "elabore_raw_custo_forrageira"
+    safra_sistema_raw: "elabore_raw_sistema_cobertura"
+    safra_fato: "tab_fato_safra_forrageira"
 
 # 📄 NOMES E PADRÕES DOS ARQUIVOS DE RELATÓRIO EXCEL
 smartquestion:
@@ -150,6 +155,18 @@ producao:
   # A CCS destas agroindústrias vem em escala diferente das demais (Danone/Semear: mediana ~11.700 contra ~400).
   # Enquanto a origem não for esclarecida, a CCS delas não entra nos indicadores.
   agroindustrias_sem_ccs_confiavel: ["Danone"]
+
+# 🌽 INDICADORES DE SAFRA (slide 7; tab_fato_safra_forrageira, construída em camada_consumo.py)
+safra_forrageira:
+  # A raw espelha a base mais recente; aborta sem remover nada se sumirem mais linhas que isto (planilha incompleta).
+  limite_remocao_pct: 0.2
+  # Produção entra no custo/produtividade só se for consistente na origem: com quantidade colhida, sem ciclo
+  # divergente, sem alerta de custo/ha (>= R$ 50 mil/ha) e com categoria VOLUMOSO ou CONCENTRADO (o "REVISAR: ..."
+  # da origem fica de fora). As descartadas são contadas em producoes_inconsistentes.
+  categorias_validas: ["VOLUMOSO", "CONCENTRADO"]
+  # Plantio conta como "com cobertura" quando o talhão recebe, até 365 dias depois, planta de cobertura declarada
+  # (cobertura) ou também cultivo de 2ª/3ª safra (sucessao). "sucessao" reproduz o HTML do Semear (Danone).
+  regra_cobertura: "sucessao"
 
 # ⚙️ PARÂMETROS DE EXECUÇÃO DO PIPELINE
 execucao:
