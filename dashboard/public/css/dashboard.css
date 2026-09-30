@@ -1387,7 +1387,9 @@ th.col-center .table-col-filter { text-align: center !important; }
 #tableSemVisita th:nth-child(5) { width: 12%; }
 #tableSemVisita th:nth-child(6) { width: 11%; }
 #tableSemVisita th:nth-child(7) { width: 9%; }
-#tableSemVisita th:nth-child(8) { width: 16%; }
+#tableSemVisita th:nth-child(8) { width: 6%; }
+#tableSemVisita th:nth-child(9) { width: 9%; }
+#tableSemVisita th:nth-child(10) { width: 14%; }
 
 /* Tabela 2: Produtores visitados */
 #tableVisitados th:nth-child(1) { width: 8%; }

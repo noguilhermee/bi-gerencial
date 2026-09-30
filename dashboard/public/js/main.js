@@ -684,8 +684,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
   function setupTableSorting() {
     const MAPPINGS = {
-      tbodySemVisita: ['codigo_lr', 'consultor', 'produtor', 'propriedade', 'data_associacao', 'data_visita_mes_anterior', 'data_ultima_visita', 'dias_sem_visita', 'status'],
-      tbodyVisitados: ['codigo_lr', 'consultor', 'produtor', 'propriedade', 'atendimento', 'data_visita', 'cadastro_elabore_label', 'dados_elabore_status'],
+      tbodySemVisita: ['codigo_lr', 'consultor', 'produtor', 'propriedade', 'data_associacao', 'data_visita_mes_anterior', 'data_ultima_visita', 'dias_sem_visita', 'cadastro_elabore_label', 'status'],
+      tbodyVisitados: ['codigo_lr', 'consultor', 'produtor', 'propriedade', 'atendimento', 'data_visita', 'dados_elabore_status'],
       tbodyTurnover: ['atendimento', 'produtor', 'tipo', 'data', 'grupo', 'motivo'],
       tbodyConsultants: ['consultor', 'total_fazendas', 'fazendas_visitadas', 'total_visitas', 'perc_cobertura', 'status'],
       tbodyDataProducers: ['codigo_lr', 'produtor', 'consultor', 'possui_dados', 'referencia', 'status'],
@@ -1058,7 +1058,7 @@ document.addEventListener('DOMContentLoaded', () => {
     withoutVisit = sortRows(withoutVisit, tableSort.tbodySemVisita, (row, key) => row[key] ?? row.data_associacao ?? row.data_referencia);
     updateTableHeadIcons('tbodySemVisita', tableSort.tbodySemVisita.colKey, tableSort.tbodySemVisita.dir);
     const pWithoutVisit = getPaginatedSlice('tableSemVisita', withoutVisit);
-    if (el('tbodySemVisita')) el('tbodySemVisita').innerHTML = rowsOrEmpty(pWithoutVisit, 9, (row) => {
+    if (el('tbodySemVisita')) el('tbodySemVisita').innerHTML = rowsOrEmpty(pWithoutVisit, 10, (row) => {
       const hasDays = row.dias_sem_visita !== null && row.dias_sem_visita !== undefined && row.dias_sem_visita !== '';
       const days = hasDays ? Number(row.dias_sem_visita) : null;
       
@@ -1091,7 +1091,10 @@ document.addEventListener('DOMContentLoaded', () => {
       const dtAssoc = row.data_associacao || row.data_vinculacao || row.data_referencia || '—';
       const dtVisitaMesAnterior = row.data_visita_mes_anterior || '—';
       const dtUltimaVisita = row.data_ultima_visita || '—';
-      return `<tr class="${rowClass}"><td class="col-center"><strong>${escapeHtml(row.codigo_lr || '—')}</strong></td><td class="col-left" title="${escapeHtml(row.consultor || '—')}">${escapeHtml(row.consultor || '—')}</td><td class="col-left" title="${escapeHtml(row.produtor || '—')}">${escapeHtml(row.produtor || '—')}</td><td class="col-left col-fazenda" title="${escapeHtml(row.propriedade || row.fazenda || '—')}">${escapeHtml(row.propriedade || row.fazenda || '—')}</td><td class="col-center col-data-associacao" title="${escapeHtml(dtAssoc)}">${escapeHtml(dtAssoc)}</td><td class="col-center col-visita-mes-anterior" title="${escapeHtml(dtVisitaMesAnterior)}">${escapeHtml(dtVisitaMesAnterior)}</td><td class="col-center" title="${escapeHtml(dtUltimaVisita)}">${escapeHtml(dtUltimaVisita)}</td><td class="col-center font-tabular">${hasDays ? days : '—'}</td><td class="col-center"><span class="badge ${badgeClass}" title="${escapeHtml(status)}">${escapeHtml(status)}</span></td></tr>`;
+      const cadastroBadge = row.cadastro_elabore
+        ? '<span class="badge badge-positive">SIM</span>'
+        : '<span class="badge badge-neutral">NÃO</span>';
+      return `<tr class="${rowClass}"><td class="col-center"><strong>${escapeHtml(row.codigo_lr || '—')}</strong></td><td class="col-left" title="${escapeHtml(row.consultor || '—')}">${escapeHtml(row.consultor || '—')}</td><td class="col-left" title="${escapeHtml(row.produtor || '—')}">${escapeHtml(row.produtor || '—')}</td><td class="col-left col-fazenda" title="${escapeHtml(row.propriedade || row.fazenda || '—')}">${escapeHtml(row.propriedade || row.fazenda || '—')}</td><td class="col-center col-data-associacao" title="${escapeHtml(dtAssoc)}">${escapeHtml(dtAssoc)}</td><td class="col-center col-visita-mes-anterior" title="${escapeHtml(dtVisitaMesAnterior)}">${escapeHtml(dtVisitaMesAnterior)}</td><td class="col-center" title="${escapeHtml(dtUltimaVisita)}">${escapeHtml(dtUltimaVisita)}</td><td class="col-center font-tabular">${hasDays ? days : '—'}</td><td class="col-center">${cadastroBadge}</td><td class="col-center"><span class="badge ${badgeClass}" title="${escapeHtml(status)}">${escapeHtml(status)}</span></td></tr>`;
     });
     renderTablePagination('paginationSemVisita', 'tableSemVisita', withoutVisit.length);
 
@@ -1102,14 +1105,10 @@ document.addEventListener('DOMContentLoaded', () => {
     visited = sortRows(visited, tableSort.tbodyVisitados, (row, key) => row[key]);
     updateTableHeadIcons('tbodyVisitados', tableSort.tbodyVisitados.colKey, tableSort.tbodyVisitados.dir);
     const pVisited = getPaginatedSlice('tableVisitados', visited);
-    if (el('tbodyVisitados')) el('tbodyVisitados').innerHTML = rowsOrEmpty(pVisited, 8, (row) => {
+    if (el('tbodyVisitados')) el('tbodyVisitados').innerHTML = rowsOrEmpty(pVisited, 7, (row) => {
       const labelCad1 = String(row.cadastro_elabore_label || (row.cadastro_elabore === 'INATIVO' ? 'INATIVO' : (row.cadastro_elabore ? 'SIM' : 'NÃO'))).toUpperCase();
       const isInactive1 = labelCad1 === 'INATIVO' || String(row.status || '').toUpperCase().includes('INATIV');
       const isCad = !isInactive1 && row.cadastro_elabore !== false && row.cadastro_elabore !== 'NÃO' && labelCad1 === 'SIM' && Boolean(row.cadastro_elabore);
-      const cadBadge = isInactive1
-        ? '<span class="badge badge-neutral">INATIVO</span>'
-        : (isCad ? '<span class="badge badge-positive">SIM</span>' : '<span class="badge badge-neutral">NÃO</span>');
-      
       const statusDados = row.dados_elabore_status || (row.elabore_ok ? 'SIM (100%)' : 'NÃO (0%)');
       const hasData = row.dados_elabore_tem_dado || row.elabore_ok;
       const pct = row.dados_elabore_pct ?? (hasData ? 100 : 0);
@@ -1132,7 +1131,6 @@ document.addEventListener('DOMContentLoaded', () => {
         <td class="col-left col-fazenda" title="${escapeHtml(row.propriedade || row.fazenda || '—')}">${escapeHtml(row.propriedade || row.fazenda || '—')}</td>
         <td class="col-center" title="${escapeHtml(row.atendimento || '—')}">${escapeHtml(row.atendimento || '—')}</td>
         <td class="col-center">${escapeHtml(row.data_visita || '—')}</td>
-        <td class="col-center">${cadBadge}</td>
         <td class="col-center">${dataBadge}</td>
       </tr>`;
     });
@@ -1595,7 +1593,7 @@ document.addEventListener('DOMContentLoaded', () => {
       let data = (overview.tabelas?.sem_visita || []).filter((row) => matches(row, filter, true));
       data = applyColumnFilters(data, 'tableSemVisita');
       return {
-        headers: ['Consultor(a)', 'ID (Código LR)', 'Produtor(a)', 'Propriedade', 'Agroindústria', 'Região', 'Projeto', 'Data Associação', 'Última Visita', 'Dias s/ Visita', 'Status'],
+        headers: ['Consultor(a)', 'ID (Código LR)', 'Produtor(a)', 'Propriedade', 'Agroindústria', 'Região', 'Projeto', 'Data Associação', 'Última Visita', 'Dias s/ Visita', 'Cadastro Elabore', 'Status'],
         rows: data.map((r) => [
           r.consultor || '—',
           r.codigo_lr || '—',
@@ -1607,6 +1605,7 @@ document.addEventListener('DOMContentLoaded', () => {
           r.data_associacao || r.data_vinculacao || '—',
           r.data_ultima_visita || '—',
           r.dias_sem_visita !== null && r.dias_sem_visita !== undefined ? r.dias_sem_visita : '—',
+          r.cadastro_elabore_label || '—',
           r.status && r.status !== 'ATIVO' ? r.status : (r.dias_sem_visita >= 60 ? 'Sem visita > 60 dias' : (r.dias_sem_visita >= 45 ? 'Sem visita > 45 dias' : (r.dias_sem_visita >= 30 ? 'Sem visita > 30 dias' : 'Sem visita no período')))
         ])
       };
@@ -1616,7 +1615,7 @@ document.addEventListener('DOMContentLoaded', () => {
       let data = (overview.tabelas?.visitados || []).filter((row) => matches(row, filter, true));
       data = applyColumnFilters(data, 'tableVisitados');
       return {
-        headers: ['Consultor(a)', 'ID (Código LR)', 'Produtor(a)', 'Nº Atendimento', 'Data Visita', 'Mês Referência', 'Projeto', 'Agroindústria', 'Região', 'Elabore'],
+        headers: ['Consultor(a)', 'ID (Código LR)', 'Produtor(a)', 'Nº Atendimento', 'Data Visita', 'Mês Referência', 'Projeto', 'Agroindústria', 'Região', 'Dados Elabore'],
         rows: data.map((r) => [
           r.consultor || '—',
           r.codigo_lr || '—',
@@ -1627,7 +1626,7 @@ document.addEventListener('DOMContentLoaded', () => {
           r.projeto || '—',
           r.agroindustria || '—',
           r.regiao || '—',
-          r.elabore_ok === false ? 'NÃO' : 'SIM'
+          r.dados_elabore_status || (r.elabore_ok === false ? 'NÃO (0%)' : 'SIM (100%)')
         ])
       };
     }

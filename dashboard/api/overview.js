@@ -116,6 +116,8 @@ module.exports = async (req, res) => {
       projeto: r.projeto,
       status: r.status_visita,
       status_class: r.status_visita_classe,
+      cadastro_elabore: Boolean(r.cadastro_elabore),
+      cadastro_elabore_label: r.cadastro_elabore ? 'SIM' : 'NÃO',
       mes_referencia: r.mes_referencia,
       data_associacao: r.data_associacao ? formatDate(r.data_associacao) : '—',
       data_ultima_visita: r.data_ultima_visita ? formatDate(r.data_ultima_visita) : '—',
