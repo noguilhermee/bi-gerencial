@@ -294,6 +294,17 @@ def atualizar_consistencia_mensal(
     return sucessos
 
 
+# coluna em elabore_raw_consistencia_anual -> coluna da planilha *_indicadores_anuais.xlsx
+# (migration db/input/2026_09_30_add_indicadores_anuais_elabore_raw.sql)
+COLUNAS_INDICADORES_ANUAIS = {
+    "producao_anual_litros": "milk_produced_annual",
+    "receita_atividade_litro_anual": "activity_revenue_liter_annual",
+    "coe_litro_anual": "coe_liter_annual",
+    "margem_bruta_litro_anual": "gross_margin_liter_annual",
+    "margem_bruta_anual": "gross_margin_annual",
+}
+
+
 def atualizar_consistencia_anual(
     supabase, raiz_projeto: Path, config: dict, id_map: dict[str, int], limpar_antes: bool = True
 ) -> int:
@@ -376,6 +387,13 @@ def atualizar_consistencia_anual(
         return " | ".join(partes) if partes else None
 
     df_carga["detalhamento_inconsistencia"] = df_excel.apply(extrair_detalhe_anual, axis=1)
+
+    # Indicadores econômicos da janela de 12 meses (fonte da margem em tab_fato_economico).
+    # Coluna ausente na planilha vira nulo: a fato descarta a linha em vez de assumir margem 0.
+    for coluna_raw, coluna_excel in COLUNAS_INDICADORES_ANUAIS.items():
+        origem = next((c for c in df_excel.columns if c.strip().lower() == coluna_excel), None)
+        serie = pd.to_numeric(df_excel[origem], errors="coerce") if origem else pd.Series(float("nan"), index=df_excel.index)
+        df_carga[coluna_raw] = serie.astype(object).where(serie.notna(), None)
 
     agora_iso = datetime.now(ZoneInfo("America/Sao_Paulo")).isoformat()
     df_carga["data_processamento"] = agora_iso

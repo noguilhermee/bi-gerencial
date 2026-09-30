@@ -24,7 +24,14 @@ testadas em 2026-09-23):
     Não incluir esta coluna no COE — é uma possível inconsistência do próprio
     relatório Elabore, a reportar à equipe do lr-indicadores-elabore.
 
-    Margem Bruta = Receita Bruta da Atividade (R$) - COE   (NÃO é Receita do Leite - COE)
+    JANELA ANUAL (2026-09-30): a fato só tem fazenda x mês que existe em elabore_raw_consistencia_anual
+    (janela de 12 meses terminando naquele mês; fazendas com menos de 12 meses ficam de fora).
+    Dali vêm a margem bruta (gross_margin_liter_annual) e o status CONSISTENTE/INCONSISTENTE/OUTLIER
+    (gravado em status_consistencia_mensal). margem_bruta_total = margem/L anual x litros do mês.
+    Motivo: Receita Bruta da Atividade mensal inclui venda de animais e inflava o R$/L (ex.: LR11943).
+    COE, receita, preço e volume seguem mensais, calculados como abaixo.
+
+    Margem Bruta mensal (NÃO usada mais na fato) = Receita Bruta da Atividade (R$) - COE
     volume_leite_mes = Produção Total de Leite (litros)    (NÃO é Volume de Leite Vendido)
     receita_leite_total = Receita Total do Leite (R$)      (Venda + Derivados)
 
@@ -357,6 +364,27 @@ def processar_e_carregar_fato_economico(raiz: Path | None = None) -> int:
             if cod and cod not in mapa_vinculos:
                 mapa_vinculos[cod] = v
 
+    # 1b. Janelas anuais do Elabore (elabore_raw_consistencia_anual, gravada por
+    # atualizar_detalhamento_consistencia.py). Só entra na fato a fazenda x mês que tem janela anual
+    # (mes_referencia = mês final da janela de 12 meses); margem e status vêm dela.
+    raw_anual = buscar_todos_registros(
+        supabase, "elabore_raw_consistencia_anual",
+        "codigo_lr,mes_referencia,consistencia_anual,margem_bruta_litro_anual"
+    )
+    mapa_anual = {}
+    for a in raw_anual:
+        cod_a = str(a.get("codigo_lr") or "").strip().upper()
+        mes_a = str(a.get("mes_referencia") or "")[:7]
+        if cod_a and mes_a and a.get("margem_bruta_litro_anual") is not None:
+            mapa_anual[(cod_a, mes_a)] = a
+    if not mapa_anual:
+        print("❌ Nenhuma janela anual com margem em elabore_raw_consistencia_anual. "
+              "Rode o SQL 2026_09_30_add_indicadores_anuais_elabore_raw.sql e depois "
+              "scripts/functions/atualizar_detalhamento_consistencia.py.")
+        return 0
+    print(f"📅 Janelas anuais com margem disponíveis: {len(mapa_anual)}")
+    sem_anual = 0
+
     # 2. Localizar e ler o relatório de indicadores MENSAIS do Elabore (fonte única da fato econômica)
     dir_elabore_mensal = Path(config.get("caminhos", {}).get("elabore_mensal", ""))
     fallbacks = [
@@ -426,6 +454,11 @@ def processar_e_carregar_fato_economico(raiz: Path | None = None) -> int:
             continue
 
         id_comp = f"{cod_lr}_{mes_str}"
+
+        janela_anual = mapa_anual.get((cod_lr, mes_str[:7]))
+        if janela_anual is None:
+            sem_anual += 1
+            continue
 
         # Fallback para metadados via sq_raw_vinculos (fonte de verdade de projeto/consultor)
         meta_vinculo = mapa_vinculos.get(cod_lr, {})
@@ -511,17 +544,22 @@ def processar_e_carregar_fato_economico(raiz: Path | None = None) -> int:
 
         coe_litro = round(coe_total / vol_produzido, 4) if vol_produzido > 0 else 0.0
 
-        mb_total = receita_bruta_atividade - coe_total
-        mb_litro = round(mb_total / vol_produzido, 4) if vol_produzido > 0 else 0.0
-        flag_mb_pos = 1 if mb_total > 0 else 0
+        # Margem bruta = a da janela anual de 12 meses do Elabore (gross_margin_liter_annual), não
+        # Receita Bruta da Atividade - COE do mês: a receita mensal inclui venda de animais e distorce
+        # o R$/L de quem descartou rebanho. margem_bruta_total fica em "equivalente mensal"
+        # (margem anual/L x litros do mês) para a API continuar calculando soma(MB)/soma(litros).
+        mb_litro = round(float(janela_anual["margem_bruta_litro_anual"]), 4)
+        mb_total = round(mb_litro * vol_produzido, 4)
+        flag_mb_pos = 1 if mb_litro > 0 else 0
 
         # --- Qualidade do dado: só considerar "com dados econômicos" quando a linha tem despesas lançadas ---
         possui_despesas = int(num(row, resolvidas_base, "possui_dados_despesas"))
         possui_receita = int(num(row, resolvidas_base, "possui_dados_receita"))
         possui_dados_econ = 1 if (possui_despesas == 1 or coe_total > 0) and (possui_receita == 1 or receita_bruta_atividade > 0) else 0
 
-        status_consistencia = row.get(resolvidas_base.get("status_consistencia")) if resolvidas_base.get("status_consistencia") else None
-        status_consistencia = str(status_consistencia).strip() if pd.notna(status_consistencia) else None
+        # Status da janela anual (CONSISTENTE / INCONSISTENTE / OUTLIER): é ele que o dashboard usa
+        # em status_consistencia_mensal para decidir quem entra nos gráficos.
+        status_consistencia = str(janela_anual.get("consistencia_anual") or "").strip() or None
 
         registros_dict[id_comp] = {
             "id_composto": id_comp,
@@ -565,7 +603,8 @@ def processar_e_carregar_fato_economico(raiz: Path | None = None) -> int:
         return 0
 
     records = list(registros_dict.values())
-    print(f"📊 Total de registros econômicos extraídos da planilha Elabore: {len(records)}")
+    print(f"📊 Total de registros econômicos extraídos da planilha Elabore: {len(records)} "
+          f"({sem_anual} fazenda x mês da planilha mensal ignorados por não terem janela anual)")
 
     records = sanitize_json_records(records)
     chunk_size = config.get("execucao", {}).get("chunk_size_upsert", 1000)
@@ -584,6 +623,17 @@ def processar_e_carregar_fato_economico(raiz: Path | None = None) -> int:
             print(f"   ⚠️ Aviso no lote {i // chunk_size + 1}: {e}")
 
     print(f"✨ Concluído! {sucessos} registros processados para 'tab_fato_economico'.")
+
+    # Remove da fato quem não tem janela anual (linhas de cargas anteriores, como fazendas com
+    # menos de 12 meses): toda linha gravada agora carrega data_processamento = agora_iso.
+    if sucessos == len(records):
+        try:
+            removidas = supabase.table("tab_fato_economico").delete().lt("data_processamento", agora_iso).execute()
+            print(f"🧹 Linhas sem janela anual removidas da fato: {len(removidas.data or [])}")
+        except Exception as e:
+            print(f"⚠️ Não foi possível limpar linhas antigas de tab_fato_economico: {e}")
+    else:
+        print("⚠️ Houve lotes com erro: limpeza de linhas antigas da fato não executada.")
     return sucessos
 
 

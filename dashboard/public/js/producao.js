@@ -32,7 +32,7 @@
     prod: null,
     terr: null,
     indicador: 'volume_total',
-    base: 'comparavel',
+    periodo: 12,
     charts: {},
     regioes: [],          // nomes em ordem alfabética — cor estável entre gráficos e mapa
     mapa: null,
@@ -132,24 +132,19 @@
   }
 
   function serieAtual() {
-    const evo = est.prod && est.prod.evolucao;
-    if (!evo) return null;
-    if (est.base === 'comparavel' && evo.comparavel) return { ...evo.comparavel, tipo: 'comparavel' };
-    return evo.todas ? { ...evo.todas, tipo: 'todas' } : null;
+    const todas = est.prod && est.prod.evolucao && est.prod.evolucao.todas;
+    if (!todas) return null;
+    if (!est.periodo || est.periodo >= todas.labels.length) return todas;
+    const recorte = {};
+    Object.keys(todas).forEach((k) => { recorte[k] = Array.isArray(todas[k]) ? todas[k].slice(-est.periodo) : todas[k]; });
+    return recorte;
   }
 
   function renderEvolucao() {
     const evo = est.prod && est.prod.evolucao;
     if (!evo) return;
-    // sem base comparável suficiente: cai para "todas" e desabilita o botão
-    const btnComp = document.querySelector('#prodBase button[data-base="comparavel"]');
-    if (btnComp) {
-      btnComp.disabled = !evo.comparavel;
-      btnComp.title = evo.comparavel ? 'Mesmas fazendas medidas em todos os meses' : 'Poucas fazendas medidas em todos os meses recentes';
-    }
-    if (!evo.comparavel && est.base === 'comparavel') est.base = 'todas';
     document.querySelectorAll('#prodBase button').forEach((b) => {
-      const ativo = b.dataset.base === est.base;
+      const ativo = Number(b.dataset.periodo) === est.periodo;
       b.classList.toggle('active', ativo);
       b.setAttribute('aria-pressed', String(ativo));
     });
@@ -164,9 +159,7 @@
     const cfg = INDICADORES[est.indicador];
     const sub = el('prodEvolucaoSub');
     if (sub) {
-      sub.textContent = serie.tipo === 'comparavel'
-        ? `${num(serie.base)} produtores medidos em todos os ${serie.labels.length} meses · ${cfg.unidade}`
-        : `todas as fazendas medidas em cada mês · ${cfg.unidade}`;
+      sub.textContent = `todas as fazendas medidas em cada mês · ${cfg.unidade}`;
     }
     const valores = serie[est.indicador] || [];
     const fmt = (x) => num(x, cfg.casas);
@@ -510,7 +503,7 @@
   // ── Interações e tema ─────────────────────────────────────────────────────────────────────────────
   function ligarControles() {
     document.querySelectorAll('#prodIndicador button').forEach((b) => b.addEventListener('click', () => { est.indicador = b.dataset.ind; renderEvolucao(); }));
-    document.querySelectorAll('#prodBase button').forEach((b) => b.addEventListener('click', () => { if (b.disabled) return; est.base = b.dataset.base; renderEvolucao(); }));
+    document.querySelectorAll('#prodBase button').forEach((b) => b.addEventListener('click', () => { est.periodo = Number(b.dataset.periodo); renderEvolucao(); }));
     new MutationObserver(() => {
       if (est.prod) { renderEvolucao(); }
       if (est.terr && est.terr.regioes) renderBarrasRegiao(est.terr);

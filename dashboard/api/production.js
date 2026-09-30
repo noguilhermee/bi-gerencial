@@ -15,9 +15,6 @@ const { COLUNAS, getSupabaseClient, fetchAll, fetchWithCache, monthLabel, parseF
 
 const BANDA_TRAJETORIA_PCT = 5;
 const MESES_TRAJETORIA = 3;
-const MESES_BASE_COMPARAVEL = 6;
-const MESES_SERIE = 12;
-const BASE_COMPARAVEL_MINIMA = 5;      // abaixo disso a base comparável não representa a carteira
 const COBERTURA_MES_PARCIAL = 0.6;     // mês com menos de 60 % das fazendas do anterior = mês em andamento
 
 const mesDe = (linha) => String(linha.mes_referencia).slice(0, 10);
@@ -133,24 +130,14 @@ module.exports = async (req, res) => {
 
     // ── Evolução ─────────────────────────────────────────────────────────────────────────────────
     const mesesAteFim = meses.filter((m) => m <= mesFim);
-    const mesesSerie = mesesAteFim.slice(-MESES_SERIE);
     const serie = (mesesLista, filtro) => {
       const pontos = mesesLista.map((m) => agregar(filtro ? doMes(m).filter(filtro) : doMes(m)));
       const bloco = { labels: mesesLista.map(monthLabel), meses: mesesLista, fazendas: pontos.map((p) => p.fazendas) };
       CAMPOS_INDICADOR.forEach((c) => { bloco[c] = pontos.map((p) => arred(p[c], c === 'gordura' || c === 'proteina' ? 2 : c === 'produtividade' ? 1 : 0)); });
       return bloco;
     };
-    const mesesBase = mesesAteFim.slice(-MESES_BASE_COMPARAVEL);
-    let codigosBase = null;
-    mesesBase.forEach((m) => {
-      const c = new Set(comVolume(doMes(m)).map((r) => r.codigo_lr));
-      codigosBase = codigosBase === null ? c : new Set([...codigosBase].filter((x) => c.has(x)));
-    });
-    const baseUsavel = mesesBase.length >= 2 && codigosBase && codigosBase.size >= BASE_COMPARAVEL_MINIMA;
-    const evolucao = {
-      todas: serie(mesesSerie),
-      comparavel: baseUsavel ? { ...serie(mesesBase, (r) => codigosBase.has(r.codigo_lr)), base: codigosBase.size } : null
-    };
+    // série completa: o recorte (1m/6m/12m/tudo) é escolhido no gráfico
+    const evolucao = { todas: serie(mesesAteFim) };
 
     // ── Trajetória dos produtores (média 3 meses recentes × 3 anteriores) ───────────────────────────
     const janelaRec = mesesAteFim.slice(-MESES_TRAJETORIA);
