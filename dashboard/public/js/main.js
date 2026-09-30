@@ -421,7 +421,10 @@ document.addEventListener('DOMContentLoaded', () => {
     tbodyMbRankingDetalhe: { colKey: null, dir: 'asc' },
     tbodyCoeDetalhe: { colKey: null, dir: 'asc' },
     tbodyRankingProdutores: { colKey: null, dir: 'asc' },
-    tbodyRankingConsultores: { colKey: null, dir: 'asc' }
+    tbodyRankingConsultores: { colKey: null, dir: 'asc' },
+    tbodyProdCcs: { colKey: 'valor', dir: 'desc' },
+    tbodyProdCpp: { colKey: 'valor', dir: 'desc' },
+    tbodyTrajetoria: { colKey: 'variacao', dir: 'desc' }
   };
 
   // Estado de paginação para cada tabela do dashboard
@@ -436,7 +439,10 @@ document.addEventListener('DOMContentLoaded', () => {
     tableMbRankingDetalhe: { page: 1, pageSize: 25 },
     tableCoeDetalhe: { page: 1, pageSize: 25 },
     tableRankingProdutores: { page: 1, pageSize: 25 },
-    tableRankingConsultores: { page: 1, pageSize: 25 }
+    tableRankingConsultores: { page: 1, pageSize: 25 },
+    tableProdCcs: { page: 1, pageSize: 25 },
+    tableProdCpp: { page: 1, pageSize: 25 },
+    tableTrajetoria: { page: 1, pageSize: 25 }
   };
 
   function getPaginatedSlice(tableId, rows) {
@@ -694,7 +700,10 @@ document.addEventListener('DOMContentLoaded', () => {
       tbodyMbRankingDetalhe: ['posicao', 'nome_fazenda', 'produtor', 'consultor', 'mes_referencia', 'volume_diario_litros', 'preco_medio_litro', 'coe_por_litro', 'margem_bruta_por_litro', 'consistencia_mensal'],
       tbodyCoeDetalhe: ['nome_fazenda', 'produtor', 'mes_referencia', 'volume_leite_mes', 'coe_total_reais', 'coe_por_litro', 'perc_concentrado', 'perc_volumoso', 'perc_mao_de_obra', 'perc_sanidade', 'perc_outros', 'maior_item', 'consistencia_mensal'],
       tbodyRankingProdutores: ['posicao', 'codigo_lr', 'produtor', 'consultor', 'propriedade', 'total_visitas', 'perc_total_label', 'data_ultima_visita'],
-      tbodyRankingConsultores: ['posicao', 'consultor', 'total_visitas', 'fazendas_visitadas', 'total_fazendas', 'perc_cobertura_label', 'visitas_por_produtor_label']
+      tbodyRankingConsultores: ['posicao', 'consultor', 'total_visitas', 'fazendas_visitadas', 'total_fazendas', 'perc_cobertura_label', 'visitas_por_produtor_label'],
+      tbodyProdCcs: ['codigo_lr', 'produtor', 'propriedade', 'consultor', 'regiao', 'valor'],
+      tbodyProdCpp: ['codigo_lr', 'produtor', 'propriedade', 'consultor', 'regiao', 'valor'],
+      tbodyTrajetoria: ['codigo_lr', 'produtor', 'consultor', 'regiao', 'anterior', 'recente', 'variacao']
     };
 
     Object.entries(MAPPINGS).forEach(([tbodyId, colKeys]) => {
@@ -868,7 +877,10 @@ document.addEventListener('DOMContentLoaded', () => {
     tableDataProducers: {},
     tableInconsistencies: {},
     tableRankingProdutores: {},
-    tableRankingConsultores: {}
+    tableRankingConsultores: {},
+    tableProdCcs: {},
+    tableProdCpp: {},
+    tableTrajetoria: {}
   };
 
   function applyColumnFilters(rows, tableId) {
@@ -1044,6 +1056,108 @@ document.addEventListener('DOMContentLoaded', () => {
     renderTablePagination('paginationRankingConsultores', 'tableRankingConsultores', consultants.length);
   }
 
+  // ─── Slide 5: tabelas de CCS/CPP acima do limite e lista da trajetória (mesmo sistema das demais tabelas) ───
+  const PROD_TABLES = {
+    tableProdCcs: { kind: 'ccs', tbody: 'tbodyProdCcs', pagination: 'paginationProdCcs', count: 'countProdCcs' },
+    tableProdCpp: { kind: 'cpp', tbody: 'tbodyProdCpp', pagination: 'paginationProdCpp', count: 'countProdCpp' }
+  };
+
+  function productionAttentionRows(kind) {
+    return (state.production?.atencao?.[kind] || []).map((r) => ({
+      codigo_lr: r.codigo_lr || '—',
+      produtor: r.produtor || '—',
+      propriedade: r.propriedade || '—',
+      consultor: r.consultor || '—',
+      regiao: r.regiao || '—',
+      valor: r.valor
+    }));
+  }
+
+  function trajectoryRows() {
+    return (state.production?.trajetoria?.[state.trajectoryGroup] || []).map((r) => ({
+      codigo_lr: r.codigo_lr || '—',
+      produtor: r.produtor || '—',
+      propriedade: r.propriedade || '—',
+      consultor: r.consultor || '—',
+      regiao: r.regiao || '—',
+      anterior: r.anterior,
+      recente: r.recente,
+      variacao: r.variacao
+    }));
+  }
+
+  function renderProductionTables() {
+    Object.entries(PROD_TABLES).forEach(([tableId, cfg]) => {
+      let rows = applyColumnFilters(productionAttentionRows(cfg.kind), tableId);
+      updateCount(cfg.count, rows);
+      rows = sortRows(rows, tableSort[cfg.tbody], (row, key) => row[key]);
+      updateTableHeadIcons(cfg.tbody, tableSort[cfg.tbody].colKey, tableSort[cfg.tbody].dir);
+      const page = getPaginatedSlice(tableId, rows);
+      if (el(cfg.tbody)) {
+        el(cfg.tbody).innerHTML = rowsOrEmpty(page, 6, (row) => `<tr>
+        <td class="col-center"><strong>${escapeHtml(row.codigo_lr)}</strong></td>
+        <td class="col-left" title="${escapeHtml(row.produtor)}">${escapeHtml(row.produtor)}</td>
+        <td class="col-left col-fazenda" title="${escapeHtml(row.propriedade)}">${escapeHtml(row.propriedade)}</td>
+        <td class="col-left" title="${escapeHtml(row.consultor)}">${escapeHtml(row.consultor)}</td>
+        <td class="col-left" title="${escapeHtml(row.regiao)}">${escapeHtml(row.regiao)}</td>
+        <td class="col-center font-tabular"><strong>${number(row.valor)}</strong></td>
+      </tr>`);
+      }
+      renderTablePagination(cfg.pagination, tableId, rows.length);
+    });
+
+    let traj = applyColumnFilters(trajectoryRows(), 'tableTrajetoria');
+    updateCount('countTrajetoria', traj);
+    traj = sortRows(traj, tableSort.tbodyTrajetoria, (row, key) => row[key]);
+    updateTableHeadIcons('tbodyTrajetoria', tableSort.tbodyTrajetoria.colKey, tableSort.tbodyTrajetoria.dir);
+    const pTraj = getPaginatedSlice('tableTrajetoria', traj);
+    const badge = { evoluiu: 'badge-positive', estavel: 'badge-warning', regrediu: 'badge-danger' }[state.trajectoryGroup] || 'badge-neutral';
+    if (el('tbodyTrajetoria')) {
+      el('tbodyTrajetoria').innerHTML = rowsOrEmpty(pTraj, 7, (row) => `<tr>
+        <td class="col-center"><strong>${escapeHtml(row.codigo_lr)}</strong></td>
+        <td class="col-left" title="${escapeHtml(row.produtor)}">${escapeHtml(row.produtor)}</td>
+        <td class="col-left" title="${escapeHtml(row.consultor)}">${escapeHtml(row.consultor)}</td>
+        <td class="col-left" title="${escapeHtml(row.regiao)}">${escapeHtml(row.regiao)}</td>
+        <td class="col-center font-tabular">${number(row.anterior)}</td>
+        <td class="col-center font-tabular">${number(row.recente)}</td>
+        <td class="col-center font-tabular"><span class="badge ${badge}">${row.variacao > 0 ? '+' : ''}${String(row.variacao).replace('.', ',')}%</span></td>
+      </tr>`);
+    }
+    renderTablePagination('paginationTrajetoria', 'tableTrajetoria', traj.length);
+  }
+
+  // Modal da trajetória: aberto por producao.js ao clicar em "Evoluíram / Estáveis / Regrediram"
+  function openTrajectoryList(group, title, subtitle, rotuloAnterior, rotuloRecente) {
+    state.trajectoryGroup = group;
+    tablePagination.tableTrajetoria = { page: 1, pageSize: 25 };
+    tableColFilters.tableTrajetoria = {};
+    tableSort.tbodyTrajetoria = { colKey: 'variacao', dir: group === 'regrediu' ? 'asc' : 'desc' };
+    document.querySelectorAll('#tableTrajetoria .table-col-filter').forEach((input) => { input.value = ''; });
+    const heads = document.querySelectorAll('#tableTrajetoria thead tr:first-child th');
+    if (heads[4]?.firstChild) heads[4].firstChild.nodeValue = `Média ${rotuloAnterior} (L/dia)`;
+    if (heads[5]?.firstChild) heads[5].firstChild.nodeValue = `Média ${rotuloRecente} (L/dia)`;
+    el('listaProdTitulo').textContent = title;
+    el('listaProdSub').textContent = subtitle;
+    renderProductionTables();
+    const overlay = el('modalListaProdutores');
+    overlay.classList.add('active');
+    overlay.setAttribute('aria-hidden', 'false');
+    carousel?.pauseForModal?.(true);
+  }
+
+  function closeTrajectoryList() {
+    const overlay = el('modalListaProdutores');
+    if (!overlay || !overlay.classList.contains('active')) return;
+    overlay.classList.remove('active');
+    overlay.setAttribute('aria-hidden', 'true');
+    carousel?.pauseForModal?.(false);
+  }
+
+  ['listaProdFechar', 'listaProdOk'].forEach((id) => el(id)?.addEventListener('click', closeTrajectoryList));
+  el('modalListaProdutores')?.addEventListener('click', (e) => { if (e.target === el('modalListaProdutores')) closeTrajectoryList(); });
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeTrajectoryList(); });
+  window.openTrajectoryList = openTrajectoryList;
+
   function renderTables() {
     const filter = currentFilter();
     const overview = state.overview || emptyState.overview;
@@ -1137,6 +1251,7 @@ document.addEventListener('DOMContentLoaded', () => {
     renderTablePagination('paginationVisitados', 'tableVisitados', visited.length);
 
     renderRankingTables();
+    renderProductionTables();
 
     // Tabela 3: Turnover / Movimentação
     let movements = (turnover.tabelaMovimentacao || []).filter((row) => matches(row, filter, true));
@@ -1170,7 +1285,7 @@ document.addEventListener('DOMContentLoaded', () => {
     withData = sortRows(withData, tableSort.tbodyDataProducers, (row, key) => key === 'produtor' ? (row.produtor || row.codigo_lr) : row[key]);
     updateTableHeadIcons('tbodyDataProducers', tableSort.tbodyDataProducers.colKey, tableSort.tbodyDataProducers.dir);
     const pWithData = getPaginatedSlice('tableDataProducers', withData);
-    if (el('tbodyDataProducers')) el('tbodyDataProducers').innerHTML = rowsOrEmpty(pWithData, 7, (row) => {
+    if (el('tbodyDataProducers')) el('tbodyDataProducers').innerHTML = rowsOrEmpty(pWithData, 6, (row) => {
       const labelCad2 = String(row.cadastro_elabore_label || (row.cadastro_elabore === 'INATIVO' ? 'INATIVO' : (row.cadastro_elabore ? 'SIM' : 'NÃO'))).toUpperCase();
       const isInactive2 = labelCad2 === 'INATIVO' || String(row.status || '').toUpperCase().includes('INATIV');
       const isCad = !isInactive2 && row.cadastro_elabore !== false && row.cadastro_elabore !== 'NÃO' && labelCad2 === 'SIM' && Boolean(row.cadastro_elabore ?? true);
@@ -1194,7 +1309,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const dataBadge = `<span class="badge ${dataBadgeClass}">${escapeHtml(statusDados)}</span>`;
       const prodName = row.produtor || row.codigo_lr || '—';
 
-      return `<tr class="${!hasData && isCad ? 'table-row-grave' : ''}"><td class="col-center"><strong>${escapeHtml(row.codigo_lr || '—')}</strong></td><td class="col-left" title="${escapeHtml(prodName)}">${escapeHtml(prodName)}</td><td class="col-left" title="${escapeHtml(row.consultor || '—')}">${escapeHtml(row.consultor || '—')}</td><td class="col-center">${escapeHtml(row.referencia || '—')}</td><td class="col-center">${cadBadge}</td><td class="col-center">${dataBadge}</td><td class="col-center"><button class="btn-elabore-detail" type="button" data-lr="${escapeHtml(row.codigo_lr || '')}">Ver detalhes ›</button></td></tr>`;
+      return `<tr class="${!hasData && isCad ? 'table-row-grave' : ''}"><td class="col-center"><strong>${escapeHtml(row.codigo_lr || '—')}</strong></td><td class="col-left" title="${escapeHtml(prodName)}">${escapeHtml(prodName)}</td><td class="col-left" title="${escapeHtml(row.consultor || '—')}">${escapeHtml(row.consultor || '—')}</td><td class="col-center">${escapeHtml(row.referencia || '—')}</td><td class="col-center">${dataBadge}</td><td class="col-center"><button class="btn-elabore-detail" type="button" data-lr="${escapeHtml(row.codigo_lr || '')}">Ver detalhes ›</button></td></tr>`;
     });
     renderTablePagination('paginationDataProducers', 'tableDataProducers', withData.length);
 
@@ -1205,7 +1320,7 @@ document.addEventListener('DOMContentLoaded', () => {
     inconsistencies = sortRows(inconsistencies, tableSort.tbodyInconsistencies, (row, key) => key === 'produtor' ? (row.produtor || row.codigo_lr) : row[key]);
     updateTableHeadIcons('tbodyInconsistencies', tableSort.tbodyInconsistencies.colKey, tableSort.tbodyInconsistencies.dir);
     const pInconsistencies = getPaginatedSlice('tableInconsistencies', inconsistencies);
-    if (el('tbodyInconsistencies')) el('tbodyInconsistencies').innerHTML = rowsOrEmpty(pInconsistencies, 7, (row, idx) => {
+    if (el('tbodyInconsistencies')) el('tbodyInconsistencies').innerHTML = rowsOrEmpty(pInconsistencies, 8, (row, idx) => {
       const isGraveMensal = isStatusInconsistente(row.consistencia_mensal || row.consistencia);
       const isGraveAnual = isStatusInconsistente(row.consistencia_anual);
       const isConsistMensal = isStatusConsistente(row.consistencia_mensal || row.consistencia);
@@ -1230,7 +1345,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const prodName = row.produtor || row.codigo_lr || '—';
       const seqText = row.meses_sequenciais != null ? number(row.meses_sequenciais) : '—';
 
-      return `<tr class="${rowClass}"><td class="col-center"><strong>${escapeHtml(row.codigo_lr || '—')}</strong></td><td class="col-left" title="${escapeHtml(prodName)}"><strong>${escapeHtml(prodName)}</strong></td><td class="col-left" title="${escapeHtml(row.consultor || '—')}">${escapeHtml(row.consultor || '—')}</td><td class="col-center font-tabular">${seqText}</td><td class="col-center"><span class="badge ${badgeClassMensal}" title="${escapeHtml(row.consistencia_mensal || 'SEM DADOS')}">${escapeHtml(row.consistencia_mensal || 'SEM DADOS')}</span></td><td class="col-center"><span class="badge ${badgeClassAnual}" title="${escapeHtml(row.consistencia_anual || 'SEM DADOS')}">${escapeHtml(row.consistencia_anual || 'SEM DADOS')}</span></td><td class="col-center"><button class="link-button btn-view-details" type="button" onclick="window.openInconsistencyDetail('${escapeHtml(row.codigo_lr || row.produtor)}')">Ver detalhes ›</button></td></tr>`;
+      return `<tr class="${rowClass}"><td class="col-center"><strong>${escapeHtml(row.codigo_lr || '—')}</strong></td><td class="col-left" title="${escapeHtml(prodName)}"><strong>${escapeHtml(prodName)}</strong></td><td class="col-left col-fazenda" title="${escapeHtml(row.propriedade || '—')}">${escapeHtml(row.propriedade || '—')}</td><td class="col-left" title="${escapeHtml(row.consultor || '—')}">${escapeHtml(row.consultor || '—')}</td><td class="col-center font-tabular">${seqText}</td><td class="col-center"><span class="badge ${badgeClassMensal}" title="${escapeHtml(row.consistencia_mensal || 'SEM DADOS')}">${escapeHtml(row.consistencia_mensal || 'SEM DADOS')}</span></td><td class="col-center"><span class="badge ${badgeClassAnual}" title="${escapeHtml(row.consistencia_anual || 'SEM DADOS')}">${escapeHtml(row.consistencia_anual || 'SEM DADOS')}</span></td><td class="col-center"><button class="link-button btn-view-details" type="button" onclick="window.openInconsistencyDetail('${escapeHtml(row.codigo_lr || row.produtor)}')">Ver detalhes ›</button></td></tr>`;
     });
     renderTablePagination('paginationInconsistencies', 'tableInconsistencies', inconsistencies.length);
 
@@ -1749,6 +1864,25 @@ document.addEventListener('DOMContentLoaded', () => {
       };
     }
 
+    if (tableId === 'tableProdCcs' || tableId === 'tableProdCpp') {
+      const kind = tableId === 'tableProdCcs' ? 'ccs' : 'cpp';
+      const data = sortRows(applyColumnFilters(productionAttentionRows(kind), tableId), tableSort[PROD_TABLES[tableId].tbody], (row, key) => row[key]);
+      return {
+        headers: ['ID (Código LR)', 'Produtor(a)', 'Fazenda', 'Consultor(a)', 'Região', kind === 'ccs' ? 'CCS (x1.000 céls./mL)' : 'CPP (x1.000 UFC/mL)'],
+        rows: data.map((r) => [r.codigo_lr, r.produtor, r.propriedade, r.consultor, r.regiao, r.valor])
+      };
+    }
+
+    if (tableId === 'tableTrajetoria') {
+      const data = sortRows(applyColumnFilters(trajectoryRows(), 'tableTrajetoria'), tableSort.tbodyTrajetoria, (row, key) => row[key]);
+      const t = state.production?.trajetoria;
+      const rotulo = (lista) => (lista && lista.length ? `${lista[0]}–${lista[lista.length - 1]}` : '');
+      return {
+        headers: ['ID (Código LR)', 'Produtor(a)', 'Fazenda', 'Consultor(a)', 'Região', `Média ${rotulo(t?.janelaAnterior)} (L/dia)`, `Média ${rotulo(t?.janelaRecente)} (L/dia)`, 'Variação (%)'],
+        rows: data.map((r) => [r.codigo_lr, r.produtor, r.propriedade, r.consultor, r.regiao, r.anterior, r.recente, r.variacao])
+      };
+    }
+
     return null;
   }
 
@@ -1852,6 +1986,9 @@ document.addEventListener('DOMContentLoaded', () => {
     el('btnExportCadastroDetalhe')?.addEventListener('click', () => exportTableToCsv('tableCadastroDetalhe', 'tempo_cadastro_produtores'));
     el('btnExportCoeDetalhe')?.addEventListener('click', () => exportTableToCsv('tableCoeDetalhe', 'composicao_coe_fazendas'));
     el('btnExportMbRankingDetalhe')?.addEventListener('click', () => exportTableToCsv('tableMbRankingDetalhe', 'top10_margem_bruta'));
+    el('btnExportProdCcs')?.addEventListener('click', () => exportTableToCsv('tableProdCcs', 'ccs_acima_do_limite'));
+    el('btnExportProdCpp')?.addEventListener('click', () => exportTableToCsv('tableProdCpp', 'cpp_acima_do_limite'));
+    el('btnExportTrajetoria')?.addEventListener('click', () => exportTableToCsv('tableTrajetoria', `trajetoria_produtores_${state.trajectoryGroup || 'lista'}`));
   }
 
   function updateTimestamp() {
@@ -1976,6 +2113,17 @@ document.addEventListener('DOMContentLoaded', () => {
       renderTables();
       updateTimestamp();
       hideLoading(0);
+
+      // Produção/qualidade e território (slides 5 e 6) também chegam sem travar o restante
+      if (window.LRProducao) {
+        Promise.all([getJson(`/api/production${query}`), getJson(`/api/territory${query}`)]).then(([production, territory]) => {
+          if (loadId !== loadSequence) return;
+          state.production = production;
+          window.LRProducao.renderProducao(production);
+          renderProductionTables();
+          window.LRProducao.renderTerritorio(territory);
+        });
+      }
 
       // Econômico chega depois sem travar o restante do dashboard
       const economics = await economicsRequest;
@@ -3096,6 +3244,7 @@ document.addEventListener('DOMContentLoaded', () => {
       return {
         cod,
         produtor,
+        propriedade: r.propriedade || '—',
         consultor,
         projeto,
         data,
@@ -3132,6 +3281,7 @@ document.addEventListener('DOMContentLoaded', () => {
       { k: 'cod', t: 'ID', blk: false },
       { k: 'consultor', t: 'Consultor(a)', blk: false },
       { k: 'produtor', t: 'Produtor(a)', blk: false },
+      { k: 'propriedade', t: 'Fazenda', blk: false },
       { k: 'projeto', t: 'Projeto', blk: false },
       { k: 'data', t: 'Últ. Ref.', blk: false },
       { k: 'cad', t: 'Cadastro Elabore', blk: false },
@@ -3143,6 +3293,7 @@ document.addEventListener('DOMContentLoaded', () => {
       <th class="col-center" data-key="cod">ID</th>
       <th class="col-left" data-key="consultor">Consultor(a)</th>
       <th class="col-left" data-key="produtor">Produtor(a)</th>
+      <th class="col-left" data-key="propriedade">Fazenda</th>
       <th class="col-left" data-key="projeto">Projeto</th>
       <th class="col-center" data-key="data">Últ. Ref.</th>
       <th class="col-center" data-key="cad">Cadastro Elabore</th>
@@ -3159,7 +3310,7 @@ document.addEventListener('DOMContentLoaded', () => {
         : `<input type="text" class="table-col-filter" data-col="${c.k}" placeholder="Filtrar..." aria-label="Filtrar ${c.t}">`
     }</th>`;
 
-    elFilters.innerHTML = COLS.slice(0, 7).map(filterCell).join('') + '<th class="det-col"></th>' + COLS.slice(7).map(filterCell).join('');
+    elFilters.innerHTML = COLS.slice(0, 8).map(filterCell).join('') + '<th class="det-col"></th>' + COLS.slice(8).map(filterCell).join('');
   }
 
   function filteredElaboreRows(ignoreGrupo = false) {
@@ -3219,13 +3370,14 @@ document.addEventListener('DOMContentLoaded', () => {
         <td class="col-center"><strong>${escapeHtml(r.cod)}</strong></td>
         <td class="col-left" title="${escapeHtml(r.consultor)}">${escapeHtml(r.consultor)}</td>
         <td class="col-left" title="${escapeHtml(r.produtor)}">${escapeHtml(r.produtor)}</td>
+        <td class="col-left" title="${escapeHtml(r.propriedade)}">${escapeHtml(r.propriedade)}</td>
         <td class="col-left" title="${escapeHtml(r.projeto)}">${escapeHtml(r.projeto)}</td>
         <td class="col-center">${escapeHtml(r.data)}</td>
         <td class="col-center cell-trigger-detail" data-action="detail" title="Clique para ver os detalhes deste produtor"><span class="badge ${r.cad === 'SIM' ? 'badge-positive' : 'badge-neutral'}">${r.cad}</span></td>
         <td class="col-center cell-trigger-detail" data-action="detail" title="Clique para ver os detalhes deste produtor"><span class="badge ${r.cad === 'NÃO' ? 'badge-neutral' : pctClassElabore(r.pct)}">${r.status}</span></td>
         <td class="det-col cell-trigger-detail" data-action="detail"><button class="btn-elabore-detail btn-det" type="button" data-cod="${escapeHtml(r.cod)}" aria-label="Ver detalhes de ${escapeHtml(r.produtor)}">Ver detalhes ›</button></td>
         ${BLOCOS_ELABORE.map(([bk, , bt], i) => `<td class="blk ${i === 0 ? 'first-blk' : ''}">${icon(r[bk], bt)}</td>`).join('')}
-      </tr>`).join('') : `<tr><td colspan="16" class="el-empty">Nenhum produtor com esses filtros.</td></tr>`;
+      </tr>`).join('') : `<tr><td colspan="17" class="el-empty">Nenhum produtor com esses filtros.</td></tr>`;
     }
 
     const footEl = el('elFoot');
@@ -3233,7 +3385,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const cads = list.filter((r) => r.cad === 'SIM');
       const media = cads.length ? Math.round(cads.reduce((s, r) => s + r.pct, 0) / cads.length) : 0;
       footEl.innerHTML = `<tr>
-        <td colspan="5" class="col-left">Preenchimento entre ${cads.length.toLocaleString('pt-BR')} cadastrados</td>
+        <td colspan="6" class="col-left">Preenchimento entre ${cads.length.toLocaleString('pt-BR')} cadastrados</td>
         <td class="col-center">${list.length ? Math.round(cads.length / list.length * 100) : 0}%</td>
         <td class="col-center"><div class="pct">média ${media}%</div></td>
         <td class="det-col"></td>
@@ -3388,8 +3540,8 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   el('btnExportElabore')?.addEventListener('click', () => {
-    const head = ['ID', 'Consultor', 'Produtor', 'Projeto', 'Ult. referencia', 'Cadastro Elabore', 'Dados Elabore', ...BLOCOS_ELABORE.map(([, , t]) => t)];
-    const body = filteredElaboreRows(false).map((r) => [r.cod, r.consultor, r.produtor, r.projeto, r.data, r.cad, r.status, ...BLOCOS_ELABORE.map(([k]) => r[k])]);
+    const head = ['ID', 'Consultor', 'Produtor', 'Fazenda', 'Projeto', 'Ult. referencia', 'Cadastro Elabore', 'Dados Elabore', ...BLOCOS_ELABORE.map(([, , t]) => t)];
+    const body = filteredElaboreRows(false).map((r) => [r.cod, r.consultor, r.produtor, r.propriedade, r.projeto, r.data, r.cad, r.status, ...BLOCOS_ELABORE.map(([k]) => r[k])]);
     const csv = '\ufeff' + [head, ...body].map((l) => l.map((v) => `"${String(v).replace(/"/g, '""')}"`).join(';')).join('\r\n');
     const a = Object.assign(document.createElement('a'), {
       href: URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8;' })),

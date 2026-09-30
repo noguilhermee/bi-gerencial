@@ -50,6 +50,8 @@ bi-gerencial/
 │   │   ├── turnover.js          # Movimentação (entradas/saídas/churn)
 │   │   ├── consistency.js       # Consistência Elabore (mensal/anual)
 │   │   ├── economics.js         # Indicadores econômicos e produção
+│   │   ├── production.js        # Slide 5: produção e qualidade do leite (tab_fato_producao_mensal)
+│   │   ├── territory.js         # Slide 6: carteira e território (carteira + localização + produção)
 │   │   ├── health.js            # Health check (Supabase + Azure PG)
 │   │   └── azurePostgres.js     # [LEGADO] conexão direta Azure PostgreSQL
 │   ├── public/
@@ -57,6 +59,7 @@ bi-gerencial/
 │   │   ├── css/dashboard.css    # Estilos (design system, light/dark)
 │   │   ├── js/main.js           # Lógica principal (~3100 linhas)
 │   │   ├── js/charts.js         # Fábrica de gráficos Chart.js
+│   │   ├── js/producao.js       # Slides 5 e 6: gráficos, trajetória e mapa (Leaflet); só desenha o que a API devolve
 │   │   ├── js/carousel.js       # Modo kiosk (slides para TV)
 │   │   └── img/                 # Logos e ícones
 │   ├── server.js                # Servidor local (Node.js, porta 5050)

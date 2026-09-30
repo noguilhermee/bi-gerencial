@@ -792,6 +792,25 @@ def executar_reconciliacao(reindex_completo: bool = False):
 
     print(f"\n🌱 6. Processando espelhos e base ativa mensal de fazendas...")
 
+    # Coordenadas (latitude/longitude/origem_coordenada/coordenada_corrigida) são colunas novas em
+    # sq_raw_fazendas_grupo e tab_dim_fazendas_ativas (db/input/2026_09_30_ddl_coordenadas_dim.sql). Sem elas o upsert
+    # falharia DEPOIS de a etapa 6.3 apagar o mês da dim; por isso a presença é checada antes e as colunas saem do envio.
+    CAMPOS_COORD = ("latitude", "longitude", "origem_coordenada", "coordenada_corrigida")
+
+    def _tem_colunas_coord(tabela: str) -> bool:
+        try:
+            supabase.table(tabela).select(",".join(CAMPOS_COORD)).limit(1).execute()
+            return True
+        except Exception:
+            print(f"   ⚠️ {tabela} ainda não tem as colunas de coordenada (rode db/input/2026_09_30_ddl_coordenadas_dim.sql); "
+                  f"as coordenadas não serão gravadas nela.")
+            return False
+
+    def _sem_nan(registros: list, descartar: tuple = ()) -> list:
+        """NaN não é JSON válido; colunas float com vazio viram NaN ao passar pelo DataFrame."""
+        return [{k: (None if isinstance(v, float) and v != v else v) for k, v in r.items() if k not in descartar}
+                for r in registros]
+
     # Identificar todas as inativações com data e código
     inativacoes_por_codigo: Dict[str, str] = {}
     if not df_inats_existentes.empty:
@@ -1111,6 +1130,24 @@ def executar_reconciliacao(reindex_completo: bool = False):
 
         return t_str
 
+    print("\n📍 Lendo a coordenada do produtor nas planilhas de visita do SmartQuestion...")
+    try:
+        try:
+            from functions.coordenadas_visitas import carregar_coordenadas_smartquestion
+        except ImportError:
+            from coordenadas_visitas import carregar_coordenadas_smartquestion
+        coords_sq = carregar_coordenadas_smartquestion(bd_path)
+    except Exception as e_coord:
+        coords_sq = {}
+        print(f"   ⚠️ Coordenadas do SmartQuestion não carregadas ({e_coord}); a reconciliação segue sem elas.")
+
+    def _coord_sq(codigo: str) -> dict:
+        c = coords_sq.get(str(codigo or "").strip().upper().replace(" ", "")) or {}
+        return {
+            "latitude": c.get("latitude"), "longitude": c.get("longitude"),
+            "origem_coordenada": c.get("origem_coordenada"), "coordenada_corrigida": c.get("coordenada_corrigida"),
+        }
+
     for _, r in df_g_raw.iterrows():
         c = str(r.get(cod_col_name) or "").strip()
         if not c or c.lower() == "nan":
@@ -1172,6 +1209,7 @@ def executar_reconciliacao(reindex_completo: bool = False):
             "projeto": proj_final,
             "agroindustria": agro_calc,
             "regiao": reg_calc,
+            **_coord_sq(c),
             "codigo_agroindustria": cod_agro,
             "codigo_fazenda": cod_faz,
             "status": status_str,
@@ -1211,7 +1249,8 @@ def executar_reconciliacao(reindex_completo: bool = False):
     except Exception as e_del_raw:
         print(f"   ℹ️ Aviso ao expurgar mês atual de {tabela_destino_raw}: {e_del_raw}")
 
-    recs_todos = df_todos.to_dict(orient="records")
+    recs_todos = _sem_nan(df_todos.to_dict(orient="records"),
+                          () if _tem_colunas_coord(tabela_destino_raw) else CAMPOS_COORD)
     LOTE = 1000
     sucesso_raw = 0
     erros_raw = 0
@@ -1441,6 +1480,7 @@ def executar_reconciliacao(reindex_completo: bool = False):
     df_base_candidatos = pd.DataFrame(candidatos_list).drop_duplicates(subset=["codigo_lr"])
     print(f"   -> {len(df_base_candidatos)} produtores ativas mapeados como candidatos a tab_dim_fazendas_ativas.")
 
+    dim_tem_coord = _tem_colunas_coord(tabela_ativos)
     for ref_m in meses_reconciliacao:
         novos_ativos_m = []
 
@@ -1544,6 +1584,7 @@ def executar_reconciliacao(reindex_completo: bool = False):
                 "projeto": proj_final,
                 "agroindustria": agro_calc,
                 "regiao": reg_calc,
+                **_coord_sq(c),
                 "codigo_agroindustria": r.get("codigo_agroindustria"),
                 "codigo_fazenda": r.get("codigo_fazenda"),
                 "status": "Ativo",
@@ -1560,7 +1601,8 @@ def executar_reconciliacao(reindex_completo: bool = False):
         except Exception as e_del_m:
             print(f"   ℹ️ Aviso ao limpar {ref_m} em {tabela_ativos}: {e_del_m}")
 
-        registros_ativos = df_novos_ativos.to_dict(orient="records")
+        registros_ativos = _sem_nan(df_novos_ativos.to_dict(orient="records"),
+                                    () if dim_tem_coord else CAMPOS_COORD)
         sucesso_ativos = 0
         erros_ativos = 0
         for i in range(0, len(registros_ativos), LOTE):

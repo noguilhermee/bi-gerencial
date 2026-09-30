@@ -470,3 +470,101 @@ def classificar_status_sem_visita(inativacao_pendente: bool, dias_sem_visita: in
     if dias_sem_visita <= 0:
         return "Vínculo Recente", "badge-positive"
     return f"Sem visita ({dias_sem_visita}d)", "badge-warning"
+
+
+# ─── Produção e qualidade do leite (tab_fato_producao_mensal) ────────────────
+
+def produtividade_l_vaca_dia(producao_l_dia, vacas_lactacao) -> float | None:
+    """Litros por vaca em lactação por dia; None quando faltar volume ou vacas."""
+    try:
+        p, v = float(producao_l_dia), float(vacas_lactacao)
+    except (TypeError, ValueError):
+        return None
+    if p != p or v != v or v <= 0:
+        return None
+    return p / v
+
+
+def producao_suspeita(producao_l_dia, vacas_lactacao, mediana_do_produtor,
+                      produtividade_min: float, produtividade_max: float, fator_salto: float) -> bool:
+    """Registro de produção suspeito: produtividade fora da faixa plausível ou volume que salta
+    `fator_salto` vezes acima/abaixo da mediana do próprio produtor. Limites em config.yaml (producao:)."""
+    try:
+        p = float(producao_l_dia)
+    except (TypeError, ValueError):
+        return False
+    if p != p or p <= 0:
+        return False
+    prod = produtividade_l_vaca_dia(p, vacas_lactacao)
+    if prod is not None and not (produtividade_min <= prod <= produtividade_max):
+        return True
+    if mediana_do_produtor and mediana_do_produtor > 0 and fator_salto > 1:
+        razao = p / mediana_do_produtor
+        if razao >= fator_salto or razao <= 1 / fator_salto:
+            return True
+    return False
+
+
+# ─── Localização das fazendas (tab_dim_fazenda_localizacao) ──────────────────
+
+# Caixa aproximada (lat_min, lat_max, lon_min, lon_max) de cada UF. Serve só para descartar coordenadas
+# que caem fora do estado informado no cadastro (lat/long invertidas, sinal perdido, zero etc.).
+_CAIXA_UF = {
+    "AC": (-11.15, -7.11, -73.99, -66.62), "AL": (-10.50, -8.81, -38.24, -35.15), "AM": (-9.82, 2.25, -73.80, -56.10),
+    "AP": (-1.24, 4.44, -54.88, -49.87), "BA": (-18.35, -8.53, -46.62, -37.34), "CE": (-7.86, -2.78, -41.42, -37.25),
+    "DF": (-16.05, -15.50, -48.29, -47.31), "ES": (-21.30, -17.89, -41.88, -39.68), "GO": (-19.50, -12.39, -53.25, -45.91),
+    "MA": (-10.26, -1.04, -48.76, -41.79), "MG": (-22.92, -14.23, -51.05, -39.86), "MS": (-24.07, -17.17, -58.17, -50.92),
+    "MT": (-18.04, -7.35, -61.63, -50.22), "PA": (-9.84, 2.59, -58.90, -46.06), "PB": (-8.30, -6.02, -38.77, -34.79),
+    "PE": (-9.48, -7.27, -41.36, -34.81), "PI": (-10.93, -2.74, -45.99, -40.37), "PR": (-26.72, -22.52, -54.62, -48.02),
+    "RJ": (-23.37, -20.76, -44.89, -40.96), "RN": (-6.98, -4.83, -38.58, -34.97), "RO": (-13.69, -7.97, -66.81, -59.77),
+    "RR": (-1.58, 5.27, -64.83, -58.89), "RS": (-33.75, -27.08, -57.65, -49.69), "SC": (-29.35, -25.96, -53.84, -48.55),
+    "SE": (-11.57, -9.51, -38.25, -36.39), "SP": (-25.31, -19.78, -53.11, -44.16), "TO": (-13.47, -5.17, -50.74, -45.70),
+}
+_CAIXA_BRASIL = (-34.0, 5.5, -74.0, -33.5)
+_TOLERANCIA_UF = 0.3   # graus (~33 km): cadastro de município na divisa e caixa aproximada
+
+
+_UF_POR_NOME = {
+    "ACRE": "AC", "ALAGOAS": "AL", "AMAPA": "AP", "AMAZONAS": "AM", "BAHIA": "BA", "CEARA": "CE", "DISTRITO FEDERAL": "DF",
+    "ESPIRITO SANTO": "ES", "GOIAS": "GO", "MARANHAO": "MA", "MATO GROSSO": "MT", "MATO GROSSO DO SUL": "MS",
+    "MINAS GERAIS": "MG", "PARA": "PA", "PARAIBA": "PB", "PARANA": "PR", "PERNAMBUCO": "PE", "PIAUI": "PI",
+    "RIO DE JANEIRO": "RJ", "RIO GRANDE DO NORTE": "RN", "RIO GRANDE DO SUL": "RS", "RONDONIA": "RO", "RORAIMA": "RR",
+    "SANTA CATARINA": "SC", "SAO PAULO": "SP", "SERGIPE": "SE", "TOCANTINS": "TO",
+}
+
+
+def sigla_uf(valor) -> str | None:
+    """Sigla de 2 letras da UF ('GO', ' mg ' -> 'MG', 'Minas Gerais' -> 'MG'); None quando não for uma UF conhecida."""
+    s = "" if valor is None else str(valor).strip().upper()
+    if s in _CAIXA_UF:
+        return s
+    return _UF_POR_NOME.get(chave(s))
+
+
+def _dentro(lat: float, lon: float, caixa: tuple, tol: float = 0.0) -> bool:
+    return caixa[0] - tol <= lat <= caixa[1] + tol and caixa[2] - tol <= lon <= caixa[3] + tol
+
+
+def sanear_coordenada(latitude, longitude, uf=None) -> tuple[float, float, bool] | None:
+    """Coordenada utilizável (lat, lon, foi_corrigida) ou None.
+
+    Tenta, nesta ordem: como veio; latitude/longitude trocadas; sinal perdido (o Brasil inteiro tem longitude
+    negativa; o sinal da latitude é decidido pela caixa da UF); trocadas + sinal. A primeira que cair dentro da
+    UF informada (ou do Brasil, se a UF for desconhecida) vale. Zero, vazio e fora de faixa viram None.
+    """
+    try:
+        a, b = float(latitude), float(longitude)
+    except (TypeError, ValueError):
+        return None
+    if a != a or b != b or (abs(a) < 0.01 and abs(b) < 0.01) or abs(a) > 180 or abs(b) > 180:
+        return None
+    sigla = sigla_uf(uf)
+    caixa, tol = (_CAIXA_UF[sigla], _TOLERANCIA_UF) if sigla else (_CAIXA_BRASIL, 0.0)
+    candidatas: list[tuple[float, float, bool]] = [(a, b, False), (b, a, True)]
+    for x, y in ((a, b), (b, a)):
+        for sinal_lat in (-1, 1):
+            candidatas.append((sinal_lat * abs(x), -abs(y), True))
+    for lat, lon, corrigida in candidatas:
+        if _dentro(lat, lon, caixa, tol):
+            return round(lat, 6), round(lon, 6), corrigida
+    return None

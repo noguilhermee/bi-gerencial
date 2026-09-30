@@ -5,7 +5,7 @@ const SEM_DADOS = 'Sem dados';
 /** Linha única de consistência: fazenda ativa (carteira) ou fora da carteira com registro Elabore. */
 function daCarteira(r) {
   return {
-    codigo_lr: r.codigo_lr, nome_produtor: r.nome_produtor, consultor: r.consultor, projeto: r.projeto,
+    codigo_lr: r.codigo_lr, nome_produtor: r.nome_produtor, propriedade: r.nome_propriedade, consultor: r.consultor, projeto: r.projeto,
     agroindustria: r.agroindustria, regiao: r.regiao, mes_referencia: r.mes_referencia, status: 'ATIVO',
     consistencia_mensal: r.consistencia_mensal, consistencia_anual: r.consistencia_anual,
     detalhamento_mensal: r.detalhamento_mensal, detalhamento_anual: r.detalhamento_anual,
@@ -68,6 +68,9 @@ module.exports = async (req, res) => {
       porFazenda.set(`${c.codigo_lr}|${String(c.mes_referencia).slice(0, 10)}`, foraDaCarteira(c));
     });
     // Regra 13 (AGENTS.md): fazendas de consultor que não lança no Elabore ficam fora dos indicadores (flag gravada pelo ETL)
+    // Nome da fazenda por código (fora da carteira o fato de consistência não traz a propriedade)
+    const fazendaPorCodigo = new Map();
+    carteiraTodos.forEach(r => { if (r.nome_propriedade && !fazendaPorCodigo.has(r.codigo_lr)) fazendaPorCodigo.set(r.codigo_lr, r.nome_propriedade); });
     const base = [...porFazenda.values()].filter(r => !r.sem_lancamento_elabore && rowMatchesFilters(r, filters));
 
     const conta = (campo, valor) => base.filter(r => r[campo] === valor).length;
@@ -110,6 +113,7 @@ module.exports = async (req, res) => {
     const tabelaInconsistentes = base.map(r => ({
       codigo_lr: r.codigo_lr,
       produtor: r.nome_produtor,
+      propriedade: r.propriedade || fazendaPorCodigo.get(r.codigo_lr) || null,
       consultor: r.consultor,
       agroindustria: r.agroindustria,
       regiao: r.regiao,
@@ -131,6 +135,7 @@ module.exports = async (req, res) => {
       return {
         codigo_lr: r.codigo_lr,
         produtor: r.nome_produtor,
+        propriedade: r.propriedade || fazendaPorCodigo.get(r.codigo_lr) || null,
         consultor: r.consultor,
         agroindustria: r.agroindustria,
         regiao: r.regiao,

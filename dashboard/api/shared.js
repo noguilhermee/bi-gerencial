@@ -103,6 +103,16 @@ const COLUNAS = {
     'margem_bruta_por_litro', 'coe_concentrado', 'coe_volumoso', 'coe_mao_de_obra', 'coe_sanidade',
     'coe_outros', 'status_consistencia_mensal'
   ].join(','),
+  producao: [
+    'id_composto', 'codigo_lr', 'mes_referencia', 'nome_produtor', 'nome_propriedade', 'nome_consultor',
+    'projeto', 'agroindustria', 'regiao', 'status_produtor', 'producao_l_dia', 'vacas_lactacao',
+    'produtividade_l_vaca_dia', 'ccs', 'cpp', 'gordura', 'proteina', 'producao_suspeita', 'producao_imputada',
+    'ccs_acima_limite', 'cpp_acima_limite', 'qualidade_descartada'
+  ].join(','),
+  // Coordenada de cada fazenda vive em tab_dim_fazendas_ativas (1 linha por fazenda × mês; ver AGENTS.md, regra 10)
+  dimLocalizacao: [
+    'codigo_produtor', 'latitude', 'longitude', 'origem_coordenada', 'coordenada_corrigida', 'cidade', 'estado'
+  ].join(','),
   vinculosEconomico: [
     'id_composto', 'codigo_lr', 'nome_produtor', 'nome_propriedade', 'projeto', 'cidade_produtor',
     'estado_produtor', 'data_associacao'

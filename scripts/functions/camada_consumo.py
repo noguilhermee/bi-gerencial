@@ -12,6 +12,11 @@ regras de `regras_negocio` e grava tabelas prontas para leitura direta pela API:
                             sq_raw_movimentacao por reconciliar_movimentacao_e_ativos.py)
   tab_dim_consultor_atuacao ponte consultor × agroindústria × região × mês (relacionamento dos filtros);
                             também completa tab_dim_consultor e alinha tab_fato_economico às dimensões
+  tab_fato_producao_mensal  1 linha por fazenda × mês com volume, produtividade e qualidade do leite (última visita
+                            do mês com medição); marca e trata registros suspeitos (config.yaml: producao)
+  tab_dim_fazendas_ativas   (colunas latitude, longitude, origem_coordenada, coordenada_corrigida) coordenada saneada
+                            de cada fazenda: visitas do SmartQuestion/base do Procampo, Elabore ou posição aproximada
+                            pelo município (mediana das outras fazendas da cidade)
 
 Região e agroindústria só saem das dimensões: uma região que não pertence à agroindústria da fazenda vira
 "NÃO INFORMADA" e é listada em db/output/logs/*_divergencias_dimensoes.xlsx para correção na origem.
@@ -68,6 +73,8 @@ TAB_PRO_MOVIMENTACAO = "pro_raw_movimentacao"
 TAB_ECONOMICO = "tab_fato_economico"
 TAB_DIM_CONSULTOR = "tab_dim_consultor"
 TAB_CONSULTOR_ATUACAO = "tab_dim_consultor_atuacao"
+TAB_PRODUCAO = "tab_fato_producao_mensal"
+TAB_DIM_FAZENDAS = "tab_dim_fazendas_ativas"
 
 # Não deixa uma carga de raw incompleta esvaziar a fato: aborta se algum mês perder
 # mais que esta fração das visitas já publicadas.
@@ -97,6 +104,7 @@ class Fontes:
     pro_visitas: pd.DataFrame = field(default_factory=pd.DataFrame)
     pro_movimentacao: pd.DataFrame = field(default_factory=pd.DataFrame)
     cfg_procampo: dict = field(default_factory=dict)   # bloco `procampo:` do config.yaml
+    cfg_producao: dict = field(default_factory=dict)   # bloco `producao:` do config.yaml
 
 
 def _buscar_tudo(supabase, tabela: str, colunas: str = "*", ordem: str | None = None) -> pd.DataFrame:
@@ -114,7 +122,8 @@ def _buscar_tudo(supabase, tabela: str, colunas: str = "*", ordem: str | None = 
 
 
 SQL_ELABORE_PROPRIEDADES = """
-SELECT upper(trim(labor_rural_code)) AS codigo_lr, dairy_region, agroindustry_name, property_status
+SELECT upper(trim(labor_rural_code)) AS codigo_lr, dairy_region, agroindustry_name, property_status,
+       upper(trim(uf)) AS uf, city, latitude, longitude
 FROM analytics_mart.vw_dim_property
 WHERE labor_rural_code IS NOT NULL AND trim(labor_rural_code) <> ''
 """
@@ -195,7 +204,8 @@ def carregar_fontes(supabase, conexao_elabore, data_inicio_elabore: str) -> Font
         "dim_agroindustria": _buscar_tudo(supabase, "tab_dim_agroindustria", "id,nome_agroindustria,nome_bi,exibir_no_bi",
                                           ordem="id"),
         "pro_fazendas": _buscar_tudo(supabase, TAB_PRO_FAZENDAS,
-                                     "matricula,codigo_lr,situacao,nome_produtor,nome_propriedade,data_inicio,data_conclusao",
+                                     "matricula,codigo_lr,situacao,nome_produtor,nome_propriedade,data_inicio,data_conclusao,"
+                                     "uf,cidade,latitude,longitude",
                                      ordem="matricula"),
         "pro_visitas": _buscar_tudo(supabase, TAB_PRO_VISITAS,
                                     "id_composto,matricula,codigo_lr,nome_propriedade,nome_produtor,nome_consultor,tipo_visita,"
@@ -944,6 +954,272 @@ def construir_movimentacao_procampo(f: Fontes, ctx: Contexto) -> list[dict]:
     return list(unicas.values())
 
 
+# ─── tab_fato_producao_mensal ──────────────────────────────────────────────────
+
+COLS_PRODUCAO = ["id_composto", "codigo_lr", "mes_referencia", "nome_produtor", "nome_propriedade", "nome_consultor",
+                 "projeto", "agroindustria", "regiao", "status_produtor", "origem_dados", "data_visita", "n_visitas_mes",
+                 "producao_l_dia", "producao_l_dia_bruto", "vacas_lactacao", "produtividade_l_vaca_dia",
+                 "ccs", "cpp", "gordura", "proteina", "producao_suspeita", "producao_imputada",
+                 "ccs_acima_limite", "cpp_acima_limite", "qualidade_descartada"]
+
+_CAMPOS_MEDICAO = ["producao_l_dia", "vacas_lactacao", "ccs_mensal", "cpp_mensal", "gordura_mensal", "proteina_mensal"]
+
+
+def _acima(valor, limite: float) -> bool:
+    n = _numero(valor)
+    return n is not None and n > limite
+
+
+def _qualidade_valida(valor, faixa) -> tuple[float | None, bool]:
+    """(valor utilizável, foi descartado). Zero/vazio = não medido (não conta como descarte); positivo fora da
+    faixa plausível = erro de digitação: vira None."""
+    n = _numero(valor)
+    if n is None or n <= 0:
+        return None, False
+    if not (faixa[0] <= n <= faixa[1]):
+        return None, True
+    return n, False
+
+
+def construir_producao_mensal(visitas: pd.DataFrame, cfg: dict) -> pd.DataFrame:
+    """Volume, produtividade e qualidade do leite por fazenda × mês, a partir da tab_fato_visitas já resolvida.
+
+    Vale a última visita do mês com medição (as listas gerais de visita não trazem produção; só Procampo, Regenera,
+    Alvoar, Semear, CCPR e LPA). O registro é suspeito quando a produtividade sai da faixa plausível ou o volume salta
+    `fator_salto` vezes contra a mediana dos outros meses do produtor (regras_negocio.producao_suspeita). Com
+    `imputar_suspeitos`, o volume suspeito vira a média dos meses válidos e o bruto fica em producao_l_dia_bruto."""
+    if visitas.empty:
+        return pd.DataFrame(columns=COLS_PRODUCAO)
+    lim_min = float(cfg.get("produtividade_min", 3.0))
+    lim_max = float(cfg.get("produtividade_max", 55.0))
+    fator = float(cfg.get("fator_salto", 3.0))
+    imputar = bool(cfg.get("imputar_suspeitos", True))
+    lim_ccs = float(cfg.get("limite_ccs", 500))
+    lim_cpp = float(cfg.get("limite_cpp", 300))
+    faixas = {"ccs": cfg.get("faixa_ccs", [1, 5000]), "cpp": cfg.get("faixa_cpp", [1, 5000]),
+              "gordura": cfg.get("faixa_gordura", [1, 10]), "proteina": cfg.get("faixa_proteina", [1.5, 7])}
+    sem_ccs = {rn.chave(a) for a in cfg.get("agroindustrias_sem_ccs_confiavel", [])}
+
+    v = visitas.copy()
+    for c in _CAMPOS_MEDICAO:
+        v[c] = pd.to_numeric(v[c], errors="coerce")
+    v = v[v[_CAMPOS_MEDICAO].notna().any(axis=1)].copy()
+    if v.empty:
+        return pd.DataFrame(columns=COLS_PRODUCAO)
+    v["_tem_volume"] = v["producao_l_dia"].notna() & (v["producao_l_dia"] > 0)
+    v["data_visita"] = _data(v["data_visita"])
+    v = v.sort_values(["codigo_lr", "mes_referencia", "_tem_volume", "data_visita"])
+    n_visitas = v.groupby(["codigo_lr", "mes_referencia"]).size().rename("n_visitas_mes")
+    ultimas = v.groupby(["codigo_lr", "mes_referencia"], as_index=False).tail(1).copy()
+    ultimas = ultimas.merge(n_visitas.reset_index(), on=["codigo_lr", "mes_referencia"], how="left")
+
+    ultimas["producao_l_dia_bruto"] = ultimas["producao_l_dia"].where(ultimas["_tem_volume"])
+    linhas = []
+    for cod, g in ultimas.sort_values("mes_referencia").groupby("codigo_lr"):
+        registros = g.to_dict("records")
+        brutos = [r["producao_l_dia_bruto"] for r in registros]
+        suspeitos = []
+        for i, r in enumerate(registros):
+            outros = [b for j, b in enumerate(brutos) if j != i and pd.notna(b)]
+            mediana = float(pd.Series(outros).median()) if len(outros) >= 2 else None
+            suspeitos.append(rn.producao_suspeita(r["producao_l_dia_bruto"], r["vacas_lactacao"], mediana,
+                                                  lim_min, lim_max, fator))
+        validos = [b for b, s in zip(brutos, suspeitos) if pd.notna(b) and not s]
+        media_valida = float(sum(validos) / len(validos)) if validos else None
+        for r, suspeito in zip(registros, suspeitos):
+            bruto = r["producao_l_dia_bruto"]
+            volume = None if pd.isna(bruto) else float(bruto)
+            imputado = False
+            if suspeito and imputar:
+                volume, imputado = media_valida, media_valida is not None
+            elif suspeito:
+                volume = float(bruto)
+            prod = rn.produtividade_l_vaca_dia(volume, r["vacas_lactacao"])
+            if prod is not None and not (lim_min <= prod <= lim_max):
+                prod = None   # vacas em lactação inconsistentes com o volume: melhor sem produtividade que errada
+            qual, descartada = {}, False
+            for campo, origem in (("ccs", "ccs_mensal"), ("cpp", "cpp_mensal"), ("gordura", "gordura_mensal"),
+                                  ("proteina", "proteina_mensal")):
+                qual[campo], d = _qualidade_valida(r.get(origem), faixas[campo])
+                descartada = descartada or d
+            if rn.chave(r.get("agroindustria")) in sem_ccs:
+                qual["ccs"] = None
+            linhas.append({
+                "id_composto": f"{cod}|{r['mes_referencia']:%Y-%m-%d}",
+                "codigo_lr": cod, "mes_referencia": r["mes_referencia"],
+                "nome_produtor": r.get("nome_produtor"), "nome_propriedade": r.get("nome_propriedade"),
+                "nome_consultor": r.get("nome_consultor"), "projeto": r.get("projeto"),
+                "agroindustria": r.get("agroindustria"), "regiao": r.get("regiao"),
+                "status_produtor": r.get("status_produtor"), "origem_dados": r.get("origem_dados"),
+                "data_visita": r["data_visita"], "n_visitas_mes": int(r["n_visitas_mes"]),
+                "producao_l_dia": None if volume is None else round(volume, 2),
+                "producao_l_dia_bruto": None if pd.isna(bruto) else float(bruto),
+                "vacas_lactacao": _inteiro(r.get("vacas_lactacao")),
+                "produtividade_l_vaca_dia": None if prod is None else round(prod, 2),
+                "ccs": qual["ccs"], "cpp": qual["cpp"], "gordura": qual["gordura"], "proteina": qual["proteina"],
+                "producao_suspeita": bool(suspeito), "producao_imputada": bool(imputado),
+                "ccs_acima_limite": _acima(qual["ccs"], lim_ccs),
+                "cpp_acima_limite": _acima(qual["cpp"], lim_cpp),
+                "qualidade_descartada": bool(descartada),
+            })
+    return pd.DataFrame(linhas, columns=COLS_PRODUCAO)
+
+
+# ─── Coordenadas das fazendas (colunas de tab_dim_fazendas_ativas) ─────────────
+
+COLS_LOCALIZACAO = ["codigo_lr", "latitude", "longitude", "origem_coordenada", "coordenada_corrigida", "cidade", "estado"]
+COLS_COORD_DIM = ["latitude", "longitude", "origem_coordenada", "coordenada_corrigida"]
+# Fontes que chegam prontas à dim (reconciliar_movimentacao_e_ativos.py e publicar_dim_procampo.py) e mandam sobre o Elabore
+ORIGENS_PRIMARIAS = {"SMARTQUESTION_VISITAS", "PROCAMPO"}
+LIMITE_DIVERGENCIA_ELABORE_KM = 5.0
+
+
+def _distancia_km(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
+    p = math.pi / 180
+    a = math.sin((lat2 - lat1) * p / 2) ** 2 + math.cos(lat1 * p) * math.cos(lat2 * p) * math.sin((lon2 - lon1) * p / 2) ** 2
+    return 2 * 6371 * math.asin(math.sqrt(a))
+
+
+def construir_localizacao(f: Fontes, carteira: pd.DataFrame) -> pd.DataFrame:
+    """Coordenada de cada fazenda que aparece na carteira.
+
+    Ordem das fontes: (1) primária, já gravada na dim — coordenada do produtor nas planilhas de visita do
+    SmartQuestion (origem SMARTQUESTION_VISITAS) ou base do Procampo (PROCAMPO); (2) base do Procampo lida da
+    pro_raw_fazendas; (3) Elabore (vw_dim_property). A primária vence porque, quando divergem, a do Elabore é a que
+    costuma cair no município errado. Toda coordenada passa por regras_negocio.sanear_coordenada. Sem coordenada
+    válida, a fazenda fica na mediana das outras fazendas da mesma cidade/UF (origem 'MUNICIPIO', aproximada) e, se a
+    cidade também não tiver nenhuma, sem coordenada (origem 'SEM_COORDENADA').
+    As colunas `observacao` e `divergencia_elabore_km` são só do relatório de conferência; não são publicadas."""
+    colunas = COLS_LOCALIZACAO + ["agroindustria", "observacao", "divergencia_elabore_km"]
+    if carteira.empty:
+        return pd.DataFrame(columns=colunas)
+
+    atual = carteira.sort_values("mes_referencia").drop_duplicates("codigo_lr", keep="last")
+    props = f.elabore_propriedades.copy()
+    props["codigo_lr"] = props["codigo_lr"].map(rn.limpar_codigo_lr)
+    props["_aprovada"] = props["property_status"] == "active_approved"
+    props = props.sort_values("_aprovada").drop_duplicates("codigo_lr", keep="last")   # aprovada tem prioridade
+    elabore = {r["codigo_lr"]: r for r in props.to_dict("records")}
+    procampo = {}
+    if not f.pro_fazendas.empty and "latitude" in f.pro_fazendas.columns:
+        pf = f.pro_fazendas.copy()
+        pf["codigo_lr"] = pf["codigo_lr"].map(rn.limpar_codigo_lr)
+        procampo = {r["codigo_lr"]: r for r in pf.to_dict("records") if not rn.eh_fazenda_smartquestion(r["codigo_lr"])}
+    primaria = {}
+    dim = f.dim_fazendas
+    if not dim.empty and "latitude" in dim.columns and "origem_coordenada" in dim.columns:
+        d = dim[dim["latitude"].notna() & dim["longitude"].notna() & dim["origem_coordenada"].isin(ORIGENS_PRIMARIAS)].copy()
+        d["codigo_lr"] = d["codigo_produtor"].map(rn.limpar_codigo_lr)
+        for r in d.sort_values("mes_referencia").to_dict("records"):   # o mês mais recente vence
+            primaria[r["codigo_lr"]] = r
+
+    linhas = []
+    for r in atual.to_dict("records"):
+        cod = r["codigo_lr"]
+        cidade, estado = _texto(r.get("cidade")), _texto(r.get("estado"))
+        cand = []
+        if cod in primaria:
+            p = primaria[cod]
+            cand.append((p["origem_coordenada"], p.get("latitude"), p.get("longitude"), rn.sigla_uf(p.get("estado")) or rn.sigla_uf(estado)))
+        if cod in procampo:
+            p = procampo[cod]
+            cand.append(("PROCAMPO", p.get("latitude"), p.get("longitude"), rn.sigla_uf(p.get("uf"))))
+            cidade, estado = cidade or _texto(p.get("cidade")), estado or _texto(p.get("uf"))
+        e = elabore.get(cod)
+        if e is not None:
+            cand.append(("ELABORE", e.get("latitude"), e.get("longitude"), rn.sigla_uf(e.get("uf"))))
+            cidade, estado = cidade or _texto(e.get("city")), estado or _texto(e.get("uf"))
+        uf_cadastro = rn.sigla_uf(estado)
+        achado, tinha_bruta, elabore_valida = None, False, None
+        for origem, lat, lon, uf in cand:
+            tinha_bruta = tinha_bruta or (pd.notna(lat) and pd.notna(lon) and not (abs(lat) < 0.01 and abs(lon) < 0.01))
+            s = rn.sanear_coordenada(lat, lon, uf or uf_cadastro)
+            if origem == "ELABORE":
+                elabore_valida = s
+            if s and achado is None:
+                achado = (origem, *s)
+        linha = {"codigo_lr": cod, "latitude": None, "longitude": None, "origem_coordenada": "SEM_COORDENADA",
+                 "coordenada_corrigida": False, "cidade": cidade, "estado": estado,
+                 "agroindustria": r.get("agroindustria"), "observacao": None, "divergencia_elabore_km": None}
+        if achado:
+            linha.update(origem_coordenada=achado[0], latitude=achado[1], longitude=achado[2], coordenada_corrigida=achado[3])
+            if achado[3]:
+                linha["observacao"] = "Coordenada corrigida (latitude/longitude trocadas ou sinal perdido)"
+            if achado[0] != "ELABORE" and elabore_valida:
+                km = _distancia_km(achado[1], achado[2], elabore_valida[0], elabore_valida[1])
+                if km > LIMITE_DIVERGENCIA_ELABORE_KM:
+                    linha["divergencia_elabore_km"] = round(km, 1)
+                    linha["observacao"] = (f"Elabore diverge {km:,.0f} km da coordenada de {achado[0]} (usada a de {achado[0]}); "
+                                           "corrigir o cadastro no Elabore").replace(",", ".")
+        else:
+            linha["observacao"] = ("Coordenada do cadastro inválida ou fora da UF" if tinha_bruta
+                                   else "Sem coordenada no cadastro")
+        linhas.append(linha)
+    df = pd.DataFrame(linhas, columns=colunas)
+
+    # Fallback: mediana das fazendas com coordenada válida da mesma cidade/UF (posição aproximada)
+    chave_cidade = df["cidade"].map(lambda c: rn.chave(c) if _texto(c) else "") + "|" + df["estado"].map(lambda e: rn.chave(e) if _texto(e) else "")
+    validas = df["latitude"].notna() & (df["origem_coordenada"] != "MUNICIPIO")
+    centro = df[validas].groupby(chave_cidade[validas])[["latitude", "longitude"]].median()
+    for i in df.index[~df["latitude"].notna()]:
+        k = chave_cidade[i]
+        if k.startswith("|") or k.endswith("|") or k not in centro.index:
+            continue
+        df.loc[i, ["latitude", "longitude"]] = centro.loc[k, ["latitude", "longitude"]].round(6).values
+        df.loc[i, "origem_coordenada"] = "MUNICIPIO"
+        df.loc[i, "observacao"] = (df.loc[i, "observacao"] or "") + " → posição aproximada pelo município"
+    return df
+
+
+def _verdadeiro(valor) -> bool:
+    return valor is not None and not pd.isna(valor) and bool(valor)
+
+
+def publicar_coordenadas_dim(supabase, f: Fontes, localizacao: pd.DataFrame) -> int:
+    """Grava a coordenada resolvida nas linhas de LEITE de tab_dim_fazendas_ativas (todos os meses de cada fazenda).
+
+    Reenvia a linha inteira (upsert por id) só quando a coordenada mudou: um upsert parcial falharia nas colunas NOT NULL.
+    Sem as colunas na dim (db/input/2026_09_30_ddl_coordenadas_dim.sql ainda não rodou), avisa e não faz nada."""
+    dim = f.dim_fazendas
+    if dim.empty or not all(c in dim.columns for c in COLS_COORD_DIM):
+        print(f"   ⚠️ {TAB_DIM_FAZENDAS} sem as colunas de coordenada: rode db/input/2026_09_30_ddl_coordenadas_dim.sql e execute de novo.")
+        return 0
+    novos = localizacao.set_index("codigo_lr")
+    leite = dim[dim["tipo_ponto_atendimento"].astype(str).str.upper() == "LEITE"]
+    alterar = []
+    for r in leite.to_dict("records"):
+        cod = rn.limpar_codigo_lr(r.get("codigo_produtor"))
+        if cod not in novos.index:
+            continue
+        n = novos.loc[cod]
+        lat, lon = _numero(n["latitude"]), _numero(n["longitude"])
+        origem, corrigida = n["origem_coordenada"], bool(n["coordenada_corrigida"])
+        mudou = (_numero(r.get("latitude")) != lat or _numero(r.get("longitude")) != lon
+                 or r.get("origem_coordenada") != origem or _verdadeiro(r.get("coordenada_corrigida")) != corrigida)
+        if mudou:
+            alterar.append({**r, "latitude": lat, "longitude": lon, "origem_coordenada": origem, "coordenada_corrigida": corrigida})
+    registros = _registros_json(pd.DataFrame(alterar), {"mes_referencia"}, set()) if alterar else []
+    for i in range(0, len(registros), LOTE):
+        supabase.table(TAB_DIM_FAZENDAS).upsert(registros[i:i + LOTE], on_conflict="id").execute()
+    print(f"   ✅ {TAB_DIM_FAZENDAS}: coordenada gravada em {len(registros)} linhas ({len(leite) - len(registros)} já estavam atualizadas).")
+    return len(registros)
+
+
+def exportar_localizacao(localizacao: pd.DataFrame, raiz: Path) -> Path | None:
+    """Fazendas sem coordenada própria válida ou com divergência entre fontes, para corrigir o cadastro na origem."""
+    pendentes = localizacao[localizacao["observacao"].notna()]
+    if pendentes.empty:
+        return None
+    pasta = raiz / "db" / "output" / "logs"
+    pasta.mkdir(parents=True, exist_ok=True)
+    caminho = pasta / f"{datetime.now():%Y_%m_%d_%H%M%S}_localizacao_fazendas_conferencia.xlsx"
+    resumo = localizacao.groupby(["agroindustria", "origem_coordenada"], dropna=False).size().reset_index(name="fazendas")
+    with pd.ExcelWriter(caminho, engine="openpyxl") as w:
+        pendentes.sort_values(["agroindustria", "origem_coordenada", "codigo_lr"]).to_excel(w, sheet_name="Conferir", index=False)
+        resumo.to_excel(w, sheet_name="Resumo", index=False)
+    return caminho
+
+
 # ─── Gravação idempotente ─────────────────────────────────────────────────────
 
 COLUNAS_INTEIRAS = {
@@ -951,6 +1227,7 @@ COLUNAS_INTEIRAS = {
     "bezerros_aleitamento", "novilhas", "reprodutores", "receptoras",
     "rebanho_total", "dados_elabore_pct",
     "id_consultor", "id_agroindustria", "id_regiao", "qtd_fazendas", "qtd_visitas", "qtd_movimentacoes",
+    "n_visitas_mes",
 }
 
 
@@ -1166,7 +1443,7 @@ def pares_fora_da_dimensao(ctx: Contexto, r: dict) -> pd.DataFrame:
 
     'NÃO INFORMADA' é o único valor de região aceito fora da dimensão."""
     achados = []
-    for fato in ("carteira", "visitas", "movimentacao", "consistencia"):
+    for fato in ("carteira", "visitas", "movimentacao", "consistencia", "producao"):
         df = r.get(fato)
         if df is None or df.empty:
             continue
@@ -1219,8 +1496,11 @@ def construir_tudo(f: Fontes, agora: datetime | None = None, data_inicial_consis
     carteira = construir_carteira_mensal(f, ctx, visitas)
     consistencia = construir_fato_consistencia(f, ctx, carteira, data_inicial_consistencia)
     movimentacao = construir_fato_movimentacao(f, ctx)
+    producao = construir_producao_mensal(visitas, f.cfg_producao)
+    localizacao = construir_localizacao(f, carteira)
     return {"visitas": visitas, "auditoria": auditoria, "carteira": carteira,
-            "consistencia": consistencia, "movimentacao": movimentacao, "ctx": ctx}
+            "consistencia": consistencia, "movimentacao": movimentacao,
+            "producao": producao, "localizacao": localizacao, "ctx": ctx}
 
 
 def exportar_auditoria(auditoria: pd.DataFrame, raiz: Path) -> Path:
@@ -1259,6 +1539,7 @@ def executar_camada_consumo(raiz: Path | None = None, gravar: bool = True) -> di
     finally:
         conexao.close()
     fontes.cfg_procampo = cfg.get("procampo", {})
+    fontes.cfg_producao = cfg.get("producao", {})
 
     validar_cobertura_raw_visitas(fontes.raw_visitas, ref["data_corte_estatica_visitas"], ref["data_inicial_fato_visitas"])
     r = construir_tudo(fontes, data_inicial_consistencia=ref["data_inicial_analise"])
@@ -1271,6 +1552,17 @@ def executar_camada_consumo(raiz: Path | None = None, gravar: bool = True) -> di
     print(f"   -> carteira (fazenda×mês×consultor): {len(r['carteira'])}")
     print(f"   -> consistência (fazenda×mês): {len(r['consistencia'])}")
     print(f"   -> movimentações de leite: {len(r['movimentacao'])}")
+    prod, loc = r["producao"], r["localizacao"]
+    print(f"   -> produção (fazenda×mês com medição): {len(prod)} | suspeitas: {int(prod['producao_suspeita'].sum())} "
+          f"(imputadas: {int(prod['producao_imputada'].sum())}) | com qualidade descartada: "
+          f"{int(prod['qualidade_descartada'].sum())}")
+    print(prod.groupby("agroindustria").agg(linhas=("codigo_lr", "size"), fazendas=("codigo_lr", "nunique"),
+                                            com_ccs=("ccs", "count")).to_string())
+    print(f"   -> localização: {len(loc)} fazendas | " + " | ".join(
+        f"{k}: {n}" for k, n in loc["origem_coordenada"].value_counts().items()) +
+        f" | corrigidas: {int(loc['coordenada_corrigida'].sum())}")
+    caminho_loc = exportar_localizacao(loc, raiz)
+    print(f"   📄 Conferência de localização: {caminho_loc or 'nenhuma pendência'}")
     print(f"   📄 Auditoria: {exportar_auditoria(auditoria, raiz)}")
 
     ctx = r["ctx"]
@@ -1303,6 +1595,8 @@ def executar_camada_consumo(raiz: Path | None = None, gravar: bool = True) -> di
     sincronizar_tabela(supabase, TAB_CONSISTENCIA, _registros_json(r["consistencia"][cols_cons], d, ts))
     cols_mov = [c for c in COLS_MOVIMENTACAO if c in r["movimentacao"].columns]
     sincronizar_tabela(supabase, TAB_MOVIMENTACAO, _registros_json(r["movimentacao"][cols_mov], d, ts))
+    sincronizar_tabela(supabase, TAB_PRODUCAO, _registros_json(r["producao"][COLS_PRODUCAO], d, ts))
+    publicar_coordenadas_dim(supabase, fontes, r["localizacao"])
 
     print("\n🔗 Relacionando dimensões (consultor × agroindústria × região)...")
     ids_consultor = sincronizar_dim_consultor(supabase, fontes.dim_consultor, consultores_das_fatos(r))

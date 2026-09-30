@@ -1,0 +1,171 @@
+@charset "UTF-8";
+
+/* Slides 5 (Produção e Qualidade) e 6 (Carteira e Território) — usam os tokens de dashboard.css */
+
+.prod-aviso {
+  flex: 0 0 auto;
+  padding: 6px 12px;
+  color: var(--ink-strong);
+  border: 1px solid var(--warning);
+  border-radius: 8px;
+  background: var(--warning-soft);
+  font-size: 11.5px;
+  font-weight: 600;
+  line-height: 1.35;
+}
+.prod-aviso[hidden] { display: none; }
+
+/* Slide 5: 40 % gráficos em cima, 60 % tabelas embaixo (flex-basis 0 + min-height 0 mantêm a proporção exata) */
+.grid-two--prod-main { flex: 4 1 0; min-height: 0; grid-template-columns: minmax(0, 1fr) 310px; }
+.grid-two--prod-attn { flex: 6 1 0; min-height: 0; }
+/* Trajetória: painel estreito e da altura do conteúdo */
+.grid-two--prod-main > .panel-card:last-child { align-self: start; }
+.grid-two--prod-main > .panel-card:last-child .panel-heading { min-height: 0; margin-bottom: 8px; }
+
+.segmented-control--compact button { min-width: auto; padding: 5px 9px; }
+.panel-heading--with-controls .panel-heading-actions { flex-wrap: wrap; justify-content: flex-end; }
+.panel-heading p { font-style: normal; }
+
+/* Trajetória dos produtores */
+.traj-list { flex: none; display: flex; flex-direction: column; gap: 5px; }
+.traj-empty { margin: auto; color: var(--muted); font-size: 12px; text-align: center; }
+.traj-row {
+  width: 100%;
+  padding: 4px 10px;
+  display: grid;
+  grid-template-columns: 46px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  color: var(--ink);
+  border: 1px solid var(--line);
+  border-left-width: 5px;
+  border-radius: 10px;
+  background: var(--surface-soft);
+  text-align: left;
+  cursor: pointer;
+  transition: transform 140ms ease, box-shadow 140ms ease;
+}
+.traj-row:hover { transform: translateY(-1px); box-shadow: var(--shadow); }
+.traj-row:focus-visible { outline: 3px solid rgba(79, 201, 176, 0.35); outline-offset: 2px; }
+.traj-row strong { font-size: 20px; font-weight: 800; line-height: 1; letter-spacing: -0.02em; }
+.traj-row span { display: flex; flex-direction: column; font-size: 12.5px; font-weight: 700; }
+.traj-row span i { margin-top: 0; color: var(--muted); font-size: 11px; font-style: normal; font-weight: 500; }
+.traj-row em { color: var(--muted); font-size: 11px; font-style: normal; font-weight: 700; white-space: nowrap; }
+.traj-row--up { border-left-color: var(--green-600); }
+.traj-row--up strong { color: var(--green-700); }
+.traj-row--flat { border-left-color: var(--warning); }
+.traj-row--flat strong { color: var(--warning); }
+.traj-row--down { border-left-color: var(--danger); }
+.traj-row--down strong { color: var(--danger); }
+.traj-row[disabled] { opacity: 0.55; cursor: default; }
+
+.table-card .table-scroll { flex: 1; min-height: 0; }
+.data-table td.num, .data-table th.num { text-align: right; font-variant-numeric: tabular-nums; }
+.data-table td.neg { color: var(--danger); font-weight: 700; }
+.data-table td.pos { color: var(--green-700); font-weight: 700; }
+#modalListaProdutores .modal-card { max-width: 1040px; width: 94%; }
+#modalListaProdutores .modal-body { padding: 14px 20px; }
+#modalListaProdutores .table-scroll { flex: none; max-height: 52vh; overflow: auto; }
+#modalListaProdutores .modal-header-right { display: flex; align-items: center; gap: 10px; }
+
+/* Carteira e território */
+.grid-territory {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.75fr);
+  gap: 10px;
+}
+.territory-side { min-height: 0; display: flex; flex-direction: column; gap: 10px; }
+.territory-side .panel-card { flex: 1; min-height: 0; }
+
+.map-panel { min-height: 0; }
+.map-wrap { position: relative; flex: 1; min-height: 0; }
+#mapaTerritorio {
+  position: absolute;
+  inset: 0;
+  border-radius: 8px;
+  background: var(--surface-soft);
+}
+#mapaTerritorio.leaflet-container { font-family: inherit; background: var(--surface-soft); }
+.map-empty {
+  position: absolute; inset: 0; z-index: 500;
+  display: grid; place-items: center;
+  color: var(--muted); font-size: 12.5px; font-weight: 600;
+  background: var(--surface-soft); border-radius: 8px;
+}
+.map-empty[hidden], .map-ficha[hidden] { display: none; }
+
+.map-ficha {
+  position: absolute; top: 10px; right: 10px; z-index: 500;
+  width: 248px; max-width: calc(100% - 20px);
+  padding: 12px 14px;
+  color: var(--ink);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--surface) 94%, transparent);
+  box-shadow: var(--shadow);
+  backdrop-filter: blur(4px);
+}
+.map-ficha .fc-fechar {
+  position: absolute; top: 6px; right: 8px;
+  color: var(--muted); border: 0; background: none; font-size: 18px; line-height: 1; cursor: pointer;
+}
+.map-ficha .fc-nome { padding-right: 18px; color: var(--ink-strong); font-size: 13px; font-weight: 800; line-height: 1.25; }
+.map-ficha .fc-loc { margin-top: 2px; color: var(--muted); font-size: 11.5px; }
+.map-ficha .fc-lista { margin-top: 8px; display: grid; gap: 4px; }
+.map-ficha .fc-item { display: flex; justify-content: space-between; gap: 10px; font-size: 11.2px; }
+.map-ficha .fc-item span { color: var(--muted); }
+.map-ficha .fc-item b { max-width: 62%; text-align: right; font-weight: 700; }
+.map-ficha .fc-prod { margin-top: 9px; padding-top: 8px; border-top: 1px solid var(--line-soft); }
+.map-ficha .fc-prod span { display: block; color: var(--muted); font-size: 10.5px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; }
+.map-ficha .fc-prod b { color: var(--green-700); font-size: 20px; font-weight: 800; }
+.map-ficha .fc-prod small { color: var(--muted); font-size: 11px; font-weight: 600; }
+.map-ficha .fc-aprox { margin-top: 8px; padding: 4px 8px; color: var(--warning); border-radius: 6px; background: var(--warning-soft); font-size: 10.5px; font-weight: 700; }
+
+.map-legend {
+  flex: 0 0 auto;
+  margin-top: 8px;
+  display: flex; flex-wrap: wrap; gap: 4px 14px;
+  color: var(--muted); font-size: 11px; font-weight: 600;
+}
+.map-legend .lg { display: inline-flex; align-items: center; gap: 5px; cursor: pointer; }
+.map-legend .lg.off { opacity: 0.35; }
+.map-legend .dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
+.map-legend .lg-nota { margin-left: auto; cursor: default; }
+.map-legend .lg-toggle { padding-right: 12px; border-right: 1px solid var(--line); font-weight: 700; color: var(--ink); }
+.map-legend .dot-anel { background: transparent; border: 2px solid var(--muted); box-sizing: border-box; }
+
+/* Escala da bolha de produção (área ∝ litros/dia) */
+.map-escala {
+  position: absolute; left: 10px; bottom: 10px; z-index: 500;
+  padding: 8px 12px 6px;
+  color: var(--ink);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--surface) 92%, transparent);
+  box-shadow: var(--shadow-soft);
+}
+.map-escala[hidden] { display: none; }
+.map-escala .me-titulo { font-size: 10.5px; font-weight: 800; }
+.map-escala .me-linha { margin-top: 6px; display: flex; align-items: flex-end; gap: 12px; }
+.map-escala .me-item { display: flex; flex-direction: column; align-items: center; gap: 3px; }
+.map-escala .me-item i { display: block; border: 1.5px solid var(--green-700); border-radius: 50%; background: color-mix(in srgb, var(--green-700) 20%, transparent); }
+.map-escala .me-item span { color: var(--muted); font-size: 10px; font-weight: 700; }
+.map-escala .me-nota { margin-top: 4px; color: var(--muted); font-size: 9.5px; font-style: italic; }
+
+.leaflet-tooltip.map-tip { color: var(--ink); border: 1px solid var(--line); border-radius: 6px; background: var(--surface); box-shadow: var(--shadow-soft); font-weight: 700; }
+.leaflet-tooltip.map-tip::before { display: none; }
+
+@media (max-width: 1024px) {
+  .grid-two--prod-main, .grid-territory { display: flex !important; flex-direction: column !important; gap: 22px !important; }
+  .grid-two--prod-main > .panel-card:last-child { align-self: stretch; }
+  .grid-two--prod-attn { flex: none; }
+  .territory-side { flex-direction: column; gap: 22px; }
+  .territory-side .panel-card { min-height: 280px; }
+  .map-panel { min-height: 0; }
+  .map-wrap { flex: none; height: 440px; }
+  .map-ficha { top: auto; bottom: 10px; right: 10px; left: 10px; width: auto; max-width: none; }
+  .traj-row { grid-template-columns: 60px minmax(0, 1fr); }
+  .traj-row em { display: none; }
+}

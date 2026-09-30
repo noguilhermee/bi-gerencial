@@ -120,6 +120,7 @@ def montar_linhas(fazendas: pd.DataFrame, visitas: pd.DataFrame, meses: list[pd.
                 na_janela = ini is not None and ini <= m
             if not (na_janela or (cod, m) in visitadas):
                 continue
+            coord = rn.sanear_coordenada(r.get("latitude"), r.get("longitude"), rn.sigla_uf(r.get("uf")))
             linhas.append({
                 "id": f"{cod}_{m:%Y_%m_%d}",
                 "codigo_produtor": cod,
@@ -138,6 +139,11 @@ def montar_linhas(fazendas: pd.DataFrame, visitas: pd.DataFrame, meses: list[pd.
                 # sigla sem correspondência (ex.: NSG) -> "NÃO INFORMADA"; sem isso a camada de consumo cairia
                 # no nome da unidade de atendimento ("Procampo") como região
                 "regiao": regioes.get(_texto(r.get("regional"), "").upper(), "NÃO INFORMADA"),
+                # coordenada da base do Procampo (LOCAL.LATITUDE/LONGITUDE), saneada como as demais
+                "latitude": coord[0] if coord else None,
+                "longitude": coord[1] if coord else None,
+                "origem_coordenada": "PROCAMPO" if coord else None,
+                "coordenada_corrigida": coord[2] if coord else None,
                 "codigo_agroindustria": _texto(r.get("matricula")),
                 "codigo_fazenda": None,
                 "status": "Ativo",
@@ -175,7 +181,7 @@ def executar_publicacao_dim_procampo(raiz: Path | None = None) -> pd.DataFrame:
     meses = _meses_da_dim(supabase)
     fazendas = _buscar_tudo(supabase, tabelas["procampo_fazendas_raw"],
                             "matricula,codigo_lr,situacao,nome_propriedade,nome_produtor,uf,cidade,regional,consultor,"
-                            "data_inicio,data_conclusao", "matricula")
+                            "data_inicio,data_conclusao,latitude,longitude", "matricula")
     if fazendas.empty:
         raise RuntimeError(f"{tabelas['procampo_fazendas_raw']} está vazia: rode antes scripts/functions/carregar_procampo.py.")
     visitas = _buscar_tudo(supabase, tabelas["procampo_visitas_raw"], "id_composto,codigo_lr,data_visita,rascunho", "id_composto")
@@ -191,6 +197,15 @@ def executar_publicacao_dim_procampo(raiz: Path | None = None) -> pd.DataFrame:
           f"{int(linhas['codigo_produtor'].str.startswith(cfg_pro['prefixo_codigo_provisorio']).sum())} linhas provisórias)")
     print(f"   -> sem região: {int(linhas['regiao'].isna().sum())} linhas")
 
+    campos_coord = ["latitude", "longitude", "origem_coordenada", "coordenada_corrigida"]
+    try:
+        supabase.table(TABELA_DIM).select(",".join(campos_coord)).limit(1).execute()
+    except Exception:
+        print(f"   ⚠️ {TABELA_DIM} ainda não tem as colunas de coordenada (rode db/input/2026_09_30_ddl_coordenadas_dim.sql); "
+              "as coordenadas do Procampo não serão gravadas.")
+        linhas = linhas.drop(columns=campos_coord)
+    else:
+        print(f"   -> coordenada válida em {int(linhas['latitude'].notna().sum())} de {len(linhas)} linhas do Procampo.")
     registros = linhas.astype(object).where(linhas.notna(), None).to_dict("records")
     print(f"⬆️ Enviando {len(registros)} linhas para {TABELA_DIM}...")
     _enviar(supabase, registros)

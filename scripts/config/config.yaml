@@ -126,6 +126,31 @@ procampo:
     CSE: "CSE - Sudeste"
     CSU: "CSU - Sul"
 
+# 🥛 PRODUÇÃO E QUALIDADE DO LEITE (tab_fato_producao_mensal, construída em camada_consumo.py)
+producao:
+  # Registro suspeito: produtividade fora desta faixa (L/vaca/dia) ou volume que salta N vezes acima/abaixo da
+  # mediana do próprio produtor. Calibrado no dashboard HTML da Piracanjuba (V2).
+  produtividade_min: 3.0
+  produtividade_max: 55.0
+  fator_salto: 3.0
+  # true: o volume suspeito é substituído pela média dos demais meses válidos do produtor (o bruto fica em
+  # producao_l_dia_bruto e a linha é marcada em producao_imputada). Sem mês válido, fica sem volume.
+  imputar_suspeitos: true
+  # Limites da normativa brasileira de qualidade do leite (IN 76/77), em mil/mL: acima disso a linha é marcada
+  # em ccs_acima_limite / cpp_acima_limite (a API só conta as marcas).
+  limite_ccs: 500
+  limite_cpp: 300
+  # Faixas plausíveis dos campos de qualidade. Zero é "não medido"; valor positivo fora da faixa é erro de
+  # digitação na visita (ex.: gordura 4902 %, CCS 834000) e é descartado (fica nulo) e a linha
+  # é marcada em qualidade_descartada, para não estragar a média ponderada.
+  faixa_ccs: [1, 5000]
+  faixa_cpp: [1, 5000]
+  faixa_gordura: [1, 10]
+  faixa_proteina: [1.5, 7]
+  # A CCS destas agroindústrias vem em escala diferente das demais (Danone/Semear: mediana ~11.700 contra ~400).
+  # Enquanto a origem não for esclarecida, a CCS delas não entra nos indicadores.
+  agroindustrias_sem_ccs_confiavel: ["Danone"]
+
 # ⚙️ PARÂMETROS DE EXECUÇÃO DO PIPELINE
 execucao:
   chunk_size_upsert: 1000              # Tamanho do lote oficial para envio ao Supabase (1000 registros por lote)

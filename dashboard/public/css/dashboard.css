@@ -569,7 +569,7 @@ button { color: inherit; }
 }
 
 .carousel-track {
-  width: 400vw;
+  width: calc(var(--slides, 6) * 100vw);
   height: 100%;
   min-height: 100%;
   display: flex;
@@ -1513,13 +1513,14 @@ th.col-center .table-col-filter { text-align: center !important; }
 #tableInconsistencies {
   min-width: 640px;
 }
-#tableInconsistencies th:nth-child(1) { width: 12%; }
-#tableInconsistencies th:nth-child(2) { width: 21%; }
-#tableInconsistencies th:nth-child(3) { width: 18%; }
-#tableInconsistencies th:nth-child(4) { width: 8%; }
-#tableInconsistencies th:nth-child(5) { width: 13%; }
-#tableInconsistencies th:nth-child(6) { width: 13%; }
-#tableInconsistencies th:nth-child(7) { width: 15%; }
+#tableInconsistencies th:nth-child(1) { width: 10%; }
+#tableInconsistencies th:nth-child(2) { width: 20%; }
+#tableInconsistencies th:nth-child(3) { width: 14%; }
+#tableInconsistencies th:nth-child(4) { width: 28%; }
+#tableInconsistencies th:nth-child(5) { width: 8%; }
+#tableInconsistencies th:nth-child(6) { width: 11%; }
+#tableInconsistencies th:nth-child(7) { width: 11%; }
+#tableInconsistencies th:nth-child(8) { width: 9%; }
 
 .empty-cell {
   padding: 16px !important;
@@ -3598,14 +3599,16 @@ th.col-center .table-col-filter { text-align: center !important; }
 #tableSemVisita .col-fazenda,
 #tableSemVisita .col-data-associacao,
 #tableSemVisita .col-visita-mes-anterior,
-#tableVisitados .col-fazenda {
+#tableVisitados .col-fazenda,
+#tableInconsistencies .col-fazenda {
   display: none !important;
 }
 
 .panel-card.is-fullscreen #tableSemVisita .col-fazenda,
 .panel-card.is-fullscreen #tableSemVisita .col-data-associacao,
 .panel-card.is-fullscreen #tableSemVisita .col-visita-mes-anterior,
-.panel-card.is-fullscreen #tableVisitados .col-fazenda {
+.panel-card.is-fullscreen #tableVisitados .col-fazenda,
+.panel-card.is-fullscreen #tableInconsistencies .col-fazenda {
   display: table-cell !important;
 }
 
@@ -3614,7 +3617,8 @@ th.col-center .table-col-filter { text-align: center !important; }
 .panel-card.is-fullscreen #tableSemVisita col.col-fazenda,
 .panel-card.is-fullscreen #tableSemVisita col.col-data-associacao,
 .panel-card.is-fullscreen #tableSemVisita col.col-visita-mes-anterior,
-.panel-card.is-fullscreen #tableVisitados col.col-fazenda {
+.panel-card.is-fullscreen #tableVisitados col.col-fazenda,
+.panel-card.is-fullscreen #tableInconsistencies col.col-fazenda {
   display: table-column !important;
 }
 
@@ -3719,3 +3723,14 @@ th.col-center .table-col-filter { text-align: center !important; }
 .custom-select-footer {
   align-items: center;
 }
+
+/* Dados Elabore: cabeçalho compacto (a linha de títulos não deve esticar) */
+#tableElabore { height: auto !important; }
+#tableElabore thead tr#elHead th {
+  height: 34px !important;
+  padding: 3px 5px !important;
+  vertical-align: middle !important;
+  line-height: 1.15 !important;
+}
+#tableElabore thead tr#elHead th.blk { font-size: 9.5px; overflow-wrap: normal; word-break: normal; hyphens: none; }
+#tableElabore thead tr#elHead th.blk::after { display: none; }

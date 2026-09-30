@@ -9,10 +9,13 @@ class DashboardCarousel {
       'Visitas e cobertura',
       'Movimentações e vínculos',
       'Dados e consistência',
-      'Econômico e Perfil dos Produtores'
+      'Econômico e Perfil dos Produtores',
+      'Produção e Qualidade',
+      'Carteira e Território'
     ];
     this.totalSlides = this.slideNames.length;
     this.track = document.getElementById('carouselTrack');
+    this.track?.style.setProperty('--slides', String(this.totalSlides));
     this.slides = [...document.querySelectorAll('.slide')];
     this.dots = [...document.querySelectorAll('.page-dot')];
     this.title = document.getElementById('currentSlideTitle');

@@ -22,7 +22,9 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20,500,0,0" rel="stylesheet">
-  <link rel="stylesheet" href="./css/dashboard.css?v=20260930-3">
+  <link rel="stylesheet" href="./css/dashboard.css?v=20260930-4">
+  <link rel="stylesheet" href="./css/producao.css?v=20260930-3">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 </head>
 <body>
@@ -263,12 +265,12 @@
         <div class="grid-two grid-two--tables">
           <article class="panel-card table-card">
             <div class="panel-heading"><h2>Disponibilidade e Cobertura de Dados dos Produtores</h2><div class="panel-actions"><span class="record-count" id="countDataProducers">0 registros</span><button class="btn-table-export" id="btnExportDataProducers" type="button" title="Exportar tabela para CSV (Excel)" aria-label="Exportar para CSV"><span class="material-symbols-rounded" aria-hidden="true">download</span><span>Exportar</span></button><button class="btn-panel-fs" type="button" title="Tela cheia" aria-label="Expandir painel para tela cheia"><span class="material-symbols-rounded">fullscreen</span></button></div></div>
-            <div class="table-scroll"><table class="data-table" id="tableDataProducers"><thead><tr><th class="col-center">ID</th><th class="col-left">Produtor(a)</th><th class="col-left">Consultor(a)</th><th class="col-center">Últ. Ref.</th><th class="col-center">Cadastro Elabore</th><th class="col-center">Dados Elabore <button class="kpi-info-btn" type="button" aria-label="Informações sobre a coluna Dados Elabore" data-info-title="Dados Elabore" data-info-body="Indica a presença e o percentual de preenchimento dos 8 blocos gerenciais do Elabore no mês de referência. Ex: SIM (67%) ou NÃO (0%)."><span class="material-symbols-rounded" aria-hidden="true">info</span></button></th><th class="col-center">Ação</th></tr><tr class="table-filter-row"><th class="col-center"><input type="text" class="table-col-filter" data-table="tableDataProducers" data-col="codigo_lr" placeholder="Filtrar..." aria-label="Filtrar ID"></th><th class="col-left"><input type="text" class="table-col-filter" data-table="tableDataProducers" data-col="produtor" placeholder="Filtrar..." aria-label="Filtrar Produtor"></th><th class="col-left"><input type="text" class="table-col-filter" data-table="tableDataProducers" data-col="consultor" placeholder="Filtrar..." aria-label="Filtrar Consultor"></th><th class="col-center"><input type="text" class="table-col-filter" data-table="tableDataProducers" data-col="referencia" placeholder="Filtrar..." aria-label="Filtrar Ref"></th><th class="col-center"><input type="text" class="table-col-filter" data-table="tableDataProducers" data-col="cadastro_elabore_label" placeholder="Filtrar..." aria-label="Filtrar Cadastro"></th><th class="col-center"><input type="text" class="table-col-filter" data-table="tableDataProducers" data-col="dados_elabore_status" placeholder="Filtrar..." aria-label="Filtrar Dados"></th><th class="col-center"></th></tr></thead><tbody id="tbodyDataProducers"><tr><td colspan="7" class="empty-cell">Carregando...</td></tr></tbody></table></div>
+            <div class="table-scroll"><table class="data-table" id="tableDataProducers"><thead><tr><th class="col-center">ID</th><th class="col-left">Produtor(a)</th><th class="col-left">Consultor(a)</th><th class="col-center">Últ. Ref.</th><th class="col-center">Dados Elabore <button class="kpi-info-btn" type="button" aria-label="Informações sobre a coluna Dados Elabore" data-info-title="Dados Elabore" data-info-body="Indica a presença e o percentual de preenchimento dos 8 blocos gerenciais do Elabore no mês de referência. Ex: SIM (67%) ou NÃO (0%)."><span class="material-symbols-rounded" aria-hidden="true">info</span></button></th><th class="col-center">Ação</th></tr><tr class="table-filter-row"><th class="col-center"><input type="text" class="table-col-filter" data-table="tableDataProducers" data-col="codigo_lr" placeholder="Filtrar..." aria-label="Filtrar ID"></th><th class="col-left"><input type="text" class="table-col-filter" data-table="tableDataProducers" data-col="produtor" placeholder="Filtrar..." aria-label="Filtrar Produtor"></th><th class="col-left"><input type="text" class="table-col-filter" data-table="tableDataProducers" data-col="consultor" placeholder="Filtrar..." aria-label="Filtrar Consultor"></th><th class="col-center"><input type="text" class="table-col-filter" data-table="tableDataProducers" data-col="referencia" placeholder="Filtrar..." aria-label="Filtrar Ref"></th><th class="col-center"><input type="text" class="table-col-filter" data-table="tableDataProducers" data-col="dados_elabore_status" placeholder="Filtrar..." aria-label="Filtrar Dados"></th><th class="col-center"></th></tr></thead><tbody id="tbodyDataProducers"><tr><td colspan="6" class="empty-cell">Carregando...</td></tr></tbody></table></div>
             <div class="table-pagination" id="paginationDataProducers" data-table="tableDataProducers"></div>
           </article>
           <article class="panel-card table-card">
             <div class="panel-heading"><h2>Consistência Mensal e Anual das Fazendas</h2><div class="panel-actions"><span class="record-count" id="countInconsistencies">0 registros</span><button class="btn-table-export" id="btnExportInconsistencies" type="button" title="Exportar tabela para CSV (Excel)" aria-label="Exportar para CSV"><span class="material-symbols-rounded" aria-hidden="true">download</span><span>Exportar</span></button><button class="btn-panel-fs" type="button" title="Tela cheia" aria-label="Expandir painel para tela cheia"><span class="material-symbols-rounded">fullscreen</span></button></div></div>
-            <div class="table-scroll"><table class="data-table" id="tableInconsistencies"><thead><tr><th class="col-center">ID</th><th class="col-left">Produtor(a)</th><th class="col-left">Consultor(a)</th><th class="col-center">Meses Seq.</th><th class="col-center">Situação Mensal</th><th class="col-center">Situação Anual</th><th class="col-center">Ação</th></tr><tr class="table-filter-row"><th><input type="text" class="table-col-filter" data-table="tableInconsistencies" data-col="codigo_lr" placeholder="Filtrar..." aria-label="Filtrar ID"></th><th><input type="text" class="table-col-filter" data-table="tableInconsistencies" data-col="produtor" placeholder="Filtrar..." aria-label="Filtrar Produtor"></th><th><input type="text" class="table-col-filter" data-table="tableInconsistencies" data-col="consultor" placeholder="Filtrar..." aria-label="Filtrar Consultor"></th><th><input type="text" class="table-col-filter" data-table="tableInconsistencies" data-col="meses_sequenciais" placeholder="Filtrar..." aria-label="Filtrar Meses"></th><th><input type="text" class="table-col-filter" data-table="tableInconsistencies" data-col="consistencia_mensal" placeholder="Filtrar..." aria-label="Filtrar Situação Mensal"></th><th><input type="text" class="table-col-filter" data-table="tableInconsistencies" data-col="consistencia_anual" placeholder="Filtrar..." aria-label="Filtrar Situação Anual"></th><th></th></tr></thead><tbody id="tbodyInconsistencies"><tr><td colspan="7" class="empty-cell">Carregando...</td></tr></tbody></table></div>
+            <div class="table-scroll"><table class="data-table" id="tableInconsistencies"><thead><tr><th class="col-center">ID</th><th class="col-left">Produtor(a)</th><th class="col-left col-fazenda">Fazenda</th><th class="col-left">Consultor(a)</th><th class="col-center">Meses Seq.</th><th class="col-center">Situação Mensal</th><th class="col-center">Situação Anual</th><th class="col-center">Ação</th></tr><tr class="table-filter-row"><th><input type="text" class="table-col-filter" data-table="tableInconsistencies" data-col="codigo_lr" placeholder="Filtrar..." aria-label="Filtrar ID"></th><th><input type="text" class="table-col-filter" data-table="tableInconsistencies" data-col="produtor" placeholder="Filtrar..." aria-label="Filtrar Produtor"></th><th class="col-fazenda"><input type="text" class="table-col-filter" data-table="tableInconsistencies" data-col="propriedade" placeholder="Filtrar..." aria-label="Filtrar Fazenda"></th><th><input type="text" class="table-col-filter" data-table="tableInconsistencies" data-col="consultor" placeholder="Filtrar..." aria-label="Filtrar Consultor"></th><th><input type="text" class="table-col-filter" data-table="tableInconsistencies" data-col="meses_sequenciais" placeholder="Filtrar..." aria-label="Filtrar Meses"></th><th><input type="text" class="table-col-filter" data-table="tableInconsistencies" data-col="consistencia_mensal" placeholder="Filtrar..." aria-label="Filtrar Situação Mensal"></th><th><input type="text" class="table-col-filter" data-table="tableInconsistencies" data-col="consistencia_anual" placeholder="Filtrar..." aria-label="Filtrar Situação Anual"></th><th></th></tr></thead><tbody id="tbodyInconsistencies"><tr><td colspan="8" class="empty-cell">Carregando...</td></tr></tbody></table></div>
             <div class="table-pagination" id="paginationInconsistencies" data-table="tableInconsistencies"></div>
           </article>
         </div>
@@ -408,6 +410,86 @@
           </article>
         </div>
       </section>
+
+      <!-- Slide 5: Produção e Qualidade do Leite -->
+      <section class="slide" id="slide5" aria-label="Produção e Qualidade">
+        <div class="kpi-grid">
+          <article class="metric-card metric-card--primary"><span class="metric-icon material-symbols-rounded" aria-hidden="true">water_drop</span><span class="metric-label">Volume total <button class="kpi-info-btn" type="button" aria-label="Informações sobre o indicador" data-info-title="Volume total (L/dia)" data-info-body="Soma dos litros/dia medidos nas visitas do mês (última visita com medição de cada fazenda). A variação compara só as fazendas medidas nos dois meses."><span class="material-symbols-rounded" aria-hidden="true">info</span></button></span><strong id="kpiProdVolume">—</strong><small id="kpiProdVolumeSub">Litros / dia</small></article>
+          <article class="metric-card"><span class="metric-icon material-symbols-rounded" aria-hidden="true">speed</span><span class="metric-label">Produtividade <button class="kpi-info-btn" type="button" aria-label="Informações sobre o indicador" data-info-title="Produtividade do rebanho" data-info-body="Litros totais ÷ vacas em lactação totais, considerando apenas as fazendas com os dois dados. Não é média simples entre fazendas."><span class="material-symbols-rounded" aria-hidden="true">info</span></button></span><strong id="kpiProdProdutividade">—</strong><small id="kpiProdProdutividadeSub">L / vaca / dia</small></article>
+          <article class="metric-card metric-card--soft"><span class="metric-icon material-symbols-rounded" aria-hidden="true">biotech</span><span class="metric-label">CCS <button class="kpi-info-btn" type="button" aria-label="Informações sobre o indicador" data-info-title="CCS — contagem de células somáticas" data-info-body="Média ponderada pelo volume diário. Limite da normativa: 500 mil céls./mL. Valores fora da faixa plausível e a CCS da Danone (escala divergente) não entram."><span class="material-symbols-rounded" aria-hidden="true">info</span></button></span><strong id="kpiProdCcs">—</strong><small id="kpiProdCcsSub">×1.000 céls./mL</small></article>
+          <article class="metric-card metric-card--soft"><span class="metric-icon material-symbols-rounded" aria-hidden="true">bug_report</span><span class="metric-label">CPP <button class="kpi-info-btn" type="button" aria-label="Informações sobre o indicador" data-info-title="CPP — contagem padrão em placas" data-info-body="Média ponderada pelo volume diário. Limite da normativa: 300 mil UFC/mL. Valores fora da faixa plausível não entram."><span class="material-symbols-rounded" aria-hidden="true">info</span></button></span><strong id="kpiProdCpp">—</strong><small id="kpiProdCppSub">×1.000 UFC/mL</small></article>
+          <article class="metric-card"><span class="metric-icon material-symbols-rounded" aria-hidden="true">opacity</span><span class="metric-label">Gordura <button class="kpi-info-btn" type="button" aria-label="Informações sobre o indicador" data-info-title="Gordura do leite" data-info-body="Média ponderada pelo volume diário. Valores fora da faixa plausível (1% a 10%) são descartados como erro de digitação."><span class="material-symbols-rounded" aria-hidden="true">info</span></button></span><strong id="kpiProdGordura">—</strong><small id="kpiProdGorduraSub">%</small></article>
+          <article class="metric-card"><span class="metric-icon material-symbols-rounded" aria-hidden="true">nutrition</span><span class="metric-label">Proteína <button class="kpi-info-btn" type="button" aria-label="Informações sobre o indicador" data-info-title="Proteína do leite" data-info-body="Média ponderada pelo volume diário. Valores fora da faixa plausível (1,5% a 7%) são descartados como erro de digitação."><span class="material-symbols-rounded" aria-hidden="true">info</span></button></span><strong id="kpiProdProteina">—</strong><small id="kpiProdProteinaSub">%</small></article>
+        </div>
+        <div class="prod-aviso" id="prodAviso" hidden></div>
+
+        <div class="grid-two grid-two--prod-main">
+          <article class="panel-card">
+            <div class="panel-heading panel-heading--with-controls"><div><h2>Evolução do indicador</h2><p id="prodEvolucaoSub">—</p></div>
+              <div class="panel-heading-actions">
+                <div class="segmented-control segmented-control--compact" id="prodIndicador" aria-label="Indicador do gráfico">
+                  <button class="active" type="button" data-ind="volume_total" aria-pressed="true">Volume</button><button type="button" data-ind="produtividade">Produtiv.</button><button type="button" data-ind="ccs">CCS</button><button type="button" data-ind="cpp">CPP</button><button type="button" data-ind="gordura">Gordura</button><button type="button" data-ind="proteina">Proteína</button>
+                </div>
+                <div class="segmented-control segmented-control--compact" id="prodBase" aria-label="Base de comparação">
+                  <button class="active" type="button" data-base="comparavel" aria-pressed="true" title="Mesmas fazendas medidas em todos os meses">Base comparável</button><button type="button" data-base="todas" title="Todas as fazendas medidas em cada mês">Todas</button>
+                </div>
+                <button class="btn-panel-fs" type="button" title="Tela cheia" aria-label="Expandir painel para tela cheia"><span class="material-symbols-rounded">fullscreen</span></button>
+              </div>
+            </div>
+            <div class="chart-box"><canvas id="chartProdEvolucao"></canvas></div>
+          </article>
+          <article class="panel-card">
+            <div class="panel-heading"><div><h2>Trajetória dos produtores</h2><p id="prodTrajetoriaSub">—</p></div><div class="panel-actions"><button class="btn-panel-fs" type="button" title="Tela cheia" aria-label="Expandir painel para tela cheia"><span class="material-symbols-rounded">fullscreen</span></button></div></div>
+            <div class="traj-list" id="prodTrajetoria"><div class="traj-empty">Carregando...</div></div>
+          </article>
+        </div>
+
+        <div class="grid-two grid-two--prod-attn">
+          <article class="panel-card table-card">
+            <div class="panel-heading"><div><h2>CCS acima do limite</h2><p id="prodCcsSub">—</p></div><div class="panel-actions"><span class="record-count" id="countProdCcs">0 registros</span><button class="btn-table-export" id="btnExportProdCcs" type="button" title="Exportar tabela para CSV (Excel)" aria-label="Exportar para CSV"><span class="material-symbols-rounded" aria-hidden="true">download</span><span>Exportar</span></button><button class="btn-panel-fs" type="button" title="Tela cheia" aria-label="Expandir painel para tela cheia"><span class="material-symbols-rounded">fullscreen</span></button></div></div>
+            <div class="table-scroll"><table class="data-table" id="tableProdCcs"><colgroup><col style="width:13%"><col style="width:22%"><col class="col-fazenda" style="width:19%"><col style="width:21%"><col style="width:15%"><col style="width:10%"></colgroup><thead><tr><th class="col-center">ID</th><th class="col-left">Produtor(a)</th><th class="col-left col-fazenda">Fazenda</th><th class="col-left">Consultor(a)</th><th class="col-left">Região</th><th class="col-center">CCS</th></tr><tr class="table-filter-row"><th><input type="text" class="table-col-filter" data-table="tableProdCcs" data-col="codigo_lr" placeholder="Filtrar..." aria-label="Filtrar ID"></th><th><input type="text" class="table-col-filter" data-table="tableProdCcs" data-col="produtor" placeholder="Filtrar..." aria-label="Filtrar Produtor(a)"></th><th class="col-fazenda"><input type="text" class="table-col-filter" data-table="tableProdCcs" data-col="propriedade" placeholder="Filtrar..." aria-label="Filtrar Fazenda"></th><th><input type="text" class="table-col-filter" data-table="tableProdCcs" data-col="consultor" placeholder="Filtrar..." aria-label="Filtrar Consultor(a)"></th><th><input type="text" class="table-col-filter" data-table="tableProdCcs" data-col="regiao" placeholder="Filtrar..." aria-label="Filtrar Região"></th><th><input type="text" class="table-col-filter" data-table="tableProdCcs" data-col="valor" placeholder="Filtrar..." aria-label="Filtrar CCS"></th></tr></thead><tbody id="tbodyProdCcs"><tr><td colspan="6" class="empty-cell">Carregando...</td></tr></tbody></table></div><div class="table-pagination" id="paginationProdCcs" data-table="tableProdCcs"></div>
+          </article>
+          <article class="panel-card table-card">
+            <div class="panel-heading"><div><h2>CPP acima do limite</h2><p id="prodCppSub">—</p></div><div class="panel-actions"><span class="record-count" id="countProdCpp">0 registros</span><button class="btn-table-export" id="btnExportProdCpp" type="button" title="Exportar tabela para CSV (Excel)" aria-label="Exportar para CSV"><span class="material-symbols-rounded" aria-hidden="true">download</span><span>Exportar</span></button><button class="btn-panel-fs" type="button" title="Tela cheia" aria-label="Expandir painel para tela cheia"><span class="material-symbols-rounded">fullscreen</span></button></div></div>
+            <div class="table-scroll"><table class="data-table" id="tableProdCpp"><colgroup><col style="width:13%"><col style="width:22%"><col class="col-fazenda" style="width:19%"><col style="width:21%"><col style="width:15%"><col style="width:10%"></colgroup><thead><tr><th class="col-center">ID</th><th class="col-left">Produtor(a)</th><th class="col-left col-fazenda">Fazenda</th><th class="col-left">Consultor(a)</th><th class="col-left">Região</th><th class="col-center">CPP</th></tr><tr class="table-filter-row"><th><input type="text" class="table-col-filter" data-table="tableProdCpp" data-col="codigo_lr" placeholder="Filtrar..." aria-label="Filtrar ID"></th><th><input type="text" class="table-col-filter" data-table="tableProdCpp" data-col="produtor" placeholder="Filtrar..." aria-label="Filtrar Produtor(a)"></th><th class="col-fazenda"><input type="text" class="table-col-filter" data-table="tableProdCpp" data-col="propriedade" placeholder="Filtrar..." aria-label="Filtrar Fazenda"></th><th><input type="text" class="table-col-filter" data-table="tableProdCpp" data-col="consultor" placeholder="Filtrar..." aria-label="Filtrar Consultor(a)"></th><th><input type="text" class="table-col-filter" data-table="tableProdCpp" data-col="regiao" placeholder="Filtrar..." aria-label="Filtrar Região"></th><th><input type="text" class="table-col-filter" data-table="tableProdCpp" data-col="valor" placeholder="Filtrar..." aria-label="Filtrar CPP"></th></tr></thead><tbody id="tbodyProdCpp"><tr><td colspan="6" class="empty-cell">Carregando...</td></tr></tbody></table></div><div class="table-pagination" id="paginationProdCpp" data-table="tableProdCpp"></div>
+          </article>
+        </div>
+      </section>
+
+      <!-- Slide 6: Carteira e Território -->
+      <section class="slide" id="slide6" aria-label="Carteira e Território">
+        <div class="kpi-grid">
+          <article class="metric-card metric-card--primary"><span class="metric-icon material-symbols-rounded" aria-hidden="true">home_work</span><span class="metric-label">Propriedades ativas <button class="kpi-info-btn" type="button" aria-label="Informações sobre o indicador" data-info-title="Propriedades ativas" data-info-body="Fazendas ativas na carteira do mês de referência, respeitando os filtros da tela."><span class="material-symbols-rounded" aria-hidden="true">info</span></button></span><strong id="kpiTerrPropriedades">—</strong><small id="kpiTerrPropriedadesSub">Carteira do mês</small></article>
+          <article class="metric-card"><span class="metric-icon material-symbols-rounded" aria-hidden="true">map</span><span class="metric-label">Regiões <button class="kpi-info-btn" type="button" aria-label="Informações sobre o indicador" data-info-title="Regiões" data-info-body="Regiões com pelo menos uma propriedade ativa (não conta “NÃO INFORMADA”)."><span class="material-symbols-rounded" aria-hidden="true">info</span></button></span><strong id="kpiTerrRegioes">—</strong><small id="kpiTerrRegioesSub">Com propriedades ativas</small></article>
+          <article class="metric-card"><span class="metric-icon material-symbols-rounded" aria-hidden="true">location_city</span><span class="metric-label">Municípios <button class="kpi-info-btn" type="button" aria-label="Informações sobre o indicador" data-info-title="Municípios" data-info-body="Municípios distintos (cidade + UF) das propriedades ativas."><span class="material-symbols-rounded" aria-hidden="true">info</span></button></span><strong id="kpiTerrMunicipios">—</strong><small id="kpiTerrMunicipiosSub">Com propriedades atendidas</small></article>
+          <article class="metric-card metric-card--soft"><span class="metric-icon material-symbols-rounded" aria-hidden="true">water_drop</span><span class="metric-label">Litros / dia <button class="kpi-info-btn" type="button" aria-label="Informações sobre o indicador" data-info-title="Litros/dia da carteira" data-info-body="Soma da última medição de litros/dia de cada propriedade nos últimos 3 meses (mês de referência incluído). Propriedade sem medição no período não entra."><span class="material-symbols-rounded" aria-hidden="true">info</span></button></span><strong id="kpiTerrLitros">—</strong><small id="kpiTerrLitrosSub">Última medição (3 meses)</small></article>
+          <article class="metric-card metric-card--soft"><span class="metric-icon material-symbols-rounded" aria-hidden="true">pin_drop</span><span class="metric-label">No mapa <button class="kpi-info-btn" type="button" aria-label="Informações sobre o indicador" data-info-title="Propriedades no mapa" data-info-body="Propriedades com coordenada válida. A coordenada vem do cadastro (Elabore/base do Procampo), já corrigida pelo ETL quando latitude/longitude estavam trocadas ou sem sinal."><span class="material-symbols-rounded" aria-hidden="true">info</span></button></span><strong id="kpiTerrMapa">—</strong><small id="kpiTerrMapaSub">Propriedades localizadas</small></article>
+          <article class="metric-card metric-card--pending"><span class="metric-icon material-symbols-rounded" aria-hidden="true">location_searching</span><span class="metric-label">Posição aproximada <button class="kpi-info-btn" type="button" aria-label="Informações sobre o indicador" data-info-title="Posição aproximada" data-info-body="Propriedades sem coordenada válida no cadastro: aparecem na mediana das outras propriedades da mesma cidade (marcador vazado no mapa). A correção deve ser feita no cadastro de origem."><span class="material-symbols-rounded" aria-hidden="true">info</span></button></span><strong id="kpiTerrAprox">—</strong><small id="kpiTerrAproxSub">Pelo centro do município</small></article>
+        </div>
+        <div class="prod-aviso" id="terrAviso" hidden></div>
+        <div class="grid-territory">
+          <div class="territory-side">
+            <article class="panel-card">
+              <div class="panel-heading"><div><h2>Propriedades por Regional</h2><p>Carteira ativa · nº de propriedades</p></div><div class="panel-actions"><button class="btn-panel-fs" type="button" title="Tela cheia" aria-label="Expandir painel para tela cheia"><span class="material-symbols-rounded">fullscreen</span></button></div></div>
+              <div class="chart-box"><canvas id="chartTerrPropriedades"></canvas></div>
+            </article>
+            <article class="panel-card">
+              <div class="panel-heading"><div><h2>Litros/dia por Regional</h2><p id="terrLitrosSub">Última medição · L/dia</p></div><div class="panel-actions"><button class="btn-panel-fs" type="button" title="Tela cheia" aria-label="Expandir painel para tela cheia"><span class="material-symbols-rounded">fullscreen</span></button></div></div>
+              <div class="chart-box"><canvas id="chartTerrLitros"></canvas></div>
+            </article>
+          </div>
+          <article class="panel-card map-panel">
+            <div class="panel-heading"><div><h2>Distribuição territorial</h2><p>Clique em uma propriedade para ver os dados</p></div><div class="panel-actions"><span class="record-count" id="countTerrMapa">0 propriedades</span><button class="btn-panel-fs" type="button" title="Tela cheia" aria-label="Expandir painel para tela cheia"><span class="material-symbols-rounded">fullscreen</span></button></div></div>
+            <div class="map-wrap">
+              <div id="mapaTerritorio" role="application" aria-label="Mapa das propriedades"></div>
+              <div class="map-ficha" id="mapaFicha" hidden></div>
+              <div class="map-empty" id="mapaVazio" hidden>Sem localização para exibir.</div>
+              <div class="map-escala" id="mapaEscala" hidden></div>
+            </div>
+            <div class="map-legend" id="mapaLegenda"></div>
+          </article>
+        </div>
+      </section>
     </div>
   </main>
 
@@ -421,6 +503,8 @@
         <button class="page-dot" type="button" data-slide="1" aria-label="Ir para Movimentações e vínculos">2</button>
         <button class="page-dot" type="button" data-slide="2" aria-label="Ir para Dados e consistência">3</button>
         <button class="page-dot" type="button" data-slide="3" aria-label="Ir para Econômico e Perfil dos Produtores">4</button>
+        <button class="page-dot" type="button" data-slide="4" aria-label="Ir para Produção e Qualidade">5</button>
+        <button class="page-dot" type="button" data-slide="5" aria-label="Ir para Carteira e Território">6</button>
         <button class="carousel-arrow" id="nextSlide" type="button" aria-label="Próxima página">›</button>
       </div>
     </div>
@@ -628,13 +712,13 @@
     <div class="table-scroll">
       <table class="data-table" id="tableElabore">
         <colgroup>
-          <col style="width:6.5%"><col style="width:9.5%"><col style="width:11.5%"><col style="width:6.5%"><col style="width:6.5%"><col style="width:7%"><col style="width:8%">
-          <col style="width:8.5%">
-          <col span="8" style="width:4.5%">
+          <col style="width:6%"><col style="width:9%"><col style="width:10%"><col style="width:9%"><col style="width:6%"><col style="width:6%"><col style="width:7%"><col style="width:7.5%">
+          <col style="width:7.5%">
+          <col span="8" style="width:4%">
         </colgroup>
         <thead>
           <tr>
-            <th class="grp" colspan="8">Produtor visitado</th>
+            <th class="grp" colspan="9">Produtor visitado</th>
             <th class="grp grp-blocos first-blk" colspan="8">Blocos gerenciais do Elabore
               <button class="kpi-info-btn" type="button" title="Cada coluna indica se o produtor tem o bloco lançado no Elabore no mês de referência. Dados (%) = blocos preenchidos ÷ 8."><span class="material-symbols-rounded" aria-hidden="true">info</span></button>
             </th>
@@ -665,11 +749,26 @@
     </div>
   </div>
 
+
+  <!-- Modal: lista de produtores (trajetória) -->
+  <div class="modal-overlay" id="modalListaProdutores" aria-hidden="true">
+    <div class="modal-card modal-card--large" role="dialog" aria-modal="true" aria-labelledby="listaProdTitulo">
+      <div class="modal-header">
+        <div class="modal-header-left"><span class="material-symbols-rounded modal-icon" aria-hidden="true">groups</span><div><h3 id="listaProdTitulo">Produtores</h3><span class="provenance-header-sub" id="listaProdSub"></span></div></div>
+        <div class="modal-header-right"><span class="record-count" id="countTrajetoria">0 registros</span><button class="btn-table-export" id="btnExportTrajetoria" type="button" title="Exportar tabela para CSV (Excel)" aria-label="Exportar para CSV"><span class="material-symbols-rounded" aria-hidden="true">download</span><span>Exportar</span></button><button class="modal-close-btn" type="button" id="listaProdFechar" aria-label="Fechar">&times;</button></div>
+      </div>
+      <div class="modal-body"><div class="table-scroll"><table class="data-table" id="tableTrajetoria"><colgroup><col style="width:10%"><col style="width:27%"><col style="width:23%"><col style="width:14%"><col style="width:10%"><col style="width:10%"><col style="width:6%"></colgroup><thead><tr><th class="col-center">ID</th><th class="col-left">Produtor(a)</th><th class="col-left">Consultor(a)</th><th class="col-left">Região</th><th class="col-center">Média anterior</th><th class="col-center">Média recente</th><th class="col-center">Variação</th></tr><tr class="table-filter-row"><th><input type="text" class="table-col-filter" data-table="tableTrajetoria" data-col="codigo_lr" placeholder="Filtrar..." aria-label="Filtrar ID"></th><th><input type="text" class="table-col-filter" data-table="tableTrajetoria" data-col="produtor" placeholder="Filtrar..." aria-label="Filtrar Produtor(a)"></th><th><input type="text" class="table-col-filter" data-table="tableTrajetoria" data-col="consultor" placeholder="Filtrar..." aria-label="Filtrar Consultor(a)"></th><th><input type="text" class="table-col-filter" data-table="tableTrajetoria" data-col="regiao" placeholder="Filtrar..." aria-label="Filtrar Região"></th><th><input type="text" class="table-col-filter" data-table="tableTrajetoria" data-col="anterior" placeholder="Filtrar..." aria-label="Filtrar Média anterior"></th><th><input type="text" class="table-col-filter" data-table="tableTrajetoria" data-col="recente" placeholder="Filtrar..." aria-label="Filtrar Média recente"></th><th><input type="text" class="table-col-filter" data-table="tableTrajetoria" data-col="variacao" placeholder="Filtrar..." aria-label="Filtrar Variação"></th></tr></thead><tbody id="tbodyTrajetoria"><tr><td colspan="7" class="empty-cell">Carregando...</td></tr></tbody></table></div><div class="table-pagination" id="paginationTrajetoria" data-table="tableTrajetoria"></div></div>
+      <div class="modal-footer"><button class="modal-btn-primary" type="button" id="listaProdOk">Fechar</button></div>
+    </div>
+  </div>
+
   <!-- Backdrop para painel em tela cheia -->
   <div class="panel-fullscreen-backdrop" id="panelFsBackdrop" hidden></div>
 
-  <script src="./js/carousel.js?v=20260916-4"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+  <script src="./js/carousel.js?v=20260930-1"></script>
   <script src="./js/charts.js?v=20260916-4"></script>
-  <script src="./js/main.js?v=20260930-2"></script>
+  <script src="./js/producao.js?v=20260930-3"></script>
+  <script src="./js/main.js?v=20260930-5"></script>
 </body>
 </html>
