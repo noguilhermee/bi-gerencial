@@ -3702,3 +3702,12 @@ th.col-center .table-col-filter { text-align: center !important; }
 .custom-select-apply:hover {
   background: #0B5341;
 }
+
+/* Página 1 (Visitas e cobertura): proporção fixa de 40% (gráficos) / 60% (tabela e ranking)
+   da área útil, em qualquer altura de tela. Sem isto, acima de 1080px de altura valia a regra
+   base (1,3 : 1) e a linha de baixo ficava menor que a de cima. Só desktop: no mobile os
+   painéis empilham com altura própria. */
+@media (min-width: 1025px) {
+  #slide1 .grid-two--visits { flex: 4 1 0; max-height: none; min-height: 170px; }
+  #slide1 .grid-two--tables { flex: 6 1 0; min-height: 220px; }
+}

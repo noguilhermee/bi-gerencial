@@ -15,7 +15,7 @@ document.addEventListener('DOMContentLoaded', () => {
     rankingDimension: 'consultant',
     hasUserChangedMonth: false,
     chartHorizons: {
-      coverage: 6,
+      coverage: 12,
       turnover: 6,
       portfolio: 6,
       consistency: 6,
