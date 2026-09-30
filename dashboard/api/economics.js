@@ -348,7 +348,20 @@ module.exports = async (req, res) => {
       perc_cad_3_plus_anos: totalFazendas > 0 ? Number(((cad3PlusAnos / totalFazendas) * 100).toFixed(1)) : 0
     };
 
+    // Aviso da tela 4: mês filtrado sem nenhuma fazenda-mês consistente (ex.: mês corrente ainda
+    // não fechado no Elabore). Informa o último mês com dado consistente dentro do mesmo recorte.
+    const mesesConsistentes = mesKeysOrdenados;
+    const ultimoMesConsistente = mesesConsistentes.length ? mesesConsistentes[mesesConsistentes.length - 1] : null;
+    const semDadosConsistentes = Boolean(filterMonth) && econComDados.length === 0;
+    const aviso = semDadosConsistentes ? {
+      sem_dados_consistentes: true,
+      mes_selecionado_label: monthLabel(filterMonth.substring(0, 7)),
+      ultimo_mes_consistente_label: ultimoMesConsistente ? monthLabel(ultimoMesConsistente) : null,
+      linhas_no_mes: econTabela.length
+    } : { sem_dados_consistentes: false };
+
     return res.status(200).json({
+      aviso,
       kpis: kpisConsolidados,
       top5_coe: top5Coe,
       volume_evolution: volumeEvolution,

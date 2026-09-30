@@ -1177,7 +1177,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const days = hasDays ? Number(row.dias_sem_visita) : null;
       
       let status = row.status && row.status !== 'ATIVO' ? row.status : '';
-      let badgeClass = row.status_class || '';
+      let badgeClass = String(row.status_class || '').toLowerCase();
 
       if (!status) {
         const isGrave = hasDays && days >= 60;
@@ -1192,9 +1192,10 @@ document.addEventListener('DOMContentLoaded', () => {
       }
 
       if (!badgeClass) {
-        if (status === 'Inativação Pendente' || status === 'Nunca visitado' || status.includes('> 60')) {
+        const statusKey = status.toUpperCase();
+        if (statusKey === 'INATIVACAO PENDENTE' || statusKey === 'NUNCA VISITADO' || statusKey.includes('> 60')) {
           badgeClass = 'badge-danger';
-        } else if (status.includes('Recente')) {
+        } else if (statusKey.includes('RECENTE')) {
           badgeClass = 'badge-positive';
         } else {
           badgeClass = 'badge-warning';
@@ -2037,6 +2038,18 @@ document.addEventListener('DOMContentLoaded', () => {
     const slide4 = data.slide4 || {};
     const slide5 = data.slide5 || {};
     const kpi = data.kpis || slide4.kpis || {};
+
+    const notice = el('econEmptyNotice');
+    if (notice) {
+      const aviso = data.aviso || {};
+      notice.hidden = !aviso.sem_dados_consistentes;
+      if (aviso.sem_dados_consistentes) {
+        const ultimo = aviso.ultimo_mes_consistente_label ? ` Último mês disponível: ${aviso.ultimo_mes_consistente_label}.` : '';
+        const parcial = aviso.linhas_no_mes > 0 ? ` (${aviso.linhas_no_mes} lançamento(s) ainda inconsistente(s))` : '';
+        const texto = el('econEmptyNoticeText');
+        if (texto) texto.textContent = `Sem dados econômicos consistentes em ${aviso.mes_selecionado_label}${parcial}.${ultimo}`;
+      }
+    }
 
     updateValue('kpiEconVolTotal', number(kpi.volume_diario_total));
     updateValue('kpiEconProdutividade', number(kpi.produtividade_l_vl_dia));
