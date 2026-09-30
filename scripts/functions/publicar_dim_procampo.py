@@ -121,6 +121,9 @@ def montar_linhas(fazendas: pd.DataFrame, visitas: pd.DataFrame, meses: list[pd.
             if not (na_janela or (cod, m) in visitadas):
                 continue
             coord = rn.sanear_coordenada(r.get("latitude"), r.get("longitude"), rn.sigla_uf(r.get("uf")))
+            # sem acento e em maiúsculas, como os consultores do SmartQuestion no BI (a exportação de visitas
+            # às vezes troca 'José' por 'Jose'; com grafias diferentes o mesmo consultor apareceria duas vezes)
+            consultor = rn.consultor_procampo(r.get("consultor"), aliases) or None
             linhas.append({
                 "id": f"{cod}_{m:%Y_%m_%d}",
                 "codigo_produtor": cod,
@@ -130,10 +133,9 @@ def montar_linhas(fazendas: pd.DataFrame, visitas: pd.DataFrame, meses: list[pd.
                 "nome_propriedade": _texto(r.get("nome_propriedade")),
                 "tipo_ponto_atendimento": "LEITE",
                 "unidade_atendimento": marcador,
-                # sem acento e em maiúsculas, como os consultores do SmartQuestion no BI (a exportação de visitas
-                # às vezes troca 'José' por 'Jose'; com grafias diferentes o mesmo consultor apareceria duas vezes)
-                "grupo_ponto_atendimento": rn.consultor_procampo(r.get("consultor"), aliases) or None,
-                "nome_grupo_ponto_atendimento": None,
+                # no Procampo o grupo é o próprio consultor (não há o formato "NOME (PROJETO) / ..." do SmartQuestion)
+                "grupo_ponto_atendimento": consultor,
+                "consultor": consultor,
                 "projeto": cfg_pro["projeto_bi"],
                 "agroindustria": cfg_pro["agroindustria_bi"],
                 # sigla sem correspondência (ex.: NSG) -> "NÃO INFORMADA"; sem isso a camada de consumo cairia

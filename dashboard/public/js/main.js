@@ -398,7 +398,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const rowMonth = String(row.mes_referencia || row.data_referencia || '').slice(0, 10);
     const monthMatch = ignoreMonth || !filter.month || !rowMonth || dimensionMatches(rowMonth, filter.month);
 
-    const rowAgro = row.agroindustria || row.agroindustrias || 'NÃO INFORMADA';
+    const rowAgro = row.agroindustria || row.agroindustrias || 'NAO INFORMADA';
 
     return consultantMatch &&
       producerMatch &&
@@ -1261,7 +1261,7 @@ document.addEventListener('DOMContentLoaded', () => {
     updateTableHeadIcons('tbodyTurnover', tableSort.tbodyTurnover.colKey, tableSort.tbodyTurnover.dir);
     const pMovements = getPaginatedSlice('tableTurnover', movements);
     if (el('tbodyTurnover')) el('tbodyTurnover').innerHTML = rowsOrEmpty(pMovements, 6, (row) => {
-      const isSaida = row.tipo === 'SAÍDA';
+      const isSaida = row.tipo === 'SAIDA';
       const grp = row.grupo || row.consultor || '—';
       const numAtend = row.atendimento || row.numero_atendimento || '—';
       return `<tr class="${isSaida ? 'table-row-grave' : ''}"><td class="col-center font-tabular"><strong>${escapeHtml(String(numAtend))}</strong></td><td class="col-left" title="${escapeHtml(row.produtor || '—')}"><strong>${escapeHtml(row.produtor || '—')}</strong></td><td class="col-center"><span class="badge ${isSaida ? 'badge-danger' : 'badge-positive'}">${escapeHtml(row.tipo)}</span></td><td class="col-center">${escapeHtml(row.data || '—')}</td><td class="col-left" title="${escapeHtml(grp)}">${escapeHtml(grp)}</td><td class="col-left" title="${escapeHtml(row.motivo || '—')}">${escapeHtml(row.motivo || '—')}</td></tr>`;
@@ -1473,8 +1473,8 @@ document.addEventListener('DOMContentLoaded', () => {
       const produtor = String(r.produtor || r.nome_produtor || '').trim();
       const codigoLr = String(r.codigo_lr || '').trim();
       // Valores canônicos gravados pelo ETL (tab_dim_agroindustria / tab_dim_regiao): nada é reinterpretado aqui
-      const agro = String(r.agroindustria || 'NÃO INFORMADA').trim();
-      const reg = String(r.regiao || '').trim() === 'NÃO INFORMADA' ? '' : String(r.regiao || '').trim();
+      const agro = String(r.agroindustria || 'NAO INFORMADA').trim();
+      const reg = String(r.regiao || '').trim() === 'NAO INFORMADA' ? '' : String(r.regiao || '').trim();
       const proj = String(r.projeto || '').trim();
       const stat = normalizeStatus(r.status || defaultStatus);
       const mes = String(r.mes_referencia || r.data_referencia || '').slice(0, 10);
@@ -1526,7 +1526,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // 1. Tabela de consultores ativos da carteira oficial do mês
     (v.tabelaConsultores || []).forEach((tc) => {
       const consult = tc.consultor;
-      const agros = tc.agroindustrias && tc.agroindustrias.length ? tc.agroindustrias : ['NÃO INFORMADA'];
+      const agros = tc.agroindustrias && tc.agroindustrias.length ? tc.agroindustrias : ['NAO INFORMADA'];
       const projs = tc.projetos && tc.projetos.length ? tc.projetos : [tc.projeto];
       const regs = tc.regioes && tc.regioes.length ? tc.regioes : [tc.regiao];
       agros.forEach((agro) => {
@@ -1549,7 +1549,7 @@ document.addEventListener('DOMContentLoaded', () => {
     (o.tabelas?.visitados || []).forEach((r) => addRow(r, 'ATIVO'));
     (c.tabelaProdutoresComDados || []).forEach((r) => addRow(r, r.status || 'ATIVO'));
     (c.tabelaInconsistentes || []).forEach((r) => addRow(r, r.status || 'ATIVO'));
-    (t.tabelaMovimentacao || []).forEach((r) => addRow(r, r.status || (r.tipo === 'SAÍDA' ? 'INATIVO' : 'ATIVO')));
+    (t.tabelaMovimentacao || []).forEach((r) => addRow(r, r.status || (r.tipo === 'SAIDA' ? 'INATIVO' : 'ATIVO')));
 
     return rows;
   }
@@ -1754,7 +1754,7 @@ document.addEventListener('DOMContentLoaded', () => {
         rows: data.map((r) => [
           r.atendimento || r.numero_atendimento || '—',
           r.produtor || '—',
-          r.tipo || (String(r.movimentacao).toLowerCase().includes('sa') ? 'SAÍDA' : 'ENTRADA'),
+          r.tipo || (String(r.movimentacao).toLowerCase().includes('sa') ? 'SAIDA' : 'ENTRADA'),
           r.data || '—',
           r.grupo || r.consultor || '—',
           r.motivo || '—'
@@ -2517,7 +2517,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function openDetailsModal(item) {
       if (!item || !detailsModal || !modalBody) return;
 
-      const statusMensalStr = String(item.consistencia_mensal || item.consistencia || 'Consistente');
+      const statusMensalStr = String(item.consistencia_mensal || item.consistencia || 'CONSISTENTE');
       const isMensalInconsistente = isStatusInconsistente(statusMensalStr);
       const isMensalConsistente = isStatusConsistente(statusMensalStr);
       const isMensalSemDados = statusMensalStr.toLowerCase().includes('sem dados') || statusMensalStr.toLowerCase().includes('não calculado');
@@ -3216,8 +3216,8 @@ document.addEventListener('DOMContentLoaded', () => {
     return list.map((r) => {
       const cod = r.codigo_lr || '—';
       const produtor = r.produtor || cod;
-      const consultor = r.consultor || 'NÃO INFORMADO';
-      const projeto = r.projeto || 'NÃO INFORMADO';
+      const consultor = r.consultor || 'NAO INFORMADO';
+      const projeto = r.projeto || 'NAO INFORMADO';
       const data = r.referencia || '—';
       const labelCad3 = String(r.cadastro_elabore_label || (r.cadastro_elabore === 'INATIVO' ? 'INATIVO' : (r.cadastro_elabore ? 'SIM' : 'NÃO'))).toUpperCase();
       const isInactive3 = labelCad3 === 'INATIVO' || String(r.status || '').toUpperCase().includes('INATIV');

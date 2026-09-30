@@ -975,7 +975,7 @@ def executar_reconciliacao(reindex_completo: bool = False):
         projs.sort()
         return " / ".join(projs)
 
-    def extrair_nome_grupo_limpo(texto):
+    def extrair_consultores_do_grupo(texto):
         if not texto or str(texto).strip().lower() in ["nan", "none", "não atribuído", "nao atribuido"]:
             return None
         partes = [p.strip() for p in str(texto).split("/") if p.strip()]
@@ -1002,7 +1002,7 @@ def executar_reconciliacao(reindex_completo: bool = False):
         "TALITA FONTES"
     ]
 
-    def eh_puramente_cft(grupo_str, proj_str, nome_grupo_limpo):
+    def eh_puramente_cft(grupo_str, proj_str, consultor_limpo):
         g_up = str(grupo_str or "").strip().upper()
         p_up = str(proj_str or "").strip().upper()
         
@@ -1054,11 +1054,12 @@ def executar_reconciliacao(reindex_completo: bool = False):
     # Carregar o de-para de tab_dim_regiao_alias (nome bruto -> região canônica de tab_dim_regiao) do Supabase
     dim_regiao_cache = {}
     try:
-        res_dim = supabase.table("tab_dim_regiao_alias").select("nome_bruto, nome_regiao, agroindustria").eq("status", "Ativo").execute()
+        # O banco grava texto maiúsculo e sem acento: status e chaves do cache comparados sem caixa/acento.
+        res_dim = supabase.table("tab_dim_regiao_alias").select("nome_bruto, nome_regiao, agroindustria").ilike("status", "ativo").execute()
         for r_dim in (res_dim.data or []):
-            raw_n = str(r_dim.get("nome_bruto") or "").strip().upper()
+            raw_n = rn.chave(r_dim.get("nome_bruto"))
             fmt_n = str(r_dim.get("nome_regiao") or "").strip()
-            agro_n = str(r_dim.get("agroindustria") or "").strip().upper()
+            agro_n = rn.chave(r_dim.get("agroindustria"))
             if raw_n and fmt_n:
                 if agro_n:
                     dim_regiao_cache[f"{agro_n}|{raw_n}"] = fmt_n
@@ -1088,13 +1089,13 @@ def executar_reconciliacao(reindex_completo: bool = False):
 
         t_str = str(target).strip()
         t_upper = t_str.upper()
-        agro_upper = str(agro or "").strip().upper()
 
         # 1. Consulta ao cache dinâmico da tab_dim_regiao
-        if agro_upper and f"{agro_upper}|{t_upper}" in dim_regiao_cache:
-            return dim_regiao_cache[f"{agro_upper}|{t_upper}"]
-        if t_upper in dim_regiao_cache:
-            return dim_regiao_cache[t_upper]
+        t_chave, agro_chave = rn.chave(t_str), rn.chave(agro)
+        if agro_chave and f"{agro_chave}|{t_chave}" in dim_regiao_cache:
+            return dim_regiao_cache[f"{agro_chave}|{t_chave}"]
+        if t_chave in dim_regiao_cache:
+            return dim_regiao_cache[t_chave]
 
         # 2. Regras específicas por agroindústria
         if agro == "Nestlé":
@@ -1190,7 +1191,7 @@ def executar_reconciliacao(reindex_completo: bool = False):
 
         grupo_final = str(g_raw).strip()[:250] if (pd.notna(g_raw) and str(g_raw).strip() and str(g_raw).strip().lower() != "nan") else str(nome_c).strip()[:250]
         proj_final = extrair_projeto_especifico(grupo_final)
-        nome_grupo_limpo = extrair_nome_grupo_limpo(grupo_final)
+        consultor_limpo = extrair_consultores_do_grupo(grupo_final)
         agro_calc = MAP_PROJETO_AGRO.get(proj_final)
         reg_calc = formatar_regiao(agro_calc, regiao_map.get(c.upper()), uf)
 
@@ -1205,7 +1206,7 @@ def executar_reconciliacao(reindex_completo: bool = False):
             "tipo_ponto_atendimento": tipo_str,
             "unidade_atendimento": unid,
             "grupo_ponto_atendimento": grupo_final,
-            "nome_grupo_ponto_atendimento": nome_grupo_limpo,
+            "consultor": consultor_limpo,
             "projeto": proj_final,
             "agroindustria": agro_calc,
             "regiao": reg_calc,
@@ -1226,9 +1227,9 @@ def executar_reconciliacao(reindex_completo: bool = False):
     for item_g in lista_todos:
         c_prod = str(item_g.get("codigo_produtor") or "").strip().upper()
         grp_comp = item_g.get("grupo_ponto_atendimento")
-        grp_limp = item_g.get("nome_grupo_ponto_atendimento")
+        cons_lg = item_g.get("consultor")
         if c_prod and grp_comp:
-            mapa_grupos_lista_geral[c_prod] = (grp_comp, grp_limp)
+            mapa_grupos_lista_geral[c_prod] = (grp_comp, cons_lg)
 
     print(f"   -> {len(df_todos)} fazendas consolidadas no espelho completo ({len(mapa_grupos_lista_geral)} mapeadas com grupo).")
     
@@ -1443,9 +1444,9 @@ def executar_reconciliacao(reindex_completo: bool = False):
                 else (v_info.get("grupo_atendimento") or r_g.get("grupo_ponto_atendimento"))
             ),
             "consultor_grupo_atendimento": (
-                r_g.get("nome_grupo_ponto_atendimento")
-                if _grupo_valido(r_g.get("nome_grupo_ponto_atendimento"))
-                else (v_info.get("consultor_grupo_atendimento") or r_g.get("nome_grupo_ponto_atendimento"))
+                r_g.get("consultor")
+                if _grupo_valido(r_g.get("consultor"))
+                else (v_info.get("consultor_grupo_atendimento") or r_g.get("consultor"))
             ),
             "projeto": r_g.get("projeto") or v_info.get("projeto"),
             "codigo_agroindustria": r_g.get("codigo_agroindustria") or v_info.get("codigo_agroindustria"),
@@ -1497,25 +1498,25 @@ def executar_reconciliacao(reindex_completo: bool = False):
 
             # Priorizar grupo completo da LISTA_GERAL_RELATORIO_DE_GRUPO, exceto se estiver como NÃO ATRIBUÍDO
             grupo_val = str(r.get("grupo_atendimento") or "")
-            grp_lg, grp_limp_lg = mapa_grupos_lista_geral.get(c.upper(), (None, None))
+            grp_lg, cons_lg = mapa_grupos_lista_geral.get(c.upper(), (None, None))
             if _grupo_valido(grp_lg):
                 grupo_efetivo = grp_lg
-                nome_grupo_efetivo = grp_limp_lg if grp_limp_lg else extrair_nome_grupo_limpo(grupo_efetivo)
+                consultor_efetivo = cons_lg if cons_lg else extrair_consultores_do_grupo(grupo_efetivo)
             elif _grupo_valido(grupo_val):
                 grupo_efetivo = grupo_val
-                nome_grupo_efetivo = extrair_nome_grupo_limpo(grupo_efetivo)
+                consultor_efetivo = extrair_consultores_do_grupo(grupo_efetivo)
             else:
                 # Último recurso: recuperar o vínculo histórico em sq_raw_vinculos para não perder
                 # a atribuição de consultor nos meses em que o produtor ainda estava na carteira.
                 grupo_hist = vinc_dict.get(c.upper(), {}).get("grupo_atendimento")
                 grupo_efetivo = grupo_hist if _grupo_valido(grupo_hist) else grupo_val
-                nome_grupo_efetivo = extrair_nome_grupo_limpo(grupo_efetivo)
+                consultor_efetivo = extrair_consultores_do_grupo(grupo_efetivo)
 
             tem_visita_no_mes = c.upper() in codigos_com_visita_por_mes.get(ref_m, set())
 
             # 0.1 Se a fazenda for PURAMENTE CFT ou de grupo exclusivo CFT, NUNCA entra na dimensão de ativos
             proj_val = str(r.get("projeto") or "")
-            if not tem_visita_no_mes and eh_puramente_cft(grupo_efetivo, proj_val, nome_grupo_efetivo):
+            if not tem_visita_no_mes and eh_puramente_cft(grupo_efetivo, proj_val, consultor_efetivo):
                 continue
 
             # 0.2 Status do Consultor: Se todos os consultores do grupo estiverem inativos
@@ -1580,7 +1581,7 @@ def executar_reconciliacao(reindex_completo: bool = False):
                 "tipo_ponto_atendimento": cadeia_calc,
                 "unidade_atendimento": unid_val,
                 "grupo_ponto_atendimento": str(grupo_efetivo)[:250] if grupo_efetivo else cons_resp,
-                "nome_grupo_ponto_atendimento": str(nome_grupo_efetivo)[:250] if nome_grupo_efetivo else None,
+                "consultor": str(consultor_efetivo)[:250] if consultor_efetivo else None,
                 "projeto": proj_final,
                 "agroindustria": agro_calc,
                 "regiao": reg_calc,
@@ -1627,4 +1628,4 @@ def executar_reconciliacao(reindex_completo: bool = False):
 
 
 if __name__ == "__main__":
-    executar_reconciliacao(reindex_completo=True)
+    executar_reconciliacao(reindex_completo=True)

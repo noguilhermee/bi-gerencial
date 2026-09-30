@@ -108,13 +108,10 @@
     destruirGrafico('chartProdEvolucao');
     const t = el('prodTrajetoria');
     if (t) t.innerHTML = `<div class="traj-empty">${escapeHtml(mensagem)}</div>`;
-    const aviso = el('prodAviso');
-    if (aviso) { aviso.textContent = mensagem; aviso.hidden = false; }
   }
 
   function renderProducao(dados) {
     est.prod = dados || null;
-    const aviso = el('prodAviso');
     if (!dados) return limparProducao('Não foi possível carregar os dados de produção agora.');
     if (dados.disponivel === false) return limparProducao('Dados de produção ainda não disponíveis: falta criar/carregar a tabela tab_fato_producao_mensal.');
     if (dados.semDados) return limparProducao('Sem medições de produção para os filtros selecionados.');
@@ -128,17 +125,6 @@
     setKpi('kpiProdCpp', num(k.cpp), 'kpiProdCppSub', 'mil UFC/mL', v.cpp, ant);
     setKpi('kpiProdGordura', k.gordura === null || k.gordura === undefined ? '—' : `${num(k.gordura, 2)}%`, 'kpiProdGorduraSub', 'média pond.', v.gordura, ant);
     setKpi('kpiProdProteina', k.proteina === null || k.proteina === undefined ? '—' : `${num(k.proteina, 2)}%`, 'kpiProdProteinaSub', 'média pond.', v.proteina, ant);
-
-    const partes = [];
-    if (dados.parcial) {
-      partes.push(`${dados.mesReferenciaLabel} em andamento: ${num(k.fazendas)} fazendas medidas (${dados.mesFimLabel}: ${num(dados.medidasMesAnterior)}). `
-        + `Evolução e trajetória vão até ${dados.mesFimLabel}; as variações comparam as mesmas ${num(v.base)} fazendas.`);
-    }
-    const q = dados.qualidadeDados || {};
-    if (q.suspeitas || q.qualidadeDescartada) {
-      partes.push(`Qualidade dos dados no mês: ${num(q.suspeitas)} volume(s) suspeito(s) (${num(q.imputadas)} trocado(s) pela média do produtor) · ${num(q.qualidadeDescartada)} linha(s) com valor fora da faixa plausível descartado.`);
-    }
-    if (aviso) { aviso.textContent = partes.join('  ·  '); aviso.hidden = partes.length === 0; }
 
     renderEvolucao();
     renderTrajetoria();

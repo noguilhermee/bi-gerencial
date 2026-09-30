@@ -441,12 +441,80 @@ def carregar_env(raiz: Path | str | None = None) -> dict[str, str]:
     return env_vars
 
 
+def eh_coluna_identificador(coluna: str) -> bool:
+    """Colunas de identificação (hash, UUID do Elabore, ids numéricos) são gravadas como vieram: mudar a caixa
+    quebraria o casamento com a origem e os upserts por chave."""
+    c = str(coluna).lower()
+    return c == "id" or c.startswith("id_") or c.endswith("_id") or c.startswith("idfazenda")
+
+
+def maiusculo_sem_acento(texto: str) -> str:
+    """Padrão de gravação no Supabase: maiúsculo e sem acento, mantendo pontuação e espaços."""
+    s = unicodedata.normalize("NFKD", texto.replace("\xa0", " "))
+    return "".join(c for c in s if not unicodedata.combining(c)).upper()
+
+
+def normalizar_registros(registros):
+    """Aplica maiusculo_sem_acento em todo valor texto de um registro (dict) ou lista de registros antes de
+    gravar no Supabase. Colunas de identificador (eh_coluna_identificador) e valores não texto ficam intactos."""
+    def _registro(r):
+        if not isinstance(r, Mapping):
+            return r
+        return {k: maiusculo_sem_acento(v) if isinstance(v, str) and not eh_coluna_identificador(k) else v
+                for k, v in r.items()}
+
+    if isinstance(registros, Mapping):
+        return _registro(registros)
+    if isinstance(registros, (list, tuple)):
+        return [_registro(r) for r in registros]
+    return registros
+
+
+class _TabelaSupabaseNormalizada:
+    """Encapsula o builder de tabela do supabase-py: insert/upsert/update gravam via normalizar_registros."""
+
+    def __init__(self, builder):
+        self._builder = builder
+
+    def insert(self, json, *args, **kwargs):
+        return self._builder.insert(normalizar_registros(json), *args, **kwargs)
+
+    def upsert(self, json, *args, **kwargs):
+        return self._builder.upsert(normalizar_registros(json), *args, **kwargs)
+
+    def update(self, json, *args, **kwargs):
+        return self._builder.update(normalizar_registros(json), *args, **kwargs)
+
+    def __getattr__(self, nome):
+        return getattr(self._builder, nome)
+
+
+class _ClienteSupabaseNormalizado:
+    """Cliente Supabase em que toda gravação sai em maiúsculo e sem acento (padrão do banco)."""
+
+    def __init__(self, cliente):
+        self._cliente = cliente
+
+    def table(self, nome: str):
+        return _TabelaSupabaseNormalizada(self._cliente.table(nome))
+
+    from_ = table
+
+    def __getattr__(self, nome):
+        return getattr(self._cliente, nome)
+
+
+def criar_cliente_supabase(url: str, key: str):
+    """Substitui supabase.create_client em todo o projeto: o cliente devolvido grava texto maiúsculo e sem acento."""
+    from supabase import create_client
+    return _ClienteSupabaseNormalizado(create_client(url, key))
+
+
 def obter_cliente_supabase(raiz: Path | str | None = None):
     """
-    Retorna a instância do cliente Supabase configurada a partir de scripts/config/.env.
-    ATENÇÃO: Usar exclusivamente para operações de CONSULTA / LEITURA (Read-Only).
+    Retorna o cliente Supabase configurado a partir de scripts/config/.env.
+    Toda gravação (insert/upsert/update) sai em maiúsculo e sem acento (criar_cliente_supabase).
     """
-    from supabase import create_client
     env_vars = carregar_env(raiz)
     url = env_vars.get("SUPABASE_URL")
     key = env_vars.get("SUPABASE_SERVICE_KEY") or env_vars.get("SUPABASE_KEY") or env_vars.get("SUPABASE_ANON_KEY")
@@ -454,7 +522,7 @@ def obter_cliente_supabase(raiz: Path | str | None = None):
         raise ValueError(
             "Credenciais do Supabase não encontradas. Verifique SUPABASE_URL e SUPABASE_SERVICE_KEY em scripts/config/.env"
         )
-    return create_client(url, key)
+    return criar_cliente_supabase(url, key)
 
 
 def consultar_tabela_supabase(

@@ -60,7 +60,7 @@ import numpy as np
 import pandas as pd
 import yaml
 from dotenv import load_dotenv
-from supabase import create_client, Client
+from supabase import Client
 
 if sys.stdout and hasattr(sys.stdout, 'reconfigure'):
     try:
@@ -95,6 +95,8 @@ for p in [
     if str(p) not in sys.path:
         sys.path.insert(0, str(p))
 
+from functions.function import criar_cliente_supabase  # noqa: E402
+
 
 def carregar_configuracao(raiz: Path) -> dict:
     config_file = raiz / "scripts" / "config" / "config.yaml"
@@ -106,7 +108,7 @@ def carregar_configuracao(raiz: Path) -> dict:
         return yaml.safe_load(f)
 
 
-def obter_cliente_supabase(raiz: Path) -> Client:
+def obter_cliente_supabase(raiz: Path):
     for env_path in [
         raiz / "scripts" / "config" / ".env",
         raiz / "dashboard" / ".env.local",
@@ -123,7 +125,7 @@ def obter_cliente_supabase(raiz: Path) -> Client:
     if not supabase_url or not supabase_key:
         raise ValueError("❌ Credenciais do Supabase não encontradas no arquivo .env!")
 
-    return create_client(supabase_url, supabase_key)
+    return criar_cliente_supabase(supabase_url, supabase_key)
 
 
 def ler_excel_seguro(caminho_arquivo: Path, sheet_name: str | int = 0) -> pd.DataFrame:

@@ -1,6 +1,6 @@
 const { COLUNAS, getSupabaseClient, fetchAll, fetchWithCache, monthLabel, formatDate, parseFilters, rowMatchesFilters } = require('./shared');
 
-const SEM_DADOS = 'Sem dados';
+const SEM_DADOS = 'SEM DADOS';
 
 /** Linha única de consistência: fazenda ativa (carteira) ou fora da carteira com registro Elabore. */
 function daCarteira(r) {
@@ -78,9 +78,9 @@ module.exports = async (req, res) => {
     // nunca também como apta/divergente. Assim aptas + incompletas + divergentes = base analisada.
     const semDados = conta('consistencia_mensal', SEM_DADOS);
     const incompletas = base.filter(r => r.em_carencia || r.consistencia_mensal === SEM_DADOS).length;
-    const consistentes = base.filter(r => !r.em_carencia && r.consistencia_mensal === 'Consistente').length;
+    const consistentes = base.filter(r => !r.em_carencia && r.consistencia_mensal === 'CONSISTENTE').length;
     const inconsistentes = base.length - consistentes - incompletas;
-    const anualConsistentes = conta('consistencia_anual', 'Consistente');
+    const anualConsistentes = conta('consistencia_anual', 'CONSISTENTE');
     const anualSemDados = conta('consistencia_anual', SEM_DADOS);
     const anualInconsistentes = base.length - anualConsistentes - anualSemDados;
     const carencia = base.filter(r => r.em_carencia).length;
@@ -96,7 +96,7 @@ module.exports = async (req, res) => {
     // Taxa = Consistentes ÷ registros avaliados (exclui "Sem dados")
     const taxa = (linhas, campo) => {
       const avaliados = linhas.filter(c => c[campo] !== SEM_DADOS);
-      return avaliados.length ? Number(pct(avaliados.filter(c => c[campo] === 'Consistente').length, avaliados.length)) : 0;
+      return avaliados.length ? Number(pct(avaliados.filter(c => c[campo] === 'CONSISTENTE').length, avaliados.length)) : 0;
     };
     const evolucaoConsistencia = { labels: [], mensal: [], anual: [] };
     referencias.forEach(ref => {

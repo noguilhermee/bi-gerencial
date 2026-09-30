@@ -76,6 +76,7 @@ try:
         extrair_data_nome_arquivo,
         garantir_colunas,
         ler_aba_excel_flex,
+        criar_cliente_supabase,
         normalizar_texto,
         obter_cliente_supabase,
         renomear_colunas_existentes,
@@ -97,6 +98,7 @@ except ImportError:
         extrair_data_nome_arquivo,
         garantir_colunas,
         ler_aba_excel_flex,
+        criar_cliente_supabase,
         normalizar_texto,
         obter_cliente_supabase,
         renomear_colunas_existentes,
@@ -177,12 +179,12 @@ CAMINHO_ARQUIVO = PASTA_SAIDA / f"{DATA_EXPORTACAO}_nome_do_arquivo.ext"
     - **Coordenada das fazendas**: colunas `latitude`, `longitude`, `origem_coordenada` e `coordenada_corrigida` em `tab_dim_fazendas_ativas` (migration `db/input/2026_09_30_ddl_coordenadas_dim.sql`), sem tabela própria. Alimentada pelas raws: SmartQuestion = "Latitude/Longitude (Produtor)" das planilhas `LISTA_GERAL_VISITAS*.xlsx` (módulo `coordenadas_visitas.py`, gravada por `reconciliar_movimentacao_e_ativos.py` em `sq_raw_fazendas_grupo` e na dim); Procampo = `pro_raw_fazendas` (gravada por `publicar_dim_procampo.py`). `camada_consumo.py` fecha o quadro: fonte primária (visitas/Procampo) > Elabore > posição aproximada pelo município (`origem_coordenada = MUNICIPIO`, mediana das outras fazendas da cidade). Toda coordenada passa por `regras_negocio.sanear_coordenada` (troca de lat/long, sinal perdido, zero e fora da UF). Fazendas sem coordenada válida ou com o Elabore divergindo mais de 5 km da fonte primária saem em `db/output/logs/*_localizacao_fazendas_conferencia.xlsx` para corrigir o cadastro na origem, nunca no frontend.
   - **Dimensões cadastrais** (consultor, região, agroindústria) também ficam na camada de consumo: `tab_dim_consultor`, `tab_dim_regiao`, `tab_dim_agroindustria` (antes `sq_dim_*`, renomeadas em 2026-09-29 pelo script `db/input/2026_09_29_renomear_dims_e_coluna_sem_lancamento_elabore.sql`).
   - **Relacionamento das dimensões (filtros do dashboard)**, migration `db/input/2026_09_29_refatorar_dims_relacionamento.sql`:
-    - `tab_dim_agroindustria`: `nome_bi` é o nome exato gravado nas fatos (ex.: `Laticínios Porto Alegre (LPA)`); `exibir_no_bi = false` esconde agroindústrias inativas.
+    - `tab_dim_agroindustria`: `nome_bi` é o nome exato gravado nas fatos (ex.: `LATICINIOS PORTO ALEGRE (LPA)`); `exibir_no_bi = false` esconde agroindústrias inativas.
     - `tab_dim_regiao`: 1 linha por (`id_agroindustria`, região canônica). Uma região só é válida para as agroindústrias que a possuem aqui.
     - `tab_dim_regiao_alias`: nome bruto (SmartQuestion/Elabore/Procampo) → região canônica. Novo nome bruto entra aqui, nunca no ETL nem no frontend.
     - `tab_dim_consultor`: `chave_consultor` = nome sem acento e maiúsculo (mesma normalização de `regras_negocio.chave`); o ETL cria os consultores que não existem no Elabore (`origem = 'BI'`).
     - `tab_dim_consultor_atuacao`: ponte consultor × agroindústria × região × mês, gravada por `camada_consumo.py`; a API a expõe em `filterOptions.relacoes` e os filtros de agroindústria, região e consultor se restringem por ela.
-    - Uma região que não pertence à agroindústria da fazenda vira `NÃO INFORMADA` e é listada em `db/output/logs/*_divergencias_dimensoes.xlsx` para correção na origem (cadastro), nunca no frontend (regra 12).
+    - Uma região que não pertence à agroindústria da fazenda vira `NAO INFORMADA` e é listada em `db/output/logs/*_divergencias_dimensoes.xlsx` para correção na origem (cadastro), nunca no frontend (regra 12).
   - **Colunas**: Sempre em `snake_case` minúsculo com timestamps `data_processamento` e chaves `id_composto`.
 
 ---
@@ -210,6 +212,15 @@ CAMINHO_ARQUIVO = PASTA_SAIDA / f"{DATA_EXPORTACAO}_nome_do_arquivo.ext"
 - **Co-consultoria**: a fazenda só fica de fora quando **todos** os consultores de campo do grupo são isentos. Se houver um co-consultor que lança no Elabore, ela continua contando.
 - **Como é aplicada**: o ETL (`camada_consumo.py`) grava `sem_lancamento_elabore = true` em `tab_fato_carteira_mensal` e `tab_fato_consistencia`; a API apenas ignora essas linhas nos cálculos de consistência (`overview.js`, `consistency.js`). A coluna `excecao` (lista de produtores exceção) é independente e não foi alterada.
 - **Fonte única da verdade**: `CONSULTORES_SEM_LANCAMENTO_ELABORE`, `eh_consultor_sem_lancamento_elabore()` e `eh_grupo_sem_lancamento_elabore()` em `scripts/functions/regras_negocio.py`. Novos consultores isentos são adicionados nesse conjunto, nunca no frontend nem na API (regra 12).
+
+---
+
+## 🔠 14. Texto no Supabase: MAIÚSCULO e SEM ACENTO
+- **Regra**: todo valor texto gravado no Supabase é **maiúsculo e sem acento** (ex.: `LATICINIOS PORTO ALEGRE (LPA)`, `NAO INFORMADA`, `SAIDA`, `CONSISTENTE`). Pontuação e espaços são mantidos.
+- **Como é aplicada**: o cliente devolvido por `obter_cliente_supabase()` / `criar_cliente_supabase()` (`scripts/functions/function.py`) aplica `normalizar_registros()` em todo `insert`, `upsert` e `update`. **Nunca usar `supabase.create_client` direto** — scripts e notebooks criam o cliente só por essas funções.
+- **Exceção**: colunas de identificador (`id`, `id_*`, `*_id`, `idfazenda*`) ficam como vieram (hash, UUID do Elabore), conforme `eh_coluna_identificador()`. Valores não texto não são alterados.
+- **Comparações**: o Python compara texto lido do banco com `regras_negocio.chave()`; literais de valores na API/frontend (`dashboard/api/*`, `dashboard/public/js/*`) seguem o mesmo padrão (`'NAO INFORMADA'`, `'SAIDA'`, `'CONSISTENTE'`, `'SEM DADOS'`).
+- **Dados antigos**: convertidos por `db/input/2026_09_30_normalizar_texto_maiusculo_sem_acento.sql`.
 
 
 

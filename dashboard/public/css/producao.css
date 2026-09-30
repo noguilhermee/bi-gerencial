@@ -16,10 +16,8 @@
 .prod-aviso[hidden] { display: none; }
 
 /* Slide 5: 40 % gráficos em cima, 60 % tabelas embaixo (flex-basis 0 + min-height 0 mantêm a proporção exata) */
-.grid-two--prod-main { flex: 4 1 0; min-height: 0; grid-template-columns: minmax(0, 1fr) 310px; }
+.grid-two--prod-main { flex: 4 1 0; min-height: 0; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
 .grid-two--prod-attn { flex: 6 1 0; min-height: 0; }
-/* Trajetória: painel estreito e da altura do conteúdo */
-.grid-two--prod-main > .panel-card:last-child { align-self: start; }
 .grid-two--prod-main > .panel-card:last-child .panel-heading { min-height: 0; margin-bottom: 8px; }
 
 .segmented-control--compact button { min-width: auto; padding: 5px 9px; }
@@ -27,7 +25,9 @@
 .panel-heading p { font-style: normal; }
 
 /* Trajetória dos produtores */
-.traj-list { flex: none; display: flex; flex-direction: column; gap: 5px; }
+/* Os três blocos dividem toda a altura do painel */
+.traj-list { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 6px; }
+.traj-list > .traj-row { flex: 1 1 0; min-height: 0; }
 .traj-empty { margin: auto; color: var(--muted); font-size: 12px; text-align: center; }
 .traj-row {
   width: 100%;
@@ -60,6 +60,8 @@
 .traj-row[disabled] { opacity: 0.55; cursor: default; }
 
 .table-card .table-scroll { flex: 1; min-height: 0; }
+/* Mesma altura de linha das tabelas da tela 1 (lá a linha é ditada pelo badge de status, ~15px) */
+.grid-two--prod-attn .data-table tbody td { line-height: 15px; }
 .data-table td.num, .data-table th.num { text-align: right; font-variant-numeric: tabular-nums; }
 .data-table td.neg { color: var(--danger); font-weight: 700; }
 .data-table td.pos { color: var(--green-700); font-weight: 700; }

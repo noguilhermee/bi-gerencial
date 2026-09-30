@@ -49,7 +49,7 @@ module.exports = async (req, res) => {
       agroindustria: m.agroindustria,
       regiao: m.regiao,
       projeto: m.projeto,
-      status: m.tipo === 'SAÍDA' ? 'INATIVO' : 'ATIVO',
+      status: m.tipo === 'SAIDA' ? 'INATIVO' : 'ATIVO',
       mes_referencia: `${String(m.data_movimentacao).slice(0, 7)}-01`,
       tipo: m.tipo,
       data: formatDate(m.data_solicitacao),
@@ -63,7 +63,7 @@ module.exports = async (req, res) => {
       if (!key) return;
       if (!movimentosPorMes.has(key)) movimentosPorMes.set(key, { entradas: 0, saidas: 0 });
       const item = movimentosPorMes.get(key);
-      if (m.tipo === 'SAÍDA') item.saidas += 1; else item.entradas += 1;
+      if (m.tipo === 'SAIDA') item.saidas += 1; else item.entradas += 1;
     });
     const historicoMovimentacao = {
       labels: referencias.map(monthLabel),

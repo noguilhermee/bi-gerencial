@@ -329,9 +329,11 @@ def _sem_acento(texto):
 
 
 def _id_visita(matricula, data_iso, horario, consultor) -> str:
-    """A planilha não tem número de atendimento. O consultor entra sem acento: a exportação nova troca
-    'José' por 'Jose' na mesma visita, e com acento a visita viraria duas."""
-    return _id_composto(matricula, data_iso, horario, _sem_acento(consultor))
+    """A planilha não tem número de atendimento. O consultor entra sem acento e maiúsculo: a exportação nova
+    troca 'José' por 'Jose' na mesma visita, e o banco grava o nome maiúsculo — o id recalculado a partir da
+    raw precisa bater com o da planilha."""
+    consultor = _sem_acento(consultor)
+    return _id_composto(matricula, data_iso, horario, consultor.upper() if isinstance(consultor, str) else consultor)
 
 
 def montar_raw_fazendas(ativos: pd.DataFrame, rotatividade: pd.DataFrame, elabore: pd.DataFrame, prefixo: str) -> pd.DataFrame:

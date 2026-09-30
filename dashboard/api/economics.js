@@ -64,7 +64,7 @@ module.exports = async (req, res) => {
       const cod = String(row.codigo_lr || '').trim().toUpperCase();
       const vinculo = vinculoMap.get(cod) || {};
       const agro = String(row.agroindustria || vinculo.agroindustria || '').trim();
-      const reg = String(row.regiao || vinculo.regiao || '').trim() || 'NÃO INFORMADA';
+      const reg = String(row.regiao || vinculo.regiao || '').trim() || 'NAO INFORMADA';
 
       return {
         ...row,
@@ -77,7 +77,7 @@ module.exports = async (req, res) => {
         nome_fazenda: String(vinculo.nome_propriedade || '').trim(),
         cidade: String(vinculo.cidade_produtor || '').trim(),
         estado: String(vinculo.estado_produtor || '').trim(),
-        status: String(vinculo.status_cadastro || 'Ativo').trim(),
+        status: String(vinculo.status_cadastro || 'ATIVO').trim(),
         data_associacao: row.data_associacao || vinculo.data_associacao
       };
     });
@@ -107,9 +107,9 @@ module.exports = async (req, res) => {
       : econSemFiltroMes;
 
     // Regra de consistência da tela 4: KPIs e gráficos usam apenas fazenda-mês com
-    // status_consistencia_mensal = 'Consistente' (gravado pelo ETL a partir do Elabore).
+    // status_consistencia_mensal = 'CONSISTENTE' (gravado pelo ETL a partir do Elabore).
     // As tabelas continuam listando todos os registros, sinalizando os inconsistentes.
-    const ehConsistente = r => r.status_consistencia_mensal === 'Consistente';
+    const ehConsistente = r => r.status_consistencia_mensal === 'CONSISTENTE';
     const econHistorico = econSemFiltroMes.filter(ehConsistente);
     const econComDados = econTabela.filter(ehConsistente);
 
@@ -231,7 +231,7 @@ module.exports = async (req, res) => {
         tempo_cadastro: tempoLabel,
         tempo_meses: tempoMeses,
         categoria_cadastro: categoria,
-        consistencia_mensal: r.status_consistencia_mensal || 'Sem dados',
+        consistencia_mensal: r.status_consistencia_mensal || 'SEM DADOS',
         no_grafico: consistente
       });
     });
@@ -274,7 +274,7 @@ module.exports = async (req, res) => {
         coe_por_litro: Number(r.coe_por_litro || 0),
         margem_bruta_por_litro: Number(r.margem_bruta_por_litro || 0),
         flag_positiva: Number(r.margem_bruta_por_litro || 0) > 0,
-        consistencia_mensal: r.status_consistencia_mensal || 'Sem dados',
+        consistencia_mensal: r.status_consistencia_mensal || 'SEM DADOS',
         no_grafico: ehConsistente(r)
       });
 
@@ -317,7 +317,7 @@ module.exports = async (req, res) => {
         perc_sanidade: perc(blocos.san),
         perc_outros: perc(blocos.out),
         maior_item: maior ? NOMES_BLOCO[maior] : '—',
-        consistencia_mensal: r.status_consistencia_mensal || 'Sem dados',
+        consistencia_mensal: r.status_consistencia_mensal || 'SEM DADOS',
         no_grafico: ehConsistente(r)
       };
     }).sort((a, b) => b.coe_total_reais - a.coe_total_reais);

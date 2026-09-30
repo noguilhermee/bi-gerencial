@@ -95,11 +95,11 @@ WHITELIST_TIPOS_VISITA_LEITE = [
 
 # ─── Consistência ─────────────────────────────────────────────────────────────
 
-SITUACAO_CONSISTENTE = "Consistente"
-SITUACAO_INCONSISTENTE = "Inconsistente"
-SITUACAO_DIVERGENTE = "Divergente"
-SITUACAO_OUTLIER = "Outlier"
-SITUACAO_SEM_DADOS = "Sem dados"
+SITUACAO_CONSISTENTE = "CONSISTENTE"
+SITUACAO_INCONSISTENTE = "INCONSISTENTE"
+SITUACAO_DIVERGENTE = "DIVERGENTE"
+SITUACAO_OUTLIER = "OUTLIER"
+SITUACAO_SEM_DADOS = "SEM DADOS"
 
 BLOCOS_ELABORE = ["receita", "qualidade", "alimentacao", "area", "rebanho", "mdo", "energia", "despesas"]
 

@@ -21,7 +21,11 @@ from zoneinfo import ZoneInfo
 import pandas as pd
 import yaml
 from dotenv import load_dotenv
-from supabase import create_client
+
+try:
+    from functions.function import criar_cliente_supabase
+except ImportError:  # executado direto de scripts/functions
+    from function import criar_cliente_supabase
 
 
 def normalizar_texto_maiusculo(valor: Any) -> str | None:
@@ -84,7 +88,7 @@ def obter_cliente_supabase(raiz_projeto: Path):
     if not supabase_url or not supabase_key:
         raise ValueError("❌ Credenciais do Supabase não encontradas no arquivo .env!")
 
-    return create_client(supabase_url, supabase_key)
+    return criar_cliente_supabase(supabase_url, supabase_key)
 
 
 def ler_excel_seguro(caminho_arquivo: Path) -> pd.DataFrame:

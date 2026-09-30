@@ -55,8 +55,8 @@ module.exports = async (req, res) => {
 
     // Regra 13 (AGENTS.md): fazendas de consultor que não lança no Elabore não entram nos indicadores de consistência
     const fazendasMes = [...new Map(carteiraFiltrada.filter(r => !r.sem_lancamento_elabore).map(r => [r.codigo_lr, r])).values()];
-    const comDados = fazendasMes.filter(r => r.consistencia_mensal !== 'Sem dados');
-    const consistentes = comDados.filter(r => r.consistencia_mensal === 'Consistente');
+    const comDados = fazendasMes.filter(r => r.consistencia_mensal !== 'SEM DADOS');
+    const consistentes = comDados.filter(r => r.consistencia_mensal === 'CONSISTENTE');
     const percConsistente = comDados.length > 0 ? ((consistentes.length / comDados.length) * 100).toFixed(1) : '0.0';
 
     // ── Séries históricas (todos os meses da carteira) ─────────────────────
@@ -107,7 +107,7 @@ module.exports = async (req, res) => {
 
     // ── Tabelas ──────────────────────────────────────────────────────────
     const semVisita = carteiraFiltrada.filter(r => !r.visitado_mes).map(r => ({
-      consultor: r.consultor || 'NÃO ATRIBUÍDO',
+      consultor: r.consultor || 'NAO ATRIBUIDO',
       codigo_lr: r.codigo_lr,
       produtor: r.nome_produtor,
       propriedade: r.nome_propriedade,

@@ -30,7 +30,7 @@ module.exports = async (req, res) => {
 
     const consultoresMap = new Map();
     carteiraFiltrada.forEach(r => {
-      const c = r.consultor || 'NÃO ATRIBUÍDO';
+      const c = r.consultor || 'NAO ATRIBUIDO';
       if (!consultoresMap.has(c)) {
         consultoresMap.set(c, {
           consultor: c, totalFarms: new Set(), visitedFarms: new Set(),
@@ -42,7 +42,7 @@ module.exports = async (req, res) => {
       if (r.visitado_mes) item.visitedFarms.add(r.codigo_lr);
       if (r.projeto) item.projects.add(r.projeto);
       if (r.agroindustria) item.industries.add(r.agroindustria);
-      if (r.regiao && r.regiao !== 'NÃO INFORMADA') item.regions.add(r.regiao);
+      if (r.regiao && r.regiao !== 'NAO INFORMADA') item.regions.add(r.regiao);
     });
 
     const consultoresList = [...consultoresMap.values()].map(c => {

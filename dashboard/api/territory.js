@@ -91,7 +91,7 @@ module.exports = async (req, res) => {
 
     fazendas.forEach((f, codigo) => {
       const l = loc.get(codigo) || {};
-      const regiao = f.regiao || 'NÃO INFORMADA';
+      const regiao = f.regiao || 'NAO INFORMADA';
       const medicao = ultimaMedicao.get(codigo);
       if (!porRegiao.has(regiao)) porRegiao.set(regiao, { regiao, propriedades: 0, litros: 0, medidas: 0 });
       const grupo = porRegiao.get(regiao);
@@ -131,7 +131,7 @@ module.exports = async (req, res) => {
       janelaMedicao: `${monthLabel(inicioJanela)} a ${monthLabel(mesRef)}`,
       kpis: {
         propriedades: fazendas.size,
-        regioes: regioes.filter((g) => g.regiao !== 'NÃO INFORMADA').length,
+        regioes: regioes.filter((g) => g.regiao !== 'NAO INFORMADA').length,
         municipios: municipios.size,
         comLocalizacao,
         aproximadas,

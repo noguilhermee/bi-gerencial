@@ -183,7 +183,7 @@ def carregar_fontes(supabase, conexao_elabore, data_inicio_elabore: str) -> Font
                                     "novilhas,reprodutores,receptoras,rebanho_total,data_processamento"),
         "dim_fazendas": _buscar_tudo(supabase, "tab_dim_fazendas_ativas"),
         "raw_fazendas_grupo": _buscar_tudo(supabase, "sq_raw_fazendas_grupo",
-                                           "codigo_produtor,grupo_ponto_atendimento,nome_grupo_ponto_atendimento"),
+                                           "codigo_produtor,grupo_ponto_atendimento,consultor"),
         "raw_vinculos": _buscar_tudo(supabase, "sq_raw_vinculos",
                                      "codigo_lr,nome_produtor,nome_propriedade,projeto,unidade_atendimento,"
                                      "tipo_ponto_atendimento,data_associacao,grupo_atendimento,consultor_grupo_atendimento,estado_produtor"),
@@ -710,7 +710,7 @@ def construir_carteira_mensal(f: Fontes, ctx: Contexto, visitas: pd.DataFrame) -
     grupos_lista_geral: dict[str, list] = {}
     for r in f.raw_fazendas_grupo.to_dict("records"):
         cod = rn.limpar_codigo_lr(r.get("codigo_produtor"))
-        grupos_lista_geral.setdefault(cod, []).extend([r.get("nome_grupo_ponto_atendimento"), r.get("grupo_ponto_atendimento")])
+        grupos_lista_geral.setdefault(cod, []).extend([r.get("consultor"), r.get("grupo_ponto_atendimento")])
 
     vis = visitas[["codigo_lr", "nome_consultor", "mes_referencia", "data_visita"]].copy() if not visitas.empty else \
         pd.DataFrame(columns=["codigo_lr", "nome_consultor", "mes_referencia", "data_visita"])
@@ -1038,12 +1038,14 @@ def construir_producao_mensal(visitas: pd.DataFrame, cfg: dict) -> pd.DataFrame:
             if prod is not None and not (lim_min <= prod <= lim_max):
                 prod = None   # vacas em lactação inconsistentes com o volume: melhor sem produtividade que errada
             qual, descartada = {}, False
+            ccs_fora = rn.chave(r.get("agroindustria")) in sem_ccs   # escala própria: não é "erro de digitação"
             for campo, origem in (("ccs", "ccs_mensal"), ("cpp", "cpp_mensal"), ("gordura", "gordura_mensal"),
                                   ("proteina", "proteina_mensal")):
+                if campo == "ccs" and ccs_fora:
+                    qual[campo] = None
+                    continue
                 qual[campo], d = _qualidade_valida(r.get(origem), faixas[campo])
                 descartada = descartada or d
-            if rn.chave(r.get("agroindustria")) in sem_ccs:
-                qual["ccs"] = None
             linhas.append({
                 "id_composto": f"{cod}|{r['mes_referencia']:%Y-%m-%d}",
                 "codigo_lr": cod, "mes_referencia": r["mes_referencia"],
