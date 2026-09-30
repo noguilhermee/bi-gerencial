@@ -1,8 +1,8 @@
 {
-  "timestamp_inspecao": "2026-09-30T15:38:39.398402-03:00",
-  "timestamp_etl": "2026-09-30T15:38:39.398402-03:00",
-  "ultima_execucao_etl_formatada": "30/09/2026 às 15:38:39",
-  "ultima_leitura_planilhas_formatada": "30/09/2026 às 15:38:39",
+  "timestamp_inspecao": "2026-09-30T17:28:33.780927-03:00",
+  "timestamp_etl": "2026-09-30T17:28:33.780927-03:00",
+  "ultima_execucao_etl_formatada": "30/09/2026 às 17:28:33",
+  "ultima_leitura_planilhas_formatada": "30/09/2026 às 17:28:33",
   "arquivo_mais_recente_nome": "LISTA_GERAL_VISITAS.xlsx",
   "arquivo_mais_recente_data": "30/09/2026 às 11:01",
   "total_arquivos": 12,
