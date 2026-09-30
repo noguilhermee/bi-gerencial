@@ -32,7 +32,7 @@
     prod: null,
     terr: null,
     indicador: 'volume_total',
-    periodo: 12,
+    periodo: 6,
     charts: {},
     regioes: [],          // nomes em ordem alfabética — cor estável entre gráficos e mapa
     mapa: null,

@@ -1,24 +1,24 @@
 {
-  "timestamp_inspecao": "2026-09-30T14:52:38.740939-03:00",
-  "timestamp_etl": "2026-09-30T14:52:38.740939-03:00",
-  "ultima_execucao_etl_formatada": "30/09/2026 às 14:52:38",
-  "ultima_leitura_planilhas_formatada": "30/09/2026 às 14:52:38",
+  "timestamp_inspecao": "2026-09-30T15:38:39.398402-03:00",
+  "timestamp_etl": "2026-09-30T15:38:39.398402-03:00",
+  "ultima_execucao_etl_formatada": "30/09/2026 às 15:38:39",
+  "ultima_leitura_planilhas_formatada": "30/09/2026 às 15:38:39",
   "arquivo_mais_recente_nome": "LISTA_GERAL_VISITAS.xlsx",
   "arquivo_mais_recente_data": "30/09/2026 às 11:01",
   "total_arquivos": 12,
   "diretorio_origem": "C:\\Users\\Guilherme\\LABOR RURAL\\Analytics - Departamento Analytics\\POWER_BI\\PROJETOS\\BI_LABOR_RURAL\\BD_SMARTQUESTION",
   "consistencia_mensal": {
     "tabela": "elabore_raw_consistencia_mensal",
-    "ultima_atualizacao": "2026-09-29T15:52:46.442031-03:00",
-    "ultima_atualizacao_formatada": "29/09/2026 às 15:52",
-    "total_registros": 15899,
+    "ultima_atualizacao": "2026-09-30T15:30:39.300564-03:00",
+    "ultima_atualizacao_formatada": "30/09/2026 às 15:30",
+    "total_registros": 16091,
     "status": "✅ Sincronizado"
   },
   "consistencia_anual": {
     "tabela": "elabore_raw_consistencia_anual",
-    "ultima_atualizacao": "2026-09-29T15:53:30.189290-03:00",
-    "ultima_atualizacao_formatada": "29/09/2026 às 15:53",
-    "total_registros": 6760,
+    "ultima_atualizacao": "2026-09-30T15:30:59.083233-03:00",
+    "ultima_atualizacao_formatada": "30/09/2026 às 15:30",
+    "total_registros": 6873,
     "status": "✅ Sincronizado"
   },
   "arquivos": [
