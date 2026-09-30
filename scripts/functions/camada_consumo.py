@@ -1099,10 +1099,14 @@ def construir_consultor_atuacao(ctx: Contexto, r: dict, ids_consultor: dict[str,
     somar(r.get("visitas"), "nome_consultor", "qtd_visitas")
     somar(r.get("movimentacao"), "consultor", "qtd_movimentacoes", coluna_mes="data_movimentacao")
 
+    # O dashboard só oferece os meses da carteira: visitas/movimentações anteriores (ou com data inválida,
+    # ex.: 1970-01-01) não entram na ponte, que a API devolve inteira a cada requisição.
+    carteira = r.get("carteira")
+    piso = carteira["mes_referencia"].min() if carteira is not None and not carteira.empty else pd.NaT
     linhas: dict[str, dict] = {}
     ignoradas = 0
     for (mes, consultor, agro, regiao), q in acumulado.items():
-        if pd.isna(mes) or not consultor or consultor == rn.NAO_ATRIBUIDO:
+        if pd.isna(mes) or not consultor or consultor == rn.NAO_ATRIBUIDO or (pd.notna(piso) and mes < piso):
             continue
         id_consultor = ids_consultor.get(rn.chave(consultor))
         dim_agro = ctx.agro_dim.get(rn.chave(agro))
