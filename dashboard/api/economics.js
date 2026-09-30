@@ -17,7 +17,8 @@ const {
   fetchAll,
   fetchWithCache,
   monthLabel,
-  formatDate
+  formatDate,
+  parseList
 } = require('./shared');
 
 module.exports = async (req, res) => {
@@ -41,12 +42,14 @@ module.exports = async (req, res) => {
     ]);
 
     // Filtros da requisição (mesmos nomes de query usados por overview/visits/turnover/consistency)
-    const filterAgro = (req.query.industry || '').trim().toUpperCase();
-    const filterRegion = (req.query.region || '').trim().toUpperCase();
-    const filterProject = (req.query.project || '').trim().toUpperCase();
+    // Multi-seleção: cada filtro é um Set em caixa alta (vazio = sem filtro)
+    const listaMaiuscula = valor => new Set(parseList(valor).map(v => v.toUpperCase()));
+    const filterAgro = listaMaiuscula(req.query.industry);
+    const filterRegion = listaMaiuscula(req.query.region);
+    const filterProject = listaMaiuscula(req.query.project);
     const filterStatus = (req.query.status || '').trim().toUpperCase();
-    const filterConsultant = (req.query.consultant || '').trim().toUpperCase();
-    const filterProducer = (req.query.producer || '').trim().toUpperCase();
+    const filterConsultant = listaMaiuscula(req.query.consultant);
+    const filterProducer = listaMaiuscula(req.query.producer);
     const filterMonth = (req.query.month || '').trim();
 
     // Mapeamento de cadastro de vínculos
@@ -84,12 +87,12 @@ module.exports = async (req, res) => {
     // pontuais (foto do mês selecionado), mas NUNCA para séries históricas (evolução mensal),
     // senão o gráfico de tendência fica com um único ponto — mesmo padrão de overview.js
     // (carteiraTodos vs. carteiraMes).
-    if (filterAgro) econList = econList.filter(r => r.agroindustria.toUpperCase() === filterAgro);
-    if (filterRegion) econList = econList.filter(r => r.regiao.toUpperCase() === filterRegion);
-    if (filterProject) econList = econList.filter(r => r.projeto.toUpperCase() === filterProject);
+    if (filterAgro.size) econList = econList.filter(r => filterAgro.has(r.agroindustria.toUpperCase()));
+    if (filterRegion.size) econList = econList.filter(r => filterRegion.has(r.regiao.toUpperCase()));
+    if (filterProject.size) econList = econList.filter(r => filterProject.has(r.projeto.toUpperCase()));
     if (filterStatus) econList = econList.filter(r => r.status.toUpperCase() === filterStatus);
-    if (filterConsultant) econList = econList.filter(r => r.consultor.toUpperCase() === filterConsultant);
-    if (filterProducer) econList = econList.filter(r => (r.produtor.toUpperCase() === filterProducer || r.codigo_lr === filterProducer));
+    if (filterConsultant.size) econList = econList.filter(r => filterConsultant.has(r.consultor.toUpperCase()));
+    if (filterProducer.size) econList = econList.filter(r => filterProducer.has(r.produtor.toUpperCase()) || filterProducer.has(r.codigo_lr));
 
     // Descarta linhas sem lançamento econômico real no mês (inclui, por ora, o resíduo de
     // carga legada anterior à correção de 2026-09-23, que ficou com possui_dados_economicos=0

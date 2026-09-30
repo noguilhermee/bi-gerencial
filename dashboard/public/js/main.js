@@ -270,24 +270,48 @@ document.addEventListener('DOMContentLoaded', () => {
     charts.renderQuality('chartDataQualityAnnual', data.distribuicaoDonutAnual || emptyState.consistency.distribuicaoDonutAnual);
   }
 
+  // Filtros multi-seleção (agroindústria, região, projeto, consultor, produtor): lista vazia = "Todos".
+  // O <select multiple> é o armazenamento; a UI é o popup com checkboxes (setupCustomSelectDropdowns).
+  function allOptionsSelected(select) {
+    return select.options.length > 1 && [...select.options].every((opt) => opt.selected);
+  }
+
+  function selectedValues(selectId) {
+    const select = el(selectId);
+    if (!select || allOptionsSelected(select)) return []; // tudo marcado = "Todos" = sem restrição
+    return [...select.selectedOptions].map((opt) => opt.value).filter(Boolean);
+  }
+
+  // Reconstrói as opções de um filtro multi-seleção preservando o que continua disponível.
+  // items: [{ value, label }]. Seleções que deixaram de existir são descartadas.
+  function fillMultiSelect(selectId, items) {
+    const select = el(selectId);
+    if (!select) return;
+    const previous = new Set(selectedValues(selectId));
+    select.innerHTML = items.map(({ value, label }) => (
+      `<option value="${escapeHtml(value)}"${previous.has(value) ? ' selected' : ''}>${escapeHtml(label)}</option>`
+    )).join('');
+    syncCustomSelectDisplay(selectId);
+  }
+
   function currentFilter() {
     return {
-      industry: el('filterIndustry')?.value || '',
-      region: el('filterRegion')?.value || '',
-      project: el('filterProject')?.value || '',
+      industry: selectedValues('filterIndustry'),
+      region: selectedValues('filterRegion'),
+      project: selectedValues('filterProject'),
       status: '',
-      consultant: el('filterConsultant')?.value || '',
-      producer: el('filterProducer')?.value || '',
+      consultant: selectedValues('filterConsultant'),
+      producer: selectedValues('filterProducer'),
       month: el('filterMonth')?.value || ''
     };
   }
 
   function dimensionMatches(rowValue, filterValue) {
-    if (!filterValue) return true;
+    const expected = [].concat(filterValue ?? []).filter(Boolean).map((v) => String(v).toLocaleLowerCase('pt-BR'));
+    if (!expected.length) return true;
     if (rowValue === null || rowValue === undefined || rowValue === '' || rowValue === 'Todos') return true;
-    const expected = String(filterValue).toLocaleLowerCase('pt-BR');
     const values = Array.isArray(rowValue) ? rowValue : [rowValue];
-    return values.some((value) => String(value).toLocaleLowerCase('pt-BR') === expected);
+    return values.some((value) => expected.includes(String(value).toLocaleLowerCase('pt-BR')));
   }
 
   function normalizeStatus(value) {
@@ -358,19 +382,19 @@ document.addEventListener('DOMContentLoaded', () => {
     if (isNonFieldConsultant(rawConsultant)) return false;
 
     const consultores = sanitizeConsultorList(rawConsultant).map((c) => c.toLocaleLowerCase('pt-BR'));
-    const filterConsult = (filter.consultant || '').toLocaleLowerCase('pt-BR');
-    const consultantMatch = !filterConsult ||
-      consultores.includes(filterConsult) ||
-      rawConsultant.toLocaleLowerCase('pt-BR').includes(filterConsult);
+    const filterConsult = (filter.consultant || []).map((c) => c.toLocaleLowerCase('pt-BR'));
+    const rawConsultantLower = rawConsultant.toLocaleLowerCase('pt-BR');
+    const consultantMatch = !filterConsult.length ||
+      filterConsult.some((c) => consultores.includes(c) || rawConsultantLower.includes(c));
 
     const producer = String(row.produtor || row.nome_produtor || row.propriedade || '').trim().toLocaleLowerCase('pt-BR');
     const producerCode = String(row.codigo_lr || row.codigo_produtor || '').trim().toLocaleLowerCase('pt-BR');
-    const filterProd = (filter.producer || '').trim().toLocaleLowerCase('pt-BR');
-    const producerMatch = !filterProd || producer === filterProd || producerCode === filterProd;
+    const filterProd = (filter.producer || []).map((p) => p.trim().toLocaleLowerCase('pt-BR'));
+    const producerMatch = !filterProd.length || filterProd.includes(producer) || filterProd.includes(producerCode);
 
     // Agroindústria e região já chegam canônicas do ETL (tab_dim_*): comparação exata, sem reinterpretar
     const rowRegions = [].concat(row.regiao ?? row.regioes ?? []).filter(Boolean);
-    const regionMatch = !filter.region || rowRegions.includes(filter.region);
+    const regionMatch = !filter.region.length || rowRegions.some((r) => filter.region.includes(r));
     const rowMonth = String(row.mes_referencia || row.data_referencia || '').slice(0, 10);
     const monthMatch = ignoreMonth || !filter.month || !rowMonth || dimensionMatches(rowMonth, filter.month);
 
@@ -1417,6 +1441,13 @@ document.addEventListener('DOMContentLoaded', () => {
     return rows;
   }
 
+  // Texto exibido no campo do filtro: "Todos" sem seleção, o nome com 1, "N selecionados" com várias (nomes no tooltip)
+  function multiDisplayText(select) {
+    const chosen = [...select.selectedOptions].filter((opt) => opt.value);
+    if (!chosen.length || allOptionsSelected(select)) return select.dataset.allLabel || 'Todos';
+    return chosen.length === 1 ? chosen[0].text : `${chosen.length} selecionados`;
+  }
+
   function syncCustomSelectDisplay(selectId) {
     const select = el(selectId);
     if (!select) return;
@@ -1424,6 +1455,11 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!control) return;
     const displayValue = control.querySelector('.select-display-value');
     if (!displayValue) return;
+    if (select.multiple) {
+      displayValue.textContent = multiDisplayText(select);
+      displayValue.title = [...select.selectedOptions].map((opt) => opt.text).join(', ');
+      return;
+    }
     const selectedOpt = select.options[select.selectedIndex];
     displayValue.textContent = selectedOpt ? selectedOpt.text : (select.value || '');
   }
@@ -1460,23 +1496,24 @@ document.addEventListener('DOMContentLoaded', () => {
     const rows = state.masterRows || [];
     if (!rows.length) return;
 
+    // Multi-seleção: cada filtro é uma lista (vazia = sem restrição); a linha passa se bate com QUALQUER valor da lista
     const curInd = current.industry;
     const curReg = current.region;
     const curProj = current.project;
     const curStat = current.status;
-    const curCons = (current.consultant || '').toLowerCase();
-    const curProd = (current.producer || '').toLowerCase();
+    const curCons = current.consultant.map((c) => c.toLowerCase());
+    const curProd = current.producer.map((p) => p.toLowerCase());
     const curMonth = current.month ? String(current.month).slice(0, 7) : '';
 
     function matchesActiveExcept(row, fieldKey) {
       if (!ehCadeiaLeite(row.projeto || row.agroindustria)) return false;
       if (fieldKey !== 'month' && curMonth && row.mes_referencia && String(row.mes_referencia).slice(0, 7) !== curMonth) return false;
-      if (fieldKey !== 'industry' && curInd && row.agroindustria !== curInd) return false;
-      if (fieldKey !== 'region' && curReg && row.regiao !== curReg) return false;
-      if (fieldKey !== 'project' && curProj && row.projeto !== curProj) return false;
+      if (fieldKey !== 'industry' && curInd.length && !curInd.includes(row.agroindustria)) return false;
+      if (fieldKey !== 'region' && curReg.length && !curReg.includes(row.regiao)) return false;
+      if (fieldKey !== 'project' && curProj.length && !curProj.includes(row.projeto)) return false;
       if (fieldKey !== 'status' && curStat && row.status !== curStat) return false;
-      if (fieldKey !== 'consultant' && curCons && (row.consultor || '').toLowerCase() !== curCons) return false;
-      if (fieldKey !== 'producer' && curProd && (row.produtor || '').toLowerCase() !== curProd) return false;
+      if (fieldKey !== 'consultant' && curCons.length && !curCons.includes((row.consultor || '').toLowerCase())) return false;
+      if (fieldKey !== 'producer' && curProd.length && !curProd.includes((row.produtor || '').toLowerCase())) return false;
       return true;
     }
 
@@ -1489,9 +1526,9 @@ document.addEventListener('DOMContentLoaded', () => {
       const permitidos = new Set();
       relacoes.forEach(([mes, agro, regiao, consultor]) => {
         if (curMonth && mes !== curMonth) return;
-        if (fieldKey !== 'industry' && curInd && agro !== curInd) return;
-        if (fieldKey !== 'region' && curReg && regiao !== curReg) return;
-        if (fieldKey !== 'consultant' && curCons && String(consultor).toLowerCase() !== curCons) return;
+        if (fieldKey !== 'industry' && curInd.length && !curInd.includes(agro)) return;
+        if (fieldKey !== 'region' && curReg.length && !curReg.includes(regiao)) return;
+        if (fieldKey !== 'consultant' && curCons.length && !curCons.includes(String(consultor).toLowerCase())) return;
         permitidos.add(String(fieldKey === 'industry' ? agro : fieldKey === 'region' ? regiao : consultor).toLowerCase());
       });
       return permitidos;
@@ -1500,11 +1537,11 @@ document.addEventListener('DOMContentLoaded', () => {
       const permitidos = opcoesRelacionadas(fieldKey);
       return permitidos ? lista.filter((v) => permitidos.has(String(v).toLowerCase())) : lista;
     };
+    const ordenar = (lista) => lista.sort((a, b) => a.localeCompare(b, 'pt-BR'));
+    const simples = (valor) => ({ value: valor, label: valor });
 
     // 1. Agroindústria
-    const indSelect = el('filterIndustry');
-    if (indSelect) {
-      const prevVal = indSelect.value;
+    if (el('filterIndustry')) {
       const validRows = rows.filter((r) => matchesActiveExcept(r, 'industry'));
       const oficiais = state.overview?.filterOptions?.agroindustrias;
       let available = [...new Set(validRows.map((r) => r.agroindustria).filter(Boolean).filter(ehCadeiaLeite))];
@@ -1512,64 +1549,38 @@ document.addEventListener('DOMContentLoaded', () => {
         available = available.filter((ind) => oficiais.includes(ind));
       }
       available = restringirPelaRelacao(available, 'industry');
-      available.sort((a, b) => a.localeCompare(b, 'pt-BR'));
-      indSelect.innerHTML = `<option value="">Todas</option>${available.map((ind) => `<option value="${escapeHtml(ind)}">${escapeHtml(ind)}</option>`).join('')}`;
-      if (available.includes(prevVal)) indSelect.value = prevVal;
-      else indSelect.value = '';
-      syncCustomSelectDisplay('filterIndustry');
+      fillMultiSelect('filterIndustry', ordenar(available).map(simples));
     }
 
     // 2. Região
-    const regSelect = el('filterRegion');
-    if (regSelect) {
-      const prevVal = regSelect.value;
+    if (el('filterRegion')) {
       const validRows = rows.filter((r) => matchesActiveExcept(r, 'region'));
-      const available = restringirPelaRelacao([...new Set(validRows.map((r) => r.regiao).filter(Boolean))], 'region')
-        .sort((a, b) => a.localeCompare(b, 'pt-BR'));
-      regSelect.innerHTML = `<option value="">Todas</option>${available.map((reg) => `<option value="${escapeHtml(reg)}">${escapeHtml(reg)}</option>`).join('')}`;
-      if (available.includes(prevVal)) regSelect.value = prevVal;
-      else regSelect.value = '';
-      syncCustomSelectDisplay('filterRegion');
+      const available = restringirPelaRelacao([...new Set(validRows.map((r) => r.regiao).filter(Boolean))], 'region');
+      fillMultiSelect('filterRegion', ordenar(available).map(simples));
     }
 
     // 3. Projeto
-    const projSelect = el('filterProject');
-    if (projSelect) {
-      const prevVal = projSelect.value;
+    if (el('filterProject')) {
       const validRows = rows.filter((r) => matchesActiveExcept(r, 'project'));
-      const availableProjects = [...new Set(validRows.map((r) => r.projeto).filter(Boolean).filter(ehCadeiaLeite))].sort((a, b) => a.localeCompare(b, 'pt-BR'));
-      projSelect.innerHTML = `<option value="">Todos</option>${availableProjects.map((p) => `<option value="${escapeHtml(p)}">${escapeHtml(formatProjectLabel(p))}</option>`).join('')}`;
-      if (availableProjects.includes(prevVal)) projSelect.value = prevVal;
-      else projSelect.value = '';
-      syncCustomSelectDisplay('filterProject');
+      const availableProjects = ordenar([...new Set(validRows.map((r) => r.projeto).filter(Boolean).filter(ehCadeiaLeite))]);
+      fillMultiSelect('filterProject', availableProjects.map((p) => ({ value: p, label: formatProjectLabel(p) })));
     }
 
     // 4. Consultor
-    const consultSelect = el('filterConsultant');
-    if (consultSelect) {
-      const prevVal = consultSelect.value;
+    if (el('filterConsultant')) {
       const validRows = rows.filter((r) => matchesActiveExcept(r, 'consultant'));
-      const available = restringirPelaRelacao([...new Set(validRows.map((r) => r.consultor).filter(Boolean))], 'consultant')
-        .sort((a, b) => a.localeCompare(b, 'pt-BR'));
-      consultSelect.innerHTML = `<option value="">Todos</option>${available.map((c) => `<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`).join('')}`;
-      if (available.includes(prevVal)) consultSelect.value = prevVal;
-      else consultSelect.value = '';
-      syncCustomSelectDisplay('filterConsultant');
+      const available = restringirPelaRelacao([...new Set(validRows.map((r) => r.consultor).filter(Boolean))], 'consultant');
+      fillMultiSelect('filterConsultant', ordenar(available).map(simples));
     }
 
-    // 6. Produtor
-    const prodSelect = el('filterProducer');
-    if (prodSelect) {
-      const prevVal = prodSelect.value;
+    // 5. Produtor
+    if (el('filterProducer')) {
       const validRows = rows.filter((r) => matchesActiveExcept(r, 'producer'));
       const available = [...new Set(
         validRows.map((r) => r.produtor)
           .filter((p) => p && !String(p).includes('_CONSULTOR') && p !== 'CONTA DE SUPERVISÃO')
-      )].sort((a, b) => a.localeCompare(b, 'pt-BR'));
-      prodSelect.innerHTML = `<option value="">Todos</option>${available.map((p) => `<option value="${escapeHtml(p)}">${escapeHtml(p)}</option>`).join('')}`;
-      if (available.includes(prevVal)) prodSelect.value = prevVal;
-      else prodSelect.value = '';
-      syncCustomSelectDisplay('filterProducer');
+      )];
+      fillMultiSelect('filterProducer', ordenar(available).map(simples));
     }
   }
 
@@ -1933,12 +1944,13 @@ document.addEventListener('DOMContentLoaded', () => {
       const filter = currentFilter();
       const params = new URLSearchParams();
       if (filter.month) params.set('month', filter.month);
-      if (filter.industry) params.set('industry', filter.industry);
-      if (filter.region) params.set('region', filter.region);
-      if (filter.project) params.set('project', filter.project);
-      if (filter.consultant) params.set('consultant', filter.consultant);
+      // Multi-seleção viaja em um único parâmetro, valores separados por "|" (ex.: consultant=Ana|Bruno)
+      if (filter.industry.length) params.set('industry', filter.industry.join('|'));
+      if (filter.region.length) params.set('region', filter.region.join('|'));
+      if (filter.project.length) params.set('project', filter.project.join('|'));
+      if (filter.consultant.length) params.set('consultant', filter.consultant.join('|'));
       if (filter.status) params.set('status', filter.status);
-      if (filter.producer) params.set('producer', filter.producer);
+      if (filter.producer.length) params.set('producer', filter.producer.join('|'));
 
       const query = params.toString() ? `?${params.toString()}` : '';
       // Na carga inicial a busca "master" acabou de trazer exatamente estes dados:
@@ -1987,6 +1999,8 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   function closeAllPopups() {
+    // Filtros multi-seleção só recarregam o dashboard ao fechar o popup (evita um reload por clique)
+    document.querySelectorAll('.filter-control.active-popup').forEach((fc) => fc.dispatchEvent(new CustomEvent('multicommit')));
     document.querySelectorAll('.custom-select-popup').forEach((p) => p.classList.remove('open'));
     document.querySelectorAll('.filter-control').forEach((fc) => {
       fc.classList.remove('active-popup');
@@ -2023,7 +2037,15 @@ document.addEventListener('DOMContentLoaded', () => {
         control.appendChild(displayValue);
       }
 
+      const multi = select.multiple;
+      let multiDirty = false;
+
       function syncDisplayValue() {
+        if (multi) {
+          displayValue.textContent = multiDisplayText(select);
+          displayValue.title = [...select.selectedOptions].map((opt) => opt.text).join(', ');
+          return;
+        }
         const selectedOpt = select.options[select.selectedIndex];
         displayValue.textContent = selectedOpt ? selectedOpt.text : (select.value || '');
       }
@@ -2049,7 +2071,7 @@ document.addEventListener('DOMContentLoaded', () => {
       function highlightOption(index, scroll = true) {
         const optionsList = popup.querySelector('.custom-select-options-list');
         if (!optionsList) return;
-        const optEls = optionsList.querySelectorAll('.custom-select-option');
+        const optEls = optionsList.querySelectorAll('.custom-select-option:not(.is-all)');
         if (optEls.length === 0) return;
 
         if (index < 0) index = 0;
@@ -2068,7 +2090,39 @@ document.addEventListener('DOMContentLoaded', () => {
         });
       }
 
+      // Multi-seleção: alterna a opção (ou marca/desmarca tudo com o marcador "__all__") sem fechar o popup
+      function toggleMultiOption(val) {
+        if (val === '__all__') {
+          // "Todos": marca todas as opções; se já estavam todas marcadas, desmarca
+          const marcar = !allOptionsSelected(select);
+          [...select.options].forEach((opt) => { opt.selected = marcar; });
+        } else if (val === '__results__') {
+          // Com uma pesquisa ativa: marca (ou desmarca) só as opções encontradas
+          const consulta = normalizeText(popup.querySelector('.custom-select-search-input')?.value || '');
+          const encontradas = [...select.options].filter((opt) => normalizeText(opt.text).includes(consulta));
+          const marcar = !encontradas.every((opt) => opt.selected);
+          encontradas.forEach((opt) => { opt.selected = marcar; });
+        } else {
+          const opt = [...select.options].find((o) => o.value === val);
+          if (opt) opt.selected = !opt.selected;
+        }
+        multiDirty = true;
+        syncDisplayValue();
+        updatePopupOptions(popup.querySelector('.custom-select-search-input')?.value || '', true);
+      }
+
+      control.addEventListener('multicommit', () => {
+        if (!multiDirty) return;
+        multiDirty = false;
+        showLoading('Atualizando dashboard com filtros...');
+        select.dispatchEvent(new Event('change', { bubbles: true }));
+      });
+
       function selectOptionByValue(val) {
+        if (multi) {
+          toggleMultiOption(val);
+          return;
+        }
         select.value = val;
         syncDisplayValue();
         closeAllPopups();
@@ -2077,7 +2131,7 @@ document.addEventListener('DOMContentLoaded', () => {
         control.focus();
       }
 
-      function updatePopupOptions(searchQuery = '') {
+      function updatePopupOptions(searchQuery = '', keepHighlight = false) {
         const options = Array.from(select.options);
         const queryNorm = normalizeText(searchQuery);
 
@@ -2095,7 +2149,14 @@ document.addEventListener('DOMContentLoaded', () => {
               <input type="text" class="custom-select-search-input" placeholder="Pesquisar..." aria-label="Pesquisar opção">
             </div>
             <div class="custom-select-options-list"></div>
+            ${multi ? '<div class="custom-select-footer"><button type="button" class="custom-select-apply">Aplicar</button></div>' : ''}
           `;
+          popup.querySelector('.custom-select-apply')?.addEventListener('click', (e) => {
+            e.stopPropagation();
+            e.preventDefault();
+            closeAllPopups(); // fecha e aplica a seleção (evento multicommit)
+            control.focus();
+          });
           searchWrap = popup.querySelector('.custom-select-search-wrap');
           optionsList = popup.querySelector('.custom-select-options-list');
 
@@ -2121,7 +2182,7 @@ document.addEventListener('DOMContentLoaded', () => {
             } else if (isEnter) {
               e.preventDefault();
               const optsList = popup.querySelector('.custom-select-options-list');
-              const optEls = optsList ? optsList.querySelectorAll('.custom-select-option') : [];
+              const optEls = optsList ? optsList.querySelectorAll('.custom-select-option:not(.is-all)') : [];
               if (optEls.length > 0) {
                 const targetIdx = Math.max(0, Math.min(highlightedIndex, optEls.length - 1));
                 const targetEl = optEls[targetIdx];
@@ -2143,28 +2204,49 @@ document.addEventListener('DOMContentLoaded', () => {
           });
         }
 
-        if (currentFilteredOptions.length === 0) {
-          optionsList.innerHTML = `<div class="custom-select-no-results">Nenhum resultado encontrado</div>`;
-          highlightedIndex = -1;
-        } else {
-          const selectedIdx = currentFilteredOptions.findIndex(opt => opt.value === select.value);
-          highlightedIndex = selectedIdx >= 0 ? selectedIdx : 0;
-
-          optionsList.innerHTML = currentFilteredOptions.map((opt, idx) => {
-            const isSelected = opt.value === select.value;
-            const isHighlighted = idx === highlightedIndex;
-            return `<div class="custom-select-option ${isSelected ? 'selected' : ''} ${isHighlighted ? 'highlighted' : ''}" data-value="${escapeHtml(opt.value)}" data-index="${idx}">
-              <span>${escapeHtml(opt.text)}</span>
-              ${isSelected ? '<span style="font-size:10px;">✓</span>' : ''}
+        // Multi-seleção: linha "Todos" (marca/desmarca tudo). Aparece sem pesquisa ou quando a pesquisa
+        // combina com o rótulo ("todos"); com pesquisa, também há "Selecionar resultados" só para o que foi encontrado.
+        const allLabel = select.dataset.allLabel || 'Todos';
+        const linhaMulti = (valor, texto, marcada) => `<div class="custom-select-option is-multi is-all ${marcada ? 'selected' : ''}" data-value="${valor}" data-index="-1">
+              <span class="multi-check" aria-hidden="true">${marcada ? '✓' : ''}</span>
+              <span>${escapeHtml(texto)}</span>
             </div>`;
-          }).join('');
-
-          highlightOption(highlightedIndex, true);
+        let extras = '';
+        if (multi && (!queryNorm || normalizeText(allLabel).includes(queryNorm))) {
+          extras += linhaMulti('__all__', allLabel, allOptionsSelected(select));
+        }
+        if (multi && queryNorm && currentFilteredOptions.length > 0) {
+          extras += linhaMulti('__results__', `Selecionar resultados (${currentFilteredOptions.length})`, currentFilteredOptions.every(opt => opt.selected));
         }
 
-        optionsList.querySelectorAll('.custom-select-option').forEach((optEl, idx) => {
+        if (currentFilteredOptions.length === 0) {
+          optionsList.innerHTML = extras || `<div class="custom-select-no-results">Nenhum resultado encontrado</div>`;
+          highlightedIndex = -1;
+        } else {
+          const previousHighlight = highlightedIndex;
+          const selectedIdx = multi
+            ? currentFilteredOptions.findIndex(opt => opt.selected)
+            : currentFilteredOptions.findIndex(opt => opt.value === select.value);
+          highlightedIndex = keepHighlight && previousHighlight >= 0 ? previousHighlight : (selectedIdx >= 0 ? selectedIdx : 0);
+
+          const rowsHtml = currentFilteredOptions.map((opt, idx) => {
+            const isSelected = multi ? opt.selected : opt.value === select.value;
+            const isHighlighted = idx === highlightedIndex;
+            return `<div class="custom-select-option ${multi ? 'is-multi' : ''} ${isSelected ? 'selected' : ''} ${isHighlighted ? 'highlighted' : ''}" data-value="${escapeHtml(opt.value)}" data-index="${idx}">
+              ${multi ? `<span class="multi-check" aria-hidden="true">${isSelected ? '✓' : ''}</span>` : ''}
+              <span>${escapeHtml(opt.text)}</span>
+              ${!multi && isSelected ? '<span style="font-size:10px;">✓</span>' : ''}
+            </div>`;
+          }).join('');
+          optionsList.innerHTML = extras + rowsHtml;
+
+          highlightOption(highlightedIndex, !keepHighlight);
+        }
+
+        optionsList.querySelectorAll('.custom-select-option').forEach((optEl) => {
+          const idx = Number(optEl.dataset.index);
           optEl.addEventListener('mouseenter', () => {
-            highlightOption(idx, false);
+            if (idx >= 0) highlightOption(idx, false);
           });
 
           optEl.addEventListener('click', (e) => {

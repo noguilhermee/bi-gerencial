@@ -172,33 +172,49 @@ function shiftMonthMinus1(monthStr) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-01`;
 }
 
-/** Extrai e normaliza os filtros comuns compartilhados por todos os endpoints. */
+/**
+ * Lê um filtro multi-valor da query: valores separados por "|" (ex.: consultant=Ana|Bruno).
+ * Aceita também parâmetro repetido (array). Devolve sempre um array sem vazios nem repetições.
+ */
+function parseList(value) {
+  const partes = [].concat(value ?? []).flatMap(v => String(v).split('|')).map(v => v.trim()).filter(Boolean);
+  return [...new Set(partes)];
+}
+
+/**
+ * Extrai e normaliza os filtros comuns compartilhados por todos os endpoints.
+ * industry/region/project/consultant/producer são listas (multi-seleção; lista vazia = sem filtro).
+ * consultantKeys/producerKeys guardam as versões minúsculas em Set, para o match por linha ser O(1).
+ */
 function parseFilters(query) {
+  const consultant = parseList(query?.consultant);
+  const producer = parseList(query?.producer);
   return {
     month: String(query?.month || '').slice(0, 10),
-    industry: String(query?.industry || '').trim(),
-    region: String(query?.region || '').trim(),
-    project: String(query?.project || '').trim(),
-    consultant: String(query?.consultant || '').trim(),
-    producer: String(query?.producer || '').trim(),
+    industry: parseList(query?.industry),
+    region: parseList(query?.region),
+    project: parseList(query?.project),
+    consultant,
+    producer,
+    consultantKeys: new Set(consultant.map(c => c.toLowerCase())),
+    producerKeys: new Set(producer.map(p => p.toLowerCase())),
     status: String(query?.status || '').trim().toUpperCase()
   };
 }
 
 /** Aplica os filtros comuns a uma linha já resolvida pelo ETL (campos: agroindustria, regiao, projeto, consultor/nome_consultor, nome_produtor/codigo_lr, status_*). */
 function rowMatchesFilters(row, filters) {
-  if (filters.industry && row.agroindustria !== filters.industry) return false;
-  if (filters.region && row.regiao !== filters.region) return false;
-  if (filters.project && String(row.projeto || '') !== filters.project) return false;
-  if (filters.consultant) {
+  if (filters.industry.length && !filters.industry.includes(row.agroindustria)) return false;
+  if (filters.region.length && !filters.region.includes(row.regiao)) return false;
+  if (filters.project.length && !filters.project.includes(String(row.projeto || ''))) return false;
+  if (filters.consultantKeys.size) {
     const consultor = String(row.consultor || row.nome_consultor || '').toLowerCase();
-    if (consultor !== filters.consultant.toLowerCase()) return false;
+    if (!filters.consultantKeys.has(consultor)) return false;
   }
-  if (filters.producer) {
-    const target = filters.producer.trim().toLowerCase();
+  if (filters.producerKeys.size) {
     const nome = String(row.nome_produtor || row.produtor || '').trim().toLowerCase();
     const codigo = String(row.codigo_lr || '').trim().toLowerCase();
-    if (nome !== target && codigo !== target) return false;
+    if (!filters.producerKeys.has(nome) && !filters.producerKeys.has(codigo)) return false;
   }
   if (filters.status) {
     const status = String(row.status || row.status_produtor || 'ATIVO').toUpperCase();
@@ -218,6 +234,7 @@ module.exports = {
   monthLabel,
   formatDate,
   shiftMonthMinus1,
+  parseList,
   parseFilters,
   rowMatchesFilters
 };
