@@ -392,6 +392,8 @@ button { color: inherit; }
   opacity: 1;
   visibility: visible;
   transform: translateY(0);
+  /* visibility sem atraso: o campo de pesquisa precisa estar visível para receber o foco ao abrir */
+  transition: opacity 160ms ease, transform 160ms ease, visibility 0s;
 }
 
 .filter-control:nth-child(n+4) .custom-select-popup {
@@ -3710,4 +3712,8 @@ th.col-center .table-col-filter { text-align: center !important; }
 @media (min-width: 1025px) {
   #slide1 .grid-two--visits { flex: 4 1 0; max-height: none; min-height: 170px; }
   #slide1 .grid-two--tables { flex: 6 1 0; min-height: 220px; }
+}
+
+.custom-select-footer {
+  align-items: center;
 }

@@ -2039,6 +2039,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
       const multi = select.multiple;
       let multiDirty = false;
+      // Excel-like: após ↑/↓ o foco "está na lista" e a barra de espaço marca a linha; digitar volta a pesquisar
+      let modoLista = false;
 
       function syncDisplayValue() {
         if (multi) {
@@ -2071,7 +2073,7 @@ document.addEventListener('DOMContentLoaded', () => {
       function highlightOption(index, scroll = true) {
         const optionsList = popup.querySelector('.custom-select-options-list');
         if (!optionsList) return;
-        const optEls = optionsList.querySelectorAll('.custom-select-option:not(.is-all)');
+        const optEls = optionsList.querySelectorAll('.custom-select-option');
         if (optEls.length === 0) return;
 
         if (index < 0) index = 0;
@@ -2173,16 +2175,30 @@ document.addEventListener('DOMContentLoaded', () => {
             const isEsc = key === 'Escape' || key === 'Esc' || e.keyCode === 27;
             const isTab = key === 'Tab' || e.keyCode === 9;
 
+            const isSpace = key === ' ' || key === 'Spacebar' || e.keyCode === 32;
+            const optsList = popup.querySelector('.custom-select-options-list');
+            const optEls = optsList ? optsList.querySelectorAll('.custom-select-option') : [];
+
             if (isDown) {
               e.preventDefault();
+              modoLista = true;
               highlightOption(highlightedIndex + 1, true);
             } else if (isUp) {
               e.preventDefault();
+              modoLista = true;
               highlightOption(highlightedIndex - 1, true);
+            } else if (isSpace && multi && (modoLista || !inputEl.value)) {
+              // Espaço marca/desmarca a linha destacada (com texto digitado e sem navegar, o espaço é só um caractere)
+              e.preventDefault();
+              const alvo = optEls[highlightedIndex];
+              if (alvo) toggleMultiOption(alvo.dataset.value);
+            } else if (isEnter && multi) {
+              // Enter aplica a seleção (como o botão Aplicar)
+              e.preventDefault();
+              closeAllPopups();
+              control.focus();
             } else if (isEnter) {
               e.preventDefault();
-              const optsList = popup.querySelector('.custom-select-options-list');
-              const optEls = optsList ? optsList.querySelectorAll('.custom-select-option:not(.is-all)') : [];
               if (optEls.length > 0) {
                 const targetIdx = Math.max(0, Math.min(highlightedIndex, optEls.length - 1));
                 const targetEl = optEls[targetIdx];
@@ -2200,6 +2216,7 @@ document.addEventListener('DOMContentLoaded', () => {
           });
 
           inputEl.addEventListener('input', (e) => {
+            modoLista = false;
             updatePopupOptions(e.target.value);
           });
         }
@@ -2228,10 +2245,12 @@ document.addEventListener('DOMContentLoaded', () => {
             ? currentFilteredOptions.findIndex(opt => opt.selected)
             : currentFilteredOptions.findIndex(opt => opt.value === select.value);
           highlightedIndex = keepHighlight && previousHighlight >= 0 ? previousHighlight : (selectedIdx >= 0 ? selectedIdx : 0);
+          const extrasCount = (extras.match(/is-all/g) || []).length;
+          if (!(keepHighlight && previousHighlight >= 0)) highlightedIndex += extrasCount; // posição na lista (após as linhas extras)
 
           const rowsHtml = currentFilteredOptions.map((opt, idx) => {
             const isSelected = multi ? opt.selected : opt.value === select.value;
-            const isHighlighted = idx === highlightedIndex;
+            const isHighlighted = idx + (extras.match(/is-all/g) || []).length === highlightedIndex;
             return `<div class="custom-select-option ${multi ? 'is-multi' : ''} ${isSelected ? 'selected' : ''} ${isHighlighted ? 'highlighted' : ''}" data-value="${escapeHtml(opt.value)}" data-index="${idx}">
               ${multi ? `<span class="multi-check" aria-hidden="true">${isSelected ? '✓' : ''}</span>` : ''}
               <span>${escapeHtml(opt.text)}</span>
@@ -2239,6 +2258,7 @@ document.addEventListener('DOMContentLoaded', () => {
             </div>`;
           }).join('');
           optionsList.innerHTML = extras + rowsHtml;
+          optionsList.querySelectorAll('.custom-select-option').forEach((row, pos) => { row.dataset.index = String(pos); });
 
           highlightOption(highlightedIndex, !keepHighlight);
         }
@@ -2266,6 +2286,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const isOpen = popup.classList.contains('open');
         closeAllPopups();
         if (!isOpen) {
+          modoLista = false;
           updatePopupOptions('');
           popup.classList.add('open');
           control.classList.add('active-popup');
@@ -2273,7 +2294,10 @@ document.addEventListener('DOMContentLoaded', () => {
           const searchInput = popup.querySelector('.custom-select-search-input');
           if (searchInput) {
             searchInput.value = '';
-            setTimeout(() => searchInput.focus(), 60);
+            // visibility do popup só vira 'visible' após a transição: focar antes disso é ignorado pelo navegador.
+            // preventScroll evita que a página pule; tenta de novo ao fim da transição.
+            searchInput.focus({ preventScroll: true });
+            setTimeout(() => { if (document.activeElement !== searchInput) searchInput.focus({ preventScroll: true }); }, 180);
           }
         }
       }
