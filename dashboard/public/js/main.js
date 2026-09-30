@@ -2140,6 +2140,9 @@ document.addEventListener('DOMContentLoaded', () => {
           renderProductionTables();
           window.LRProducao.renderTerritorio(territory);
         });
+        // Safra (slide 7): ao trocar os filtros da tela a seleção de safra/cultura/produto volta ao padrão da API
+        state.safraQuery = query;
+        loadSafra({ safra: '', cultura: '', produto: '' }, loadId);
       }
 
       // Econômico chega depois sem travar o restante do dashboard
@@ -2152,6 +2155,17 @@ document.addEventListener('DOMContentLoaded', () => {
       if (loadId === loadSequence) hideLoading(0);
     }
   }
+
+  function loadSafra(selecao, loadId) {
+    const params = new URLSearchParams((state.safraQuery || '').replace(/^\?/, ''));
+    Object.entries(selecao).forEach(([k, v]) => { if (v) params.set(k, v); });
+    const query = params.toString() ? `?${params.toString()}` : '';
+    return getJson(`/api/safra${query}`).then((safra) => {
+      if (loadId !== undefined && loadId !== loadSequence) return;
+      window.LRProducao.renderSafra(safra);
+    });
+  }
+  if (window.LRProducao) window.LRProducao.aoMudarSafra((selecao) => loadSafra(selecao));
 
   function handleFilterSelectionChange() {
     updateAllCrossFilters();

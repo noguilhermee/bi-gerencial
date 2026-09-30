@@ -11,7 +11,8 @@ class DashboardCarousel {
       'Dados e consistência',
       'Econômico e Perfil dos Produtores',
       'Produção e Qualidade',
-      'Carteira e Território'
+      'Carteira e Território',
+      'Safra de Forrageiras'
     ];
     this.totalSlides = this.slideNames.length;
     this.track = document.getElementById('carouselTrack');
