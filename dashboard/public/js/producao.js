@@ -1,7 +1,7 @@
 /**
- * Slides 5 (Produção e Qualidade) e 6 (Carteira e Território).
+ * Slides 5 (Produção e Qualidade), 6 (Carteira e Território) e 7 (Safra de Forrageiras).
  *
- * Só desenha o que /api/production e /api/territory devolvem — nenhuma regra de negócio nem correção de dado
+ * Só desenha o que /api/production, /api/territory e /api/safra devolvem — nenhuma regra de negócio nem correção de dado
  * aqui (regra 12 do AGENTS.md). Cada gráfico é criado e guardado neste módulo (não em DashboardCharts) para não
  * entrar no applyTheme() genérico; o tema é reaplicado por um observador de data-theme.
  */
@@ -31,6 +31,9 @@
   const est = {
     prod: null,
     terr: null,
+    safra: null,
+    safraSel: { safra: '', cultura: '', produto: '' },
+    aoMudarSafra: null,
     indicador: 'volume_total',
     periodo: 6,
     charts: {},
@@ -500,12 +503,185 @@
     [200, 600].forEach((ms) => setTimeout(() => { if (!est.ajustado) enquadrar(); else mapa.invalidateSize(); }, ms));
   }
 
+  // ── Tela 7: Safra de Forrageiras ──────────────────────────────────────────────────────────────────
+  const SISTEMA_ROTULO = { 'PLANTIO DIRETO': 'Plantio direto', 'CULTIVO MINIMO': 'Cultivo mínimo', CONVENCIONAL: 'Convencional' };
+  const SISTEMA_COR = { 'PLANTIO DIRETO': '#014945', 'CULTIVO MINIMO': '#2385c7', CONVENCIONAL: '#e28a10' };
+  const ETAPAS_CUSTO = [
+    { chave: 'pre_plantio', rotulo: 'Pré-plantio', cor: '#014945' },
+    { chave: 'plantio', rotulo: 'Plantio', cor: '#2385c7' },
+    { chave: 'tratos', rotulo: 'Tratos', cor: '#e28a10' },
+    { chave: 'colheita', rotulo: 'Colheita', cor: '#7c5cbf' },
+    { chave: 'etapa_nao_informada', rotulo: 'Etapa não informada', cor: '#9AAEAB' }
+  ];
+  const titulo = (v) => { const t = String(v ?? '').toLowerCase(); return t ? t.charAt(0).toUpperCase() + t.slice(1) : '—'; };
+  const pct = (v) => (v === null || v === undefined ? '—' : `${num(v)}%`);
+  const GRAFICOS_SAFRA = ['chartSafraSistema', 'chartSafraCobertura', 'chartSafraProdutividade', 'chartSafraCusto'];
+
+  function limparSafra(mensagem) {
+    ['kpiSafraArea', 'kpiSafraConserv', 'kpiSafraCobertura', 'kpiSafraTha', 'kpiSafraFazendas', 'kpiSafraInconsistentes'].forEach((id) => { if (el(id)) el(id).textContent = '—'; });
+    GRAFICOS_SAFRA.forEach(destruirGrafico);
+    ['safraSistemaSub', 'safraCoberturaSub', 'safraProdSub', 'safraCustoSub'].forEach((id) => { if (el(id)) el(id).textContent = '—'; });
+    if (el('safraRodape')) el('safraRodape').innerHTML = '';
+    const aviso = el('safraAviso');
+    if (aviso) { aviso.textContent = mensagem; aviso.hidden = false; }
+  }
+
+  function preencherSelect(id, opcoes, atual, formato = (v) => v) {
+    const sel = el(id);
+    if (!sel) return;
+    sel.innerHTML = opcoes.map((o) => `<option value="${escapeHtml(o)}"${o === atual ? ' selected' : ''}>${escapeHtml(formato(o))}</option>`).join('');
+    sel.disabled = !opcoes.length;
+  }
+
+  function renderSafra(dados) {
+    est.safra = dados || null;
+    if (!dados) return limparSafra('Não foi possível carregar os dados de safra agora.');
+    if (dados.disponivel === false) return limparSafra('Dados de safra ainda não disponíveis: falta criar/carregar tab_fato_safra_forrageira.');
+    if (dados.semDados) return limparSafra('Sem dados de safra para os filtros selecionados.');
+
+    // A API devolve a seleção efetiva (padrão quando nada foi pedido): o painel passa a refleti-la
+    est.safraSel = { safra: dados.safra || '', cultura: dados.cultura || '', produto: dados.produto || '' };
+    preencherSelect('safraSelSafra', dados.safras || [], dados.safra);
+    preencherSelect('safraSelCultura', dados.culturas || [], dados.cultura, titulo);
+    preencherSelect('safraSelProduto', dados.produtos || [], dados.produto, titulo);
+    if (el('safraNota')) el('safraNota').textContent = `${String(dados.ciclo || '').replace('_', 'ª ').toLowerCase()} · soma/soma por sistema`;
+    const aviso = el('safraAviso');
+    if (aviso) aviso.hidden = true;
+
+    const sis = dados.sistema || {};
+    const cob = dados.cobertura || {};
+    const porSis = dados.porSistema || [];
+    const rod = dados.rodape || {};
+    const haColhida = porSis.reduce((a, r) => a + (r.areaColhida || 0), 0);
+    const ton = porSis.reduce((a, r) => a + (r.toneladas || 0), 0);
+
+    const set = (id, v, sub, txt) => { if (el(id)) el(id).textContent = v; if (el(sub) && txt) el(sub).textContent = txt; };
+    set('kpiSafraArea', num(sis.areaTotal), 'kpiSafraAreaSub', `ha · ${num(sis.fazendas)} fazendas · safra ${dados.safra}`);
+    set('kpiSafraConserv', pct(sis.conservacionistaPct), 'kpiSafraConservSub', 'Direto + mínimo');
+    set('kpiSafraCobertura', pct(cob.pctCom), 'kpiSafraCoberturaSub', `${num(cob.fazendasCom)} de ${num(cob.fazendas)} fazendas`);
+    set('kpiSafraTha', haColhida > 0 ? num(ton / haColhida, 1) : '—', 'kpiSafraThaSub', `t / ha · ${titulo(dados.produto)}`);
+    set('kpiSafraFazendas', num(rod.fazendasComCusto), 'kpiSafraFazendasSub', `${num(ton)} t colhidas`);
+    set('kpiSafraInconsistentes', num(rod.producoesInconsistentes));
+
+    renderGraficosSafra(dados);
+
+    const rodape = el('safraRodape');
+    if (rodape) {
+      const partes = [`Produtor com áreas em dois sistemas conta nos dois: os nº de fazendas por sistema não somam o total.`];
+      if (sis.areaNaoInformada > 0) partes.push(`${num(sis.areaNaoInformada, 1)} ha sem sistema de plantio informado (fora dos percentuais).`);
+      if (rod.fazendasSemPrePlantio > 0) partes.push(`${num(rod.fazendasSemPrePlantio)} de ${num(rod.fazendasComCusto)} fazendas sem custo de pré-plantio lançado.`);
+      if (rod.fontes && rod.fontes.length) partes.push(`Fonte: ${rod.fontes.map(titulo).join(', ')}.`);
+      rodape.textContent = partes.join(' ');
+    }
+  }
+
+  function renderGraficosSafra(dados) {
+    const eixo = cssVar('--muted', '#65707c');
+    const grade = cssVar('--line-soft', '#e9edef');
+    const sis = dados.sistema || {};
+    const cob = dados.cobertura || {};
+    const porSis = dados.porSistema || [];
+    const nome = (s) => SISTEMA_ROTULO[s] || titulo(s);
+
+    // Sistema de plantio: participação na área
+    const itens = sis.itens || [];
+    if (el('safraSistemaSub')) el('safraSistemaSub').textContent = `% da área plantada · ${num(sis.areaTotal, 1)} ha`;
+    criarGrafico('chartSafraSistema', {
+      type: 'bar',
+      plugins: [rotulos((v, i) => `${v}%  (${num(itens[i] && itens[i].area, 1)} ha · ${num(itens[i] && itens[i].fazendas)} faz.)`, { horizontal: true })],
+      data: { labels: itens.map((i) => nome(i.sistema)), datasets: [{ data: itens.map((i) => i.pct), backgroundColor: itens.map((i) => SISTEMA_COR[i.sistema]), borderRadius: 4, maxBarThickness: 34 }] },
+      options: {
+        indexAxis: 'y', responsive: true, maintainAspectRatio: false, layout: { padding: { right: 130 } },
+        plugins: { legend: { display: false }, tooltip: { ...tooltipBase(), callbacks: { label: (c) => ` ${c.parsed.x}% da área` } } },
+        scales: {
+          x: { beginAtZero: true, max: 100, grid: { color: grade }, border: { display: false }, ticks: { color: eixo, font: { size: 10.5 }, callback: (v) => `${v}%` } },
+          y: { grid: { display: false }, border: { display: false }, ticks: { color: eixo, font: { size: 11.5, weight: '600' } } }
+        }
+      }
+    });
+
+    // Cobertura do solo: com x sem
+    if (el('safraCoberturaSub')) el('safraCoberturaSub').textContent = `${num(cob.areaCom, 1)} de ${num(cob.areaTotal, 1)} ha com cobertura depois`;
+    criarGrafico('chartSafraCobertura', {
+      type: 'doughnut',
+      data: { labels: ['Com cobertura', 'Sem cobertura'], datasets: [{ data: [cob.areaCom || 0, cob.areaSem || 0], backgroundColor: ['#0E968B', '#C9D6D3'], borderColor: cssVar('--surface', '#ffffff'), borderWidth: 2 }] },
+      options: {
+        responsive: true, maintainAspectRatio: false, cutout: '62%',
+        plugins: {
+          legend: { position: 'right', labels: { color: eixo, usePointStyle: true, font: { size: 11.5, weight: '600' } } },
+          tooltip: { ...tooltipBase(), callbacks: { label: (c) => ` ${num(c.parsed, 1)} ha (${c.dataIndex === 0 ? pct(cob.pctCom) : pct(cob.pctSem)})` } }
+        }
+      }
+    });
+
+    // Produtividade por sistema
+    if (el('safraProdSub')) el('safraProdSub').textContent = `${titulo(dados.produto)} · t/ha (Σ t ÷ Σ ha colhido)`;
+    criarGrafico('chartSafraProdutividade', {
+      type: 'bar',
+      plugins: [rotulos((v, i) => (v === null ? '' : `${num(v, 1)} t/ha`))],
+      data: { labels: porSis.map((r) => `${nome(r.sistema)} (${num(r.fazendas)} faz.)`), datasets: [{ data: porSis.map((r) => r.tHa), backgroundColor: porSis.map((r) => SISTEMA_COR[r.sistema]), borderRadius: 4, maxBarThickness: 60 }] },
+      options: {
+        responsive: true, maintainAspectRatio: false, layout: { padding: { top: 18 } },
+        plugins: { legend: { display: false }, tooltip: { ...tooltipBase(), callbacks: { label: (c) => { const r = porSis[c.dataIndex]; return ` ${num(r.tHa, 1)} t/ha · ${num(r.toneladas)} t em ${num(r.areaColhida, 1)} ha`; } } } },
+        scales: {
+          x: { grid: { display: false }, border: { display: false }, ticks: { color: eixo, font: { size: 11, weight: '600' } } },
+          y: { beginAtZero: true, grid: { color: grade }, border: { display: false }, ticks: { color: eixo, font: { size: 10.5 } } }
+        }
+      }
+    });
+
+    // Custo por sistema, empilhado por etapa (R$/ha)
+    if (el('safraCustoSub')) el('safraCustoSub').textContent = `${titulo(dados.produto)} · R$/ha por etapa`;
+    const totalHa = (r) => r.rsHa;
+    criarGrafico('chartSafraCusto', {
+      type: 'bar',
+      plugins: [{
+        id: 'lrTotalCusto',
+        afterDatasetsDraw(chart) {
+          const ctx = chart.ctx;
+          const ultimo = chart.getDatasetMeta(chart.data.datasets.length - 1);
+          ctx.save();
+          ctx.font = '700 11px "Open Sans", Arial, sans-serif';
+          ctx.fillStyle = cssVar('--ink', '#162640');
+          ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
+          porSis.forEach((r, i) => { const ponto = ultimo.data[i]; if (ponto && totalHa(r)) ctx.fillText(`R$ ${num(totalHa(r))}/ha · R$ ${num(r.rsT)}/t`, ponto.x, ponto.y - 6); });
+          ctx.restore();
+        }
+      }],
+      data: {
+        labels: porSis.map((r) => nome(r.sistema)),
+        datasets: ETAPAS_CUSTO.map((e) => ({ label: e.rotulo, data: porSis.map((r) => (r.etapas && r.etapas[e.chave]) || 0), backgroundColor: e.cor, stack: 'custo', maxBarThickness: 60 }))
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false, layout: { padding: { top: 22 } },
+        plugins: {
+          legend: { position: 'bottom', labels: { color: eixo, usePointStyle: true, boxWidth: 8, font: { size: 10.5 } } },
+          tooltip: { ...tooltipBase(), callbacks: { label: (c) => ` ${c.dataset.label}: R$ ${num(c.parsed.y)}/ha` } }
+        },
+        scales: {
+          x: { stacked: true, grid: { display: false }, border: { display: false }, ticks: { color: eixo, font: { size: 11, weight: '600' } } },
+          y: { stacked: true, beginAtZero: true, grid: { color: grade }, border: { display: false }, ticks: { color: eixo, font: { size: 10.5 } } }
+        }
+      }
+    });
+  }
+
   // ── Interações e tema ─────────────────────────────────────────────────────────────────────────────
   function ligarControles() {
     document.querySelectorAll('#prodIndicador button').forEach((b) => b.addEventListener('click', () => { est.indicador = b.dataset.ind; renderEvolucao(); }));
     document.querySelectorAll('#prodBase button').forEach((b) => b.addEventListener('click', () => { est.periodo = Number(b.dataset.periodo); renderEvolucao(); }));
+    [['safraSelSafra', 'safra'], ['safraSelCultura', 'cultura'], ['safraSelProduto', 'produto']].forEach(([id, campo]) => {
+      el(id)?.addEventListener('change', (e) => {
+        est.safraSel[campo] = e.target.value;
+        // Trocar a safra/cultura invalida as escolhas que dependem dela: a API devolve o padrão válido
+        if (campo === 'safra') { est.safraSel.cultura = ''; est.safraSel.produto = ''; }
+        if (campo === 'cultura') est.safraSel.produto = '';
+        if (est.aoMudarSafra) est.aoMudarSafra({ ...est.safraSel });
+      });
+    });
     new MutationObserver(() => {
       if (est.prod) { renderEvolucao(); }
+      if (est.safra && est.safra.porSistema) renderGraficosSafra(est.safra);
       if (est.terr && est.terr.regioes) renderBarrasRegiao(est.terr);
       est.contornoLayer?.setStyle(estiloContorno());
     }).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
@@ -514,5 +690,5 @@
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', ligarControles);
   else ligarControles();
 
-  window.LRProducao = { renderProducao, renderTerritorio };
+  window.LRProducao = { renderProducao, renderTerritorio, renderSafra, aoMudarSafra: (fn) => { est.aoMudarSafra = fn; }, selecaoSafra: () => ({ ...est.safraSel }) };
 })();

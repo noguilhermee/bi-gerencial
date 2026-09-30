@@ -21,7 +21,10 @@ Uso:
 """
 from __future__ import annotations
 
+import shutil
 import sys
+import tempfile
+import unicodedata
 from pathlib import Path
 
 import pandas as pd
@@ -118,6 +121,31 @@ BOOLEANAS = {"plantio_direto", "sem_quantidade_produzida", "ciclo_divergente", "
 DATAS = {"data_plantio", "data_colheita"}
 
 
+def _chave_aba(nome: str) -> str:
+    sem_acento = unicodedata.normalize("NFKD", str(nome)).encode("ascii", "ignore").decode()
+    return " ".join(sem_acento.lower().split())
+
+
+def resolver_aba(base: Path, aba: str) -> str:
+    """Nome real da aba na planilha (ignora caixa, acento e espaços repetidos); lista as abas se não achar."""
+    tmp = tempfile.NamedTemporaryFile(suffix=".xlsx", delete=False)
+    tmp.close()
+    try:
+        shutil.copy2(base, tmp.name)
+        with pd.ExcelFile(tmp.name) as xls:
+            abas = list(xls.sheet_names)
+    finally:
+        try:
+            Path(tmp.name).unlink()
+        except Exception:
+            pass
+    for nome in abas:
+        if _chave_aba(nome) == _chave_aba(aba):
+            return nome
+    raise KeyError(f"Aba '{aba}' não encontrada em {base.name}. Abas existentes: {abas}. "
+                   "Gere a base de novo pela seção 5 atualizada do notebook do lr-indicadores-elabore.")
+
+
 def localizar_base(pasta: Path) -> Path:
     arquivos = sorted(pasta.glob(PADRAO_ARQUIVO))
     if not arquivos:
@@ -189,8 +217,8 @@ def executar_carga_safra_forrageira(raiz: Path | None = None) -> dict:
     base = localizar_base(Path(cfg["caminhos"]["elabore_forrageira"]))
     print(f"📥 Base: {base.name}")
 
-    custo = montar_raw(_ler_excel(base, ABA_CUSTO), COLUNAS_CUSTO, "id_production", base.name)
-    sistema = montar_raw(_ler_excel(base, ABA_SISTEMA), COLUNAS_SISTEMA, "id_plantio", base.name)
+    custo = montar_raw(_ler_excel(base, resolver_aba(base, ABA_CUSTO)), COLUNAS_CUSTO, "id_production", base.name)
+    sistema = montar_raw(_ler_excel(base, resolver_aba(base, ABA_SISTEMA)), COLUNAS_SISTEMA, "id_plantio", base.name)
     print(f"   -> {ABA_CUSTO}: {len(custo)} produções | {ABA_SISTEMA}: {len(sistema)} plantios "
           f"({int((sistema['fonte'] == 'Elabore').sum())} Elabore, {int((sistema['fonte'] != 'Elabore').sum())} Plano Agronômico)")
 
