@@ -275,3 +275,9 @@
   .safra-donut { height: 220px; }
   .safra-custo-duplo { grid-template-columns: 1fr; }
 }
+
+/* Sistema de plantio: rosca ocupa toda a altura do painel; destaque conservacionista só à direita */
+.safra-sistema { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); align-items: stretch; }
+.safra-sistema-lado { min-height: 0; display: flex; flex-direction: column; justify-content: center; gap: 10px; }
+.safra-sistema-lado .safra-destaque { margin-top: 0; }
+@media (max-width: 1024px) { .safra-sistema { grid-template-columns: 1fr; } }
