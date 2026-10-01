@@ -149,7 +149,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
   async function getJson(url) {
     try {
-      const response = await fetch(url, { headers: { Accept: 'application/json' } });
+      const token = await window.LRAuth.getToken();
+      const response = await fetch(url, { headers: { Accept: 'application/json', Authorization: `Bearer ${token}` } });
+      if (response.status === 401) { window.LRAuth.irParaLogin(); return null; }
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
       return await response.json();
     } catch (error) {
@@ -3709,8 +3711,35 @@ document.addEventListener('DOMContentLoaded', () => {
     }, 100);
   });
 
-  loadAllData();
-  setInterval(loadAllData, 300000);
+  function mostrarUsuario(perfil) {
+    const rotulos = { ADMIN: 'Administrador', CONSULTOR: 'Consultor', AGROINDUSTRIA: 'Agroindústria' };
+    const box = el('userBox');
+    if (!box) return;
+    el('userName').textContent = perfil.nome || perfil.email;
+    el('userRole').textContent = rotulos[perfil.perfil] || perfil.perfil;
+    box.hidden = false;
+    if (perfil.perfil === 'ADMIN' && el('linkAdmin')) el('linkAdmin').hidden = false;
+    el('btnLogout')?.addEventListener('click', () => window.LRAuth.logout());
+    const menu = el('userMenu');
+    const toggle = el('btnUserMenu');
+    const fechar = () => { menu.hidden = true; toggle.setAttribute('aria-expanded', 'false'); };
+    toggle?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      menu.hidden = !menu.hidden;
+      toggle.setAttribute('aria-expanded', String(!menu.hidden));
+    });
+    document.addEventListener('click', (e) => { if (!box.contains(e.target)) fechar(); });
+    document.addEventListener('keydown', (e) => { if (e.key === 'Escape') fechar(); });
+  }
+
+  window.LRAuth.exigirLogin().then((perfil) => {
+    mostrarUsuario(perfil);
+    loadAllData();
+    setInterval(loadAllData, 300000);
+  }).catch((error) => {
+    console.error('Falha ao validar a sessão.', error);
+    window.LRAuth.irParaLogin();
+  });
 
   window.dashboard = { carousel, charts, state, reload: loadAllData, openElabore };
 });

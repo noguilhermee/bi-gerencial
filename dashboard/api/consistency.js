@@ -1,4 +1,5 @@
-const { COLUNAS, getSupabaseClient, fetchAll, fetchWithCache, monthLabel, formatDate, parseFilters, rowMatchesFilters } = require('./shared');
+const { COLUNAS, getSupabaseClient, fetchAll, fetchWithCache, monthLabel, formatDate, parseFilters, rowMatchesFilters, obterEscopo } = require('./shared');
+const { comAuth } = require('./_auth');
 
 const SEM_DADOS = 'SEM DADOS';
 
@@ -35,23 +36,21 @@ function faixaSequencia(seq) {
   return '12+ meses';
 }
 
-module.exports = async (req, res) => {
+module.exports = comAuth(async (req, res) => {
   try {
-    res.setHeader('Access-Control-Allow-Origin', '*');
-    res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Accept');
-    res.setHeader('Content-Type', 'application/json');
-    if (req.method === 'OPTIONS') return res.status(200).end();
 
     const supabase = getSupabaseClient();
+    const escopo = await obterEscopo(req, supabase);
     const filters = parseFilters(req.query);
 
-    const [carteiraTodos, consistenciaTodos] = await Promise.all([
+    const [carteiraTodosBruta, consistenciaTodosBruta] = await Promise.all([
       fetchWithCache('CARTEIRA_MENSAL_ALL', () =>
         fetchAll(() => supabase.from('tab_fato_carteira_mensal').select(COLUNAS.carteira).order('mes_referencia', { ascending: false }), undefined, 'id_composto')),
       fetchWithCache('FATO_CONSISTENCIA_ALL', () =>
         fetchAll(() => supabase.from('tab_fato_consistencia').select(COLUNAS.consistencia).order('mes_referencia', { ascending: false }), undefined, 'id_composto'))
     ]);
+    const carteiraTodos = escopo.carteira(carteiraTodosBruta);
+    const consistenciaTodos = escopo.fatos(consistenciaTodosBruta);
 
     const ultimosMeses = [...new Set([...carteiraTodos, ...consistenciaTodos].map(c => String(c.mes_referencia).slice(0, 10)))].filter(Boolean).sort();
     const ultimoMesDisponivel = ultimosMeses.length > 0 ? ultimosMeses[ultimosMeses.length - 1] : null;
@@ -180,4 +179,4 @@ module.exports = async (req, res) => {
     console.error('Erro em /api/consistency:', error);
     return res.status(500).json({ error: error.message });
   }
-};
+});

@@ -242,7 +242,72 @@ function rowMatchesFilters(row, filters) {
   return true;
 }
 
+
+// ── Escopo de acesso por perfil (login) ──────────────────────────────────────
+function chaveTexto(valor) {
+  return String(valor || '').normalize('NFD').replace(/[̀-ͯ]/g, '').trim().toUpperCase();
+}
+
+const SEM_RESTRICAO = { admin: true, carteira: rows => rows, fatos: rows => rows, codigos: null };
+const escoposPorCarteira = new WeakMap();
+
+/**
+ * Escopo do usuário logado. ADMIN não tem restrição; CONSULTOR vê as fazendas em que seu nome aparece na
+ * carteira (consultor ou consultores_grupo, então co-consultoria vale para todos do grupo); AGROINDUSTRIA vê
+ * as fazendas das suas agroindústrias. `carteira(rows)` filtra a carteira mensal; `fatos(rows, campoCodigo)`
+ * filtra as demais fatos pelas fazendas permitidas (e, para AGROINDUSTRIA, pela coluna agroindustria da linha).
+ */
+function montarEscopo(perfil, carteiraTodos) {
+  if (perfil.perfil === 'ADMIN') return SEM_RESTRICAO;
+
+  let porCarteira;
+  if (perfil.perfil === 'CONSULTOR') {
+    const chave = chaveTexto(perfil.chave_consultor);
+    porCarteira = r => chaveTexto(r.consultor) === chave
+      || String(r.consultores_grupo || '').split('/').some(c => chaveTexto(c) === chave);
+  } else if (perfil.perfil === 'AGROINDUSTRIA') {
+    const agros = new Set((perfil.agroindustrias || []).map(chaveTexto));
+    porCarteira = r => agros.has(chaveTexto(r.agroindustria));
+  } else {
+    return { admin: false, carteira: () => [], fatos: () => [], codigos: new Set() };
+  }
+
+  const carteira = carteiraTodos.filter(porCarteira);
+  const codigos = new Set(carteira.map(r => String(r.codigo_lr || '').trim().toUpperCase()).filter(Boolean));
+  const agros = perfil.perfil === 'AGROINDUSTRIA' ? new Set((perfil.agroindustrias || []).map(chaveTexto)) : null;
+  return {
+    admin: false,
+    codigos,
+    carteira: () => carteira,
+    fatos: (rows, campoCodigo = 'codigo_lr') => rows.filter(r => {
+      if (agros && r.agroindustria) return agros.has(chaveTexto(r.agroindustria));
+      return codigos.has(String(r[campoCodigo] || '').trim().toUpperCase());
+    })
+  };
+}
+
+/** Carteira mensal completa (mesma chave de cache de overview/visits/...), sem escopo. */
+function carregarCarteira(supabase) {
+  return fetchWithCache('CARTEIRA_MENSAL_ALL', () =>
+    fetchAll(() => supabase.from('tab_fato_carteira_mensal').select(COLUNAS.carteira).order('mes_referencia', { ascending: false }), undefined, 'id_composto'));
+}
+
+/** Escopo do usuário da requisição (req.perfil vem de comAuth), memoizado por carteira em cache. */
+async function obterEscopo(req, supabase) {
+  const perfil = req.perfil;
+  if (perfil.perfil === 'ADMIN') return SEM_RESTRICAO;
+  const carteiraTodos = await carregarCarteira(supabase);
+  let porUsuario = escoposPorCarteira.get(carteiraTodos);
+  if (!porUsuario) escoposPorCarteira.set(carteiraTodos, porUsuario = new Map());
+  if (!porUsuario.has(perfil.id_usuario)) porUsuario.set(perfil.id_usuario, montarEscopo(perfil, carteiraTodos));
+  return porUsuario.get(perfil.id_usuario);
+}
+
 module.exports = {
+  chaveTexto,
+  obterEscopo,
+  montarEscopo,
+  carregarCarteira,
   COLUNAS,
   fetchWithCache,
   getCached,

@@ -1,22 +1,21 @@
-const { COLUNAS, getSupabaseClient, fetchAll, fetchWithCache, monthLabel, formatDate, parseFilters, rowMatchesFilters } = require('./shared');
+const { COLUNAS, getSupabaseClient, fetchAll, fetchWithCache, monthLabel, formatDate, parseFilters, rowMatchesFilters, obterEscopo } = require('./shared');
+const { comAuth } = require('./_auth');
 
-module.exports = async (req, res) => {
+module.exports = comAuth(async (req, res) => {
   try {
-    res.setHeader('Access-Control-Allow-Origin', '*');
-    res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Accept');
-    res.setHeader('Content-Type', 'application/json');
-    if (req.method === 'OPTIONS') return res.status(200).end();
 
     const supabase = getSupabaseClient();
+    const escopo = await obterEscopo(req, supabase);
     const filters = parseFilters(req.query);
     const isAllMonths = !/^\d{4}-\d{2}-\d{2}$/.test(filters.month);
     const refMonth = isAllMonths ? null : filters.month;
 
-    const [movimentacaoTodas, carteiraTodos] = await Promise.all([
+    const [movimentacaoTodasBruta, carteiraTodosBruta] = await Promise.all([
       fetchWithCache('FATO_MOVIMENTACAO_ALL', () => fetchAll(() => supabase.from('tab_fato_movimentacao').select(COLUNAS.movimentacao).order('data_movimentacao', { ascending: false }), undefined, 'id_composto')),
       fetchWithCache('CARTEIRA_MENSAL_ALL', () => fetchAll(() => supabase.from('tab_fato_carteira_mensal').select(COLUNAS.carteira).order('mes_referencia', { ascending: false }), undefined, 'id_composto'))
     ]);
+    const movimentacaoTodas = escopo.fatos(movimentacaoTodasBruta);
+    const carteiraTodos = escopo.carteira(carteiraTodosBruta);
 
     const movimentacaoFiltrada = movimentacaoTodas.filter(m => rowMatchesFilters(m, filters));
     const carteiraMes = refMonth ? carteiraTodos.filter(r => String(r.mes_referencia).slice(0, 10) === refMonth) : carteiraTodos;
@@ -105,4 +104,4 @@ module.exports = async (req, res) => {
     console.error('Erro em /api/turnover:', error);
     return res.status(500).json({ error: error.message });
   }
-};
+});

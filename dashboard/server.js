@@ -50,7 +50,7 @@ function enhanceResponse(response) {
 async function serveApi(request, response, pathname, searchParams) {
   const name = pathname.replace(/^\/api\//, '').replace(/\/$/, '');
   const handlerPath = path.join(rootDir, 'api', `${name}.js`);
-  if (!fs.existsSync(handlerPath)) {
+  if (name.startsWith('_') || !fs.existsSync(handlerPath)) {
     response.statusCode = 404;
     response.end('API não encontrada');
     return;
@@ -58,12 +58,17 @@ async function serveApi(request, response, pathname, searchParams) {
   delete require.cache[require.resolve(handlerPath)];
   const handler = require(handlerPath);
   request.query = Object.fromEntries(searchParams.entries());
+  if (!['GET', 'HEAD', 'OPTIONS'].includes(request.method)) {
+    const partes = [];
+    for await (const parte of request) partes.push(parte);
+    try { request.body = JSON.parse(Buffer.concat(partes).toString('utf8') || '{}'); } catch (_) { request.body = {}; }
+  }
   enhanceResponse(response);
   await handler(request, response);
 }
 
 function serveStatic(response, pathname) {
-  const requestedPath = pathname === '/' ? '/index.html' : pathname;
+  const requestedPath = pathname === '/' ? '/index.html' : pathname === '/login' ? '/login.html' : pathname === '/admin' ? '/admin.html' : pathname;
   const filePath = path.resolve(publicDir, `.${decodeURIComponent(requestedPath)}`);
   if (!filePath.startsWith(`${publicDir}${path.sep}`) || !fs.existsSync(filePath) || !fs.statSync(filePath).isFile()) {
     response.statusCode = 404;

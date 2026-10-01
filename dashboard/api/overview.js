@@ -1,26 +1,25 @@
-const { COLUNAS, getSupabaseClient, fetchAll, fetchWithCache, monthLabel, formatDate, parseFilters, rowMatchesFilters } = require('./shared');
+const { COLUNAS, getSupabaseClient, fetchAll, fetchWithCache, monthLabel, formatDate, parseFilters, rowMatchesFilters, obterEscopo } = require('./shared');
+const { comAuth } = require('./_auth');
 
-module.exports = async (req, res) => {
+module.exports = comAuth(async (req, res) => {
   try {
-    res.setHeader('Access-Control-Allow-Origin', '*');
-    res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Accept');
-    res.setHeader('Content-Type', 'application/json');
-    if (req.method === 'OPTIONS') return res.status(200).end();
 
     const supabase = getSupabaseClient();
+    const escopo = await obterEscopo(req, supabase);
     const filters = parseFilters(req.query);
     const isAllMonths = !/^\d{4}-\d{2}-\d{2}$/.test(filters.month);
     const refMonth = isAllMonths ? null : filters.month;
 
     // Carteira mensal (1 linha por fazenda × mês × consultor), já resolvida pelo ETL,
     // e visitas técnicas válidas (1 linha por atendimento) — buscadas em paralelo
-    const [carteiraTodos, visitasTodas] = await Promise.all([
+    const [carteiraTodosBruta, visitasTodasBruta] = await Promise.all([
       fetchWithCache('CARTEIRA_MENSAL_ALL', () =>
         fetchAll(() => supabase.from('tab_fato_carteira_mensal').select(COLUNAS.carteira).order('mes_referencia', { ascending: false }), undefined, 'id_composto')),
       fetchWithCache('FATO_VISITAS_ALL', () =>
         fetchAll(() => supabase.from('tab_fato_visitas').select(COLUNAS.visitas).order('data_visita', { ascending: false }), undefined, 'id_atendimento'))
     ]);
+    const carteiraTodos = escopo.carteira(carteiraTodosBruta);
+    const visitasTodas = escopo.fatos(visitasTodasBruta);
 
     // Relacionamento oficial dos filtros (consultor × agroindústria × região × mês), gravado pelo ETL em
     // tab_dim_consultor_atuacao. Falha (ex.: migration ainda não aplicada) não é cacheada e não derruba a rota:
@@ -31,8 +30,15 @@ module.exports = async (req, res) => {
       console.warn('tab_dim_consultor_atuacao indisponível:', error.message);
       return null;
     });
+    // Perfis restritos só enxergam combinações de agroindústria, região e consultor presentes na sua carteira
+    const noEscopo = escopo.admin ? () => true : (() => {
+      const agros = new Set(carteiraTodos.map(r => r.agroindustria));
+      const regioes = new Set(carteiraTodos.map(r => r.regiao));
+      const consultores = new Set(carteiraTodos.map(r => r.consultor));
+      return a => agros.has(a.agroindustria) && regioes.has(a.regiao) && consultores.has(a.consultor);
+    })();
     const relacoes = atuacao
-      ? [...new Map(atuacao.map(a => {
+      ? [...new Map(atuacao.filter(noEscopo).map(a => {
           const linha = [String(a.mes_referencia).slice(0, 7), a.agroindustria, a.regiao, a.consultor];
           return [linha.join('\u0001'), linha];
         })).values()]
@@ -210,4 +216,4 @@ module.exports = async (req, res) => {
     console.error('Erro em /api/overview:', error);
     return res.status(500).json({ error: error.message });
   }
-};
+});

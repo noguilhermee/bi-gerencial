@@ -7,7 +7,8 @@
 //    indica posição aproximada pela mediana das outras fazendas da cidade);
 //  • tab_fato_producao_mensal — litros/dia. Como a medição não é mensal em todas as fazendas, cada fazenda
 //    usa a ÚLTIMA medição dos últimos 3 meses (mês de referência incluído).
-const { COLUNAS, getSupabaseClient, fetchAll, fetchWithCache, monthLabel, parseFilters, rowMatchesFilters } = require('./shared');
+const { COLUNAS, getSupabaseClient, fetchAll, fetchWithCache, monthLabel, parseFilters, rowMatchesFilters, obterEscopo } = require('./shared');
+const { comAuth } = require('./_auth');
 
 const MESES_ULTIMA_MEDICAO = 3;
 
@@ -20,15 +21,14 @@ function mesAnterior(mes, passos) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-01`;
 }
 
-module.exports = async (req, res) => {
+module.exports = comAuth(async (req, res) => {
   try {
-    res.setHeader('Access-Control-Allow-Origin', '*');
-    res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Accept');
+
+
     res.setHeader('Content-Type', 'application/json');
-    if (req.method === 'OPTIONS') return res.status(200).end();
 
     const supabase = getSupabaseClient();
+    const escopo = await obterEscopo(req, supabase);
     const filters = parseFilters(req.query);
 
     let carteira;
@@ -46,6 +46,9 @@ module.exports = async (req, res) => {
       return res.status(200).json({ disponivel: false, motivo: 'tab_fato_producao_mensal indisponível' });
     }
 
+    carteira = escopo.carteira(carteira);
+    producao = escopo.fatos(producao);
+
     const meses = [...new Set(carteira.map(mesDe))].sort();
     const mesRef = /^\d{4}-\d{2}-\d{2}$/.test(filters.month) ? filters.month : meses[meses.length - 1];
     if (!mesRef) return res.status(200).json({ disponivel: true, semDados: true });
@@ -59,6 +62,8 @@ module.exports = async (req, res) => {
       console.warn('Coordenadas indisponíveis em tab_dim_fazendas_ativas:', error.message);
       return res.status(200).json({ disponivel: false, motivo: 'colunas de coordenada indisponíveis em tab_dim_fazendas_ativas' });
     }
+
+    dimMes = escopo.fatos(dimMes, 'codigo_produtor');
 
     // Propriedades ativas do mês, respeitando os filtros (1 linha por consultor na carteira → agrupa por fazenda)
     const linhasMes = carteira.filter((r) => mesDe(r) === mesRef && rowMatchesFilters({ ...r, status: r.status_visita }, filters));
@@ -146,4 +151,4 @@ module.exports = async (req, res) => {
     console.error('Erro em /api/territory:', error);
     return res.status(500).json({ error: 'Falha ao consolidar carteira e território', details: error.message });
   }
-};
+});

@@ -11,7 +11,8 @@
 //  • Variação contra o mês anterior: só nas fazendas medidas nos DOIS meses (mês em andamento não distorce).
 //  • Evolução "base comparável": mesmas fazendas medidas em todos os meses da janela.
 //  • Trajetória: média dos 3 últimos meses contra a dos 3 anteriores, faixa de estabilidade ±5 %.
-const { COLUNAS, getSupabaseClient, fetchAll, fetchWithCache, monthLabel, parseFilters, rowMatchesFilters } = require('./shared');
+const { COLUNAS, getSupabaseClient, fetchAll, fetchWithCache, monthLabel, parseFilters, rowMatchesFilters, obterEscopo } = require('./shared');
+const { comAuth } = require('./_auth');
 
 const BANDA_TRAJETORIA_PCT = 5;
 const MESES_TRAJETORIA = 3;
@@ -76,15 +77,14 @@ function infoFazenda(linha) {
   };
 }
 
-module.exports = async (req, res) => {
+module.exports = comAuth(async (req, res) => {
   try {
-    res.setHeader('Access-Control-Allow-Origin', '*');
-    res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Accept');
+
+
     res.setHeader('Content-Type', 'application/json');
-    if (req.method === 'OPTIONS') return res.status(200).end();
 
     const supabase = getSupabaseClient();
+    const escopo = await obterEscopo(req, supabase);
     const filters = parseFilters(req.query);
 
     let todas;
@@ -97,7 +97,7 @@ module.exports = async (req, res) => {
       return res.status(200).json({ disponivel: false, motivo: 'tab_fato_producao_mensal indisponível' });
     }
 
-    const linhas = todas.filter((r) => rowMatchesFilters({ ...r, status: r.status_produtor }, { ...filters, month: '' }));
+    const linhas = escopo.fatos(todas).filter((r) => rowMatchesFilters({ ...r, status: r.status_produtor }, { ...filters, month: '' }));
     const meses = [...new Set(linhas.map(mesDe))].sort();
     if (!meses.length) return res.status(200).json({ disponivel: true, semDados: true, mesReferencia: filters.month || null });
 
@@ -199,4 +199,4 @@ module.exports = async (req, res) => {
     console.error('Erro em /api/production:', error);
     return res.status(500).json({ error: 'Falha ao consolidar produção e qualidade do leite', details: error.message });
   }
-};
+});

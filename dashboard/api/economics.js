@@ -18,18 +18,14 @@ const {
   fetchWithCache,
   monthLabel,
   formatDate,
-  parseList
-} = require('./shared');
+  parseList, obterEscopo } = require('./shared');
+const { comAuth } = require('./_auth');
 
-module.exports = async (req, res) => {
+module.exports = comAuth(async (req, res) => {
   try {
-    res.setHeader('Access-Control-Allow-Origin', '*');
-    res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Accept');
-    res.setHeader('Content-Type', 'application/json');
-    if (req.method === 'OPTIONS') return res.status(200).end();
 
     const supabase = getSupabaseClient();
+    const escopo = await obterEscopo(req, supabase);
 
     // Leitura das tabelas econômicas e de vínculos
     const [rawEconData, rawVinculosData] = await Promise.all([
@@ -81,6 +77,9 @@ module.exports = async (req, res) => {
         data_associacao: row.data_associacao || vinculo.data_associacao
       };
     });
+
+    // Escopo do perfil logado, antes de qualquer filtro vindo da tela
+    econList = escopo.fatos(econList);
 
     // Aplicação dos filtros de dimensão (agro/região/projeto/status/consultor/produtor).
     // O filtro de mês é aplicado separadamente logo abaixo: ele deve valer para os KPIs
@@ -387,4 +386,4 @@ module.exports = async (req, res) => {
     console.error('💥 Erro na API /api/economics:', error);
     return res.status(500).json({ error: 'Erro interno no servidor ao processar indicadores econômicos.' });
   }
-};
+});

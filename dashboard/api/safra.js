@@ -15,7 +15,8 @@
 //    Com uma safra só, vale o custo nominal.
 //  • Mais de um produto ou cultura soma toneladas e custos de bases diferentes (silagem × grão, milho × sorgo): a tela
 //    mostra um aviso (campo `avisos`), mas não bloqueia.
-const { COLUNAS, getSupabaseClient, fetchAll, fetchWithCache, parseFilters, parseList, rowMatchesFilters } = require('./shared');
+const { COLUNAS, getSupabaseClient, fetchAll, fetchWithCache, parseFilters, parseList, rowMatchesFilters, obterEscopo } = require('./shared');
+const { comAuth } = require('./_auth');
 
 const SISTEMAS = ['PLANTIO DIRETO', 'CULTIVO MINIMO', 'CONVENCIONAL'];
 const CICLO_PADRAO = '1_SAFRA';
@@ -51,15 +52,11 @@ function escolher(opcoes, pedido, padrao) {
   return opcoes[0] || null;
 }
 
-module.exports = async (req, res) => {
+module.exports = comAuth(async (req, res) => {
   try {
-    res.setHeader('Access-Control-Allow-Origin', '*');
-    res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Accept');
-    res.setHeader('Content-Type', 'application/json');
-    if (req.method === 'OPTIONS') return res.status(200).end();
 
     const supabase = getSupabaseClient();
+    const escopo = await obterEscopo(req, supabase);
     const filters = parseFilters(req.query);
 
     let todas;
@@ -78,7 +75,7 @@ module.exports = async (req, res) => {
       return res.status(200).json({ disponivel: false, motivo: 'tab_fato_safra_forrageira indisponível' });
     }
 
-    const linhas = todas.filter((r) => rowMatchesFilters(r, { ...filters, month: '', status: '' }) && r.ciclo === CICLO_PADRAO);
+    const linhas = escopo.fatos(todas).filter((r) => rowMatchesFilters(r, { ...filters, month: '', status: '' }) && r.ciclo === CICLO_PADRAO);
     if (!linhas.length) return res.status(200).json({ disponivel: true, semDados: true });
 
     // ── Recorte: safra, cultura e produto (opções derivadas do que existe para os filtros) ─────────────
@@ -254,4 +251,4 @@ module.exports = async (req, res) => {
     console.error('Erro em /api/safra:', error);
     return res.status(500).json({ error: 'Falha ao consolidar os indicadores de safra', details: error.message });
   }
-};
+});

@@ -1,24 +1,23 @@
-const { COLUNAS, getSupabaseClient, fetchAll, fetchWithCache, parseFilters, rowMatchesFilters } = require('./shared');
+const { COLUNAS, getSupabaseClient, fetchAll, fetchWithCache, parseFilters, rowMatchesFilters, obterEscopo } = require('./shared');
+const { comAuth } = require('./_auth');
 
-module.exports = async (req, res) => {
+module.exports = comAuth(async (req, res) => {
   try {
-    res.setHeader('Access-Control-Allow-Origin', '*');
-    res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Accept');
-    res.setHeader('Content-Type', 'application/json');
-    if (req.method === 'OPTIONS') return res.status(200).end();
 
     const supabase = getSupabaseClient();
+    const escopo = await obterEscopo(req, supabase);
     const filters = parseFilters(req.query);
     const isAllMonths = !/^\d{4}-\d{2}-\d{2}$/.test(filters.month);
     const refMonth = isAllMonths ? null : filters.month;
 
-    const [carteiraTodos, visitasTodas] = await Promise.all([
+    const [carteiraTodosBruta, visitasTodasBruta] = await Promise.all([
       fetchWithCache('CARTEIRA_MENSAL_ALL', () =>
         fetchAll(() => supabase.from('tab_fato_carteira_mensal').select(COLUNAS.carteira).order('mes_referencia', { ascending: false }), undefined, 'id_composto')),
       fetchWithCache('FATO_VISITAS_ALL', () =>
         fetchAll(() => supabase.from('tab_fato_visitas').select(COLUNAS.visitas).order('data_visita', { ascending: false }), undefined, 'id_atendimento'))
     ]);
+    const carteiraTodos = escopo.carteira(carteiraTodosBruta);
+    const visitasTodas = escopo.fatos(visitasTodasBruta);
     const carteiraMes = refMonth ? carteiraTodos.filter(r => String(r.mes_referencia).slice(0, 10) === refMonth) : carteiraTodos;
     const carteiraFiltrada = carteiraMes.filter(r => rowMatchesFilters({ ...r, status: r.status_visita }, filters));
 
@@ -85,4 +84,4 @@ module.exports = async (req, res) => {
     console.error('Erro em /api/visits:', error);
     return res.status(500).json({ error: error.message });
   }
-};
+});

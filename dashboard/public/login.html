@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Entrar | Labor Rural</title>
+  <link rel="icon" type="image/png" href="./img/lr.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="./css/login.css?v=20261001-2">
+</head>
+<body>
+  <div class="brand">
+    <svg class="brand-mark" viewBox="0 0 160 148" role="img" aria-label="Labor Rural">
+      <path d="M80 4c6 0 9 4 12 9l9 17H59l9-17c3-5 6-9 12-9z" fill="#fff"/>
+      <path d="M52 44h56l18 34c2 4-1 8-6 8H40c-5 0-8-4-6-8z" fill="#fff"/>
+      <path d="M26 98h108c8 0 13 8 9 15l-6 11c-3 5-7 7-12 7H35c-5 0-9-2-12-7l-6-11c-4-7 1-15 9-15z" fill="#fff"/>
+      <path d="M44 64h46a7 7 0 0 1 0 14H38z" fill="#0b4a45"/>
+      <path d="M24 108h62a7 7 0 0 1 0 14H22z" fill="#0b4a45"/>
+    </svg>
+    <h2 class="brand-title">BI Gerencial</h2>
+    <p class="brand-sub">inteligência para o agronegócio</p>
+  </div>
+  <a class="help" id="ajuda" href="#" role="button"><span class="help-icon">?</span>Precisa de ajuda?</a>
+  <main class="login-card">
+    <h1>Seja bem-vindo(a)!</h1>
+    <form id="novaSenhaForm" novalidate hidden>
+      <label>Nova senha * (mínimo 8 caracteres)
+        <input id="novaSenha" type="password" autocomplete="new-password" minlength="8" required>
+      </label>
+      <label>Repita a nova senha *
+        <input id="novaSenha2" type="password" autocomplete="new-password" minlength="8" required>
+      </label>
+      <button class="primary" id="salvarSenha" type="submit">SALVAR SENHA</button>
+      <p class="msg" id="msgSenha" role="alert"></p>
+    </form>
+    <form id="loginForm" novalidate>
+      <label for="email">E-mail *</label>
+      <input id="email" type="email" autocomplete="username" required>
+      <label for="senha">Senha *</label>
+      <div class="pw">
+        <input id="senha" type="password" autocomplete="current-password" required>
+        <button class="eye" id="verSenha" type="button" aria-label="Mostrar senha">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12z"/><circle cx="12" cy="12" r="3"/></svg>
+        </button>
+      </div>
+      <button class="link" id="esqueci" type="button">Esqueceu sua senha?</button>
+      <button class="primary" id="entrar" type="submit">ENTRAR</button>
+      <p class="msg" id="msg" role="alert"></p>
+    </form>
+  </main>
+  <footer class="copy">© Labor Rural | 2026</footer>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="./js/auth.js?v=20261001-1"></script>
+  <script>
+    (async () => {
+      const msg = document.getElementById('msg');
+      const botao = document.getElementById('entrar');
+      const aviso = (texto, ok) => { msg.textContent = texto; msg.classList.toggle('ok', !!ok); };
+      const client = await LRAuth.client();
+
+      document.getElementById('verSenha').addEventListener('click', () => {
+        const s = document.getElementById('senha');
+        s.type = s.type === 'password' ? 'text' : 'password';
+      });
+      document.getElementById('ajuda').addEventListener('click', (e) => {
+        e.preventDefault();
+        aviso('Precisa de ajuda? Fale com o time de Analytics da Labor Rural.', true);
+      });
+
+      // Link de redefinição de senha: pede a nova senha em vez de entrar direto
+      const params = new URLSearchParams(location.hash.replace(/^#/, ''));
+      if (params.get('error_description')) aviso('O link expirou ou já foi usado. Peça um novo em "Esqueci minha senha".');
+      if (params.get('type') === 'recovery') {
+        document.getElementById('loginForm').hidden = true;
+        const form = document.getElementById('novaSenhaForm');
+        const msgSenha = document.getElementById('msgSenha');
+        form.hidden = false;
+        form.addEventListener('submit', async (e) => {
+          e.preventDefault();
+          const a = document.getElementById('novaSenha').value;
+          if (a.length < 8) { msgSenha.textContent = 'Use pelo menos 8 caracteres.'; return; }
+          if (a !== document.getElementById('novaSenha2').value) { msgSenha.textContent = 'As senhas não coincidem.'; return; }
+          const { error } = await client.auth.updateUser({ password: a });
+          if (error) { msgSenha.textContent = 'Não foi possível salvar a senha. Peça um novo link.'; return; }
+          location.replace('/');
+        });
+        return;
+      }
+
+      if ((await client.auth.getSession()).data.session) { location.replace('/'); return; }
+
+      document.getElementById('loginForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        aviso('');
+        botao.disabled = true;
+        const { error } = await client.auth.signInWithPassword({
+          email: document.getElementById('email').value.trim(),
+          password: document.getElementById('senha').value
+        });
+        botao.disabled = false;
+        if (error) return aviso('E-mail ou senha incorretos.');
+        location.replace('/');
+      });
+
+      document.getElementById('esqueci').addEventListener('click', async () => {
+        const email = document.getElementById('email').value.trim();
+        if (!email) return aviso('Digite seu e-mail para receber o link de redefinição.');
+        const { error } = await client.auth.resetPasswordForEmail(email, { redirectTo: `${location.origin}/login` });
+        aviso(error ? 'Não foi possível enviar o e-mail agora.' : 'Enviamos um link de redefinição para o seu e-mail.', !error);
+      });
+    })().catch(() => { document.getElementById('msg').textContent = 'Login indisponível no momento.'; });
+  </script>
+</body>
+</html>

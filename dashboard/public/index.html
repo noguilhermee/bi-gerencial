@@ -22,7 +22,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20,500,0,0" rel="stylesheet">
-  <link rel="stylesheet" href="./css/dashboard.css?v=20260930-4">
+  <link rel="stylesheet" href="./css/dashboard.css?v=20261001-2">
   <link rel="stylesheet" href="./css/producao.css?v=20261001-9">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
@@ -77,10 +77,21 @@
         <button class="theme-toggle" id="themeToggle" type="button" aria-pressed="false" aria-label="Ativar modo escuro" title="Alternar modo escuro / claro">
           <span class="material-symbols-rounded theme-icon" aria-hidden="true">dark_mode</span>
         </button>
-        <button class="update-block update-block--interactive" id="btnProvenance" type="button" aria-haspopup="dialog" aria-label="Ver detalhes e versões das planilhas de origem" title="Clique para ver detalhes das planilhas de origem">
-          <span class="update-block-header"><span class="material-symbols-rounded icon-provenance" aria-hidden="true">history</span> Última atualização</span>
-          <strong id="lastUpdateDate">--/--/----</strong>
-        </button>
+        <div class="user-box" id="userBox" hidden>
+          <span class="user-avatar" aria-hidden="true"><span class="material-symbols-rounded">person</span></span>
+          <div class="user-main">
+            <span class="user-text"><strong id="userName"></strong><small id="userRole"></small></span>
+            <button class="update-block update-block--interactive" id="btnProvenance" type="button" aria-haspopup="dialog" aria-label="Ver detalhes e versões das planilhas de origem" title="Clique para ver detalhes das planilhas de origem">
+              <span class="update-block-header"><span class="material-symbols-rounded icon-provenance" aria-hidden="true">history</span> Última atualização</span>
+              <strong id="lastUpdateDate">--/--/----</strong>
+            </button>
+          </div>
+          <button class="user-menu-btn" id="btnUserMenu" type="button" aria-haspopup="menu" aria-expanded="false" aria-label="Menu do usuário" title="Menu do usuário"><span class="material-symbols-rounded" aria-hidden="true">expand_more</span></button>
+          <div class="user-menu" id="userMenu" role="menu" hidden>
+            <a href="/admin" id="linkAdmin" role="menuitem" hidden><span class="material-symbols-rounded" aria-hidden="true">manage_accounts</span>Usuários</a>
+            <button type="button" id="btnLogout" role="menuitem"><span class="material-symbols-rounded" aria-hidden="true">logout</span>Sair</button>
+          </div>
+        </div>
       </div>
     </div>
   </header>
@@ -931,9 +942,11 @@
   <div class="panel-fullscreen-backdrop" id="panelFsBackdrop" hidden></div>
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="./js/auth.js?v=20261001-1"></script>
   <script src="./js/carousel.js?v=20260930-2"></script>
   <script src="./js/charts.js?v=20261001-1"></script>
   <script src="./js/producao.js?v=20261001-13"></script>
-  <script src="./js/main.js?v=20261001-3"></script>
+  <script src="./js/main.js?v=20261001-7"></script>
 </body>
 </html>
