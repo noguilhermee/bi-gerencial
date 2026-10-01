@@ -1,4 +1,4 @@
-const { comAuth, podeGerenciarUsuarios } = require('./_auth');
+const { comAuth, podeGerenciarUsuarios } = require('../_auth');
 
 // Perfil do usuário logado (o front usa para mostrar nome/perfil e travar filtros; a segurança está nos endpoints).
 module.exports = comAuth(async (req, res) => {

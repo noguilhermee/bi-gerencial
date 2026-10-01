@@ -1,5 +1,5 @@
-const { COLUNAS, getSupabaseClient, fetchAll, fetchWithCache, monthLabel, formatDate, parseFilters, rowMatchesFilters, obterEscopo } = require('./shared');
-const { comAuth } = require('./_auth');
+const { COLUNAS, getSupabaseClient, fetchAll, fetchWithCache, monthLabel, formatDate, parseFilters, rowMatchesFilters, obterEscopo } = require('../_shared');
+const { comAuth } = require('../_auth');
 
 module.exports = comAuth(async (req, res) => {
   try {

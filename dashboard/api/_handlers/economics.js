@@ -1,6 +1,6 @@
 // Agroindústria e região já chegam resolvidas pelo ETL em tab_fato_economico (regra 12):
 // a API apenas lê as colunas. As antigas importações sanitizeConsultorList/isTestData/
-// ehCadeiaLeite/mapAgroindustria não existem mais em shared.js e faziam esta rota
+// ehCadeiaLeite/mapAgroindustria não existem mais em _shared.js e faziam esta rota
 // devolver HTTP 500 em toda requisição.
 //
 // 2026-09-23: correção da fórmula do COE/Margem Bruta no ETL (scripts/functions/
@@ -18,8 +18,8 @@ const {
   fetchWithCache,
   monthLabel,
   formatDate,
-  parseList, obterEscopo } = require('./shared');
-const { comAuth } = require('./_auth');
+  parseList, obterEscopo } = require('../_shared');
+const { comAuth } = require('../_auth');
 
 module.exports = comAuth(async (req, res) => {
   try {

@@ -11,8 +11,8 @@
 //  • Variação contra o mês anterior: só nas fazendas medidas nos DOIS meses (mês em andamento não distorce).
 //  • Evolução "base comparável": mesmas fazendas medidas em todos os meses da janela.
 //  • Trajetória: média dos 3 últimos meses contra a dos 3 anteriores, faixa de estabilidade ±5 %.
-const { COLUNAS, getSupabaseClient, fetchAll, fetchWithCache, monthLabel, parseFilters, rowMatchesFilters, obterEscopo } = require('./shared');
-const { comAuth } = require('./_auth');
+const { COLUNAS, getSupabaseClient, fetchAll, fetchWithCache, monthLabel, parseFilters, rowMatchesFilters, obterEscopo } = require('../_shared');
+const { comAuth } = require('../_auth');
 
 const BANDA_TRAJETORIA_PCT = 5;
 const MESES_TRAJETORIA = 3;

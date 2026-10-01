@@ -1,5 +1,5 @@
-const { COLUNAS, getSupabaseClient, fetchAll, fetchWithCache, monthLabel, formatDate, parseFilters, rowMatchesFilters, obterEscopo } = require('./shared');
-const { comAuth } = require('./_auth');
+const { COLUNAS, getSupabaseClient, fetchAll, fetchWithCache, monthLabel, formatDate, parseFilters, rowMatchesFilters, obterEscopo } = require('../_shared');
+const { comAuth } = require('../_auth');
 
 module.exports = comAuth(async (req, res) => {
   try {
@@ -162,7 +162,7 @@ module.exports = comAuth(async (req, res) => {
     try {
       const fs = require('fs');
       const path = require('path');
-      const metaPath = path.join(__dirname, '..', 'public', 'data', 'fontes_metadados.json');
+      const metaPath = path.join(__dirname, '..', '..', 'public', 'data', 'fontes_metadados.json');
       if (fs.existsSync(metaPath)) dataProvenance = JSON.parse(fs.readFileSync(metaPath, 'utf8'));
     } catch (e) {
       console.warn('Metadados de proveniência não carregados:', e.message);

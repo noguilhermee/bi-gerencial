@@ -16,12 +16,12 @@ aoCarregar(() => {
     rankingDimension: 'consultant',
     hasUserChangedMonth: false,
     chartHorizons: {
-      coverage: 12,
+      coverage: 6,
       turnover: 6,
       portfolio: 6,
       consistency: 6,
       volume: 6,
-      visits: 12
+      visits: 6
     }
   };
 

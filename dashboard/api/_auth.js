@@ -3,10 +3,10 @@
  *
  * O front manda o access_token do Supabase Auth em "Authorization: Bearer". Aqui o token é validado,
  * o perfil é lido de tab_dim_usuario_acesso e cada endpoint recebe `req.perfil`. O escopo (quais
- * fazendas o usuário enxerga) é montado em shared.js (obterEscopo) e aplicado ANTES dos filtros da tela,
+ * fazendas o usuário enxerga) é montado em _shared.js (obterEscopo) e aplicado ANTES dos filtros da tela,
  * então um filtro manipulado na URL nunca devolve dado de fora do escopo.
  */
-const { getSupabaseClient } = require('./shared');
+const { getSupabaseClient } = require('./_shared');
 
 // Só estes e-mails (separados por vírgula em ADMIN_USUARIOS_EMAIL) criam, editam e excluem usuários.
 const EMAILS_GESTORES = String(process.env.ADMIN_USUARIOS_EMAIL || 'admin@laborrural.com')

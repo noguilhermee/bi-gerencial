@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "private": true,
   "description": "Dashboard Web do BI Labor Rural para TV na Vercel",
-  "main": "api/overview.js",
+  "main": "server.js",
   "scripts": {
     "start": "node server.js"
   },

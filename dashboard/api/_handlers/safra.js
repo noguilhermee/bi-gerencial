@@ -15,8 +15,8 @@
 //    Com uma safra só, vale o custo nominal.
 //  • Mais de um produto ou cultura soma toneladas e custos de bases diferentes (silagem × grão, milho × sorgo): a tela
 //    mostra um aviso (campo `avisos`), mas não bloqueia.
-const { COLUNAS, getSupabaseClient, fetchAll, fetchWithCache, parseFilters, parseList, rowMatchesFilters, obterEscopo } = require('./shared');
-const { comAuth } = require('./_auth');
+const { COLUNAS, getSupabaseClient, fetchAll, fetchWithCache, parseFilters, parseList, rowMatchesFilters, obterEscopo } = require('../_shared');
+const { comAuth } = require('../_auth');
 
 const SISTEMAS = ['PLANTIO DIRETO', 'CULTIVO MINIMO', 'CONVENCIONAL'];
 const CICLO_PADRAO = '1_SAFRA';

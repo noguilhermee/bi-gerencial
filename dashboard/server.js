@@ -19,12 +19,13 @@ function loadLocalEnvironment() {
 
 loadLocalEnvironment();
 
-const apiHandlers = {
-  overview: require('./api/overview'),
-  visits: require('./api/visits'),
-  turnover: require('./api/turnover'),
-  consistency: require('./api/consistency')
+// Mesmo mapeamento dos rewrites do vercel.json: rota pública -> roteador + ?rota=
+const ROTEADORES = {
+  sessao: ['config', 'me', 'health'],
+  gerencial: ['overview', 'visits', 'turnover', 'consistency', 'economics'],
+  producao: ['production', 'territory', 'safra']
 };
+const roteadorDa = (nome) => Object.keys(ROTEADORES).find((r) => ROTEADORES[r].includes(nome));
 
 const mimeTypes = {
   '.css': 'text/css; charset=utf-8',
@@ -49,13 +50,16 @@ function enhanceResponse(response) {
 
 async function serveApi(request, response, pathname, searchParams) {
   const name = pathname.replace(/^\/api\//, '').replace(/\/$/, '');
-  const handlerPath = path.join(rootDir, 'api', `${name}.js`);
+  const roteador = roteadorDa(name);
+  if (roteador) searchParams.set('rota', name);
+  const handlerPath = path.join(rootDir, 'api', `${roteador || name}.js`);
   if (name.startsWith('_') || !fs.existsSync(handlerPath)) {
     response.statusCode = 404;
     response.end('API não encontrada');
     return;
   }
-  delete require.cache[require.resolve(handlerPath)];
+  const apiDir = path.join(rootDir, 'api');
+  Object.keys(require.cache).filter((k) => k.startsWith(apiDir)).forEach((k) => delete require.cache[k]);
   const handler = require(handlerPath);
   request.query = Object.fromEntries(searchParams.entries());
   if (!['GET', 'HEAD', 'OPTIONS'].includes(request.method)) {

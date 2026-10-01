@@ -1,4 +1,4 @@
-const { getSupabaseClient, fetchAll, chaveTexto } = require('./shared');
+const { getSupabaseClient, fetchAll, chaveTexto } = require('./_shared');
 const { comAuth, limparCachePerfil } = require('./_auth');
 
 const PERFIS = ['ADMIN', 'CONSULTOR', 'AGROINDUSTRIA'];

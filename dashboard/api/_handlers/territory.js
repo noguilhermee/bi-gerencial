@@ -7,8 +7,8 @@
 //    indica posição aproximada pela mediana das outras fazendas da cidade);
 //  • tab_fato_producao_mensal — litros/dia. Como a medição não é mensal em todas as fazendas, cada fazenda
 //    usa a ÚLTIMA medição dos últimos 3 meses (mês de referência incluído).
-const { COLUNAS, getSupabaseClient, fetchAll, fetchWithCache, monthLabel, parseFilters, rowMatchesFilters, obterEscopo } = require('./shared');
-const { comAuth } = require('./_auth');
+const { COLUNAS, getSupabaseClient, fetchAll, fetchWithCache, monthLabel, parseFilters, rowMatchesFilters, obterEscopo } = require('../_shared');
+const { comAuth } = require('../_auth');
 
 const MESES_ULTIMA_MEDICAO = 3;
 
