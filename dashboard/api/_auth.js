@@ -8,6 +8,14 @@
  */
 const { getSupabaseClient } = require('./shared');
 
+// Só estes e-mails (separados por vírgula em ADMIN_USUARIOS_EMAIL) criam, editam e excluem usuários.
+const EMAILS_GESTORES = String(process.env.ADMIN_USUARIOS_EMAIL || 'admin@laborrural.com')
+  .split(',').map((e) => e.trim().toLowerCase()).filter(Boolean);
+
+function podeGerenciarUsuarios(perfil) {
+  return perfil.perfil === 'ADMIN' && EMAILS_GESTORES.includes(String(perfil.email_login || '').toLowerCase());
+}
+
 const TTL_PERFIL_MS = 5 * 60 * 1000;
 const cachePerfil = new Map();
 
@@ -28,7 +36,7 @@ async function carregarPerfil(supabase, token) {
 
   let resultado;
   if (!linha || !linha.ativo) resultado = { status: 403, erro: 'Usuário sem permissão de acesso' };
-  else resultado = { perfil: linha };
+  else resultado = { perfil: { ...linha, email_login: data.user.email } };
   cachePerfil.set(id, { resultado, expiraEm: Date.now() + TTL_PERFIL_MS });
   return resultado;
 }
@@ -49,7 +57,7 @@ function comAuth(handler, { admin = false } = {}) {
       res.setHeader('Cache-Control', 'private, no-store');
       const resultado = await autenticar(req);
       if (!resultado.perfil) return res.status(resultado.status).json({ error: resultado.erro });
-      if (admin && resultado.perfil.perfil !== 'ADMIN') return res.status(403).json({ error: 'Apenas administradores' });
+      if (admin && !podeGerenciarUsuarios(resultado.perfil)) return res.status(403).json({ error: 'Apenas o administrador principal gerencia usuários' });
       req.perfil = resultado.perfil;
       return await handler(req, res);
     } catch (error) {
@@ -64,4 +72,4 @@ function limparCachePerfil(id) {
   if (id) cachePerfil.delete(id); else cachePerfil.clear();
 }
 
-module.exports = { autenticar, comAuth, limparCachePerfil };
+module.exports = { autenticar, comAuth, limparCachePerfil, podeGerenciarUsuarios };

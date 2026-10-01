@@ -9,7 +9,9 @@ tab_dim_fazendas_ativas só com as fontes do SmartQuestion, então as linhas do 
 republicadas a cada execução. As linhas do Procampo são identificadas por
 unidade_atendimento = procampo.unidade_atendimento_bi ("PROCAMPO").
 
-Quem entra (fazendas PRO#### e provisórias MAT...; fazenda LR###### é do SmartQuestion e não entra):
+Quem entra (fazendas PRO#### e provisórias MAT...; fazenda LR###### da base do Procampo também entra, mas só
+nos meses em que o SmartQuestion não a lista, para não duplicar a linha — a agroindústria Piracanjuba de todo o
+histórico dela é resolvida em camada_consumo.py):
   * mês da DATA.INÍCIO da base até o mês anterior ao da DATA.CONCLUSÃO (fazenda ATIVA não tem fim);
   * fazenda que SAIU sem data de conclusão: só nos meses em que houve visita;
   * todo mês com visita (não rascunho) conta, como no SmartQuestion ("visita torna a atividade incontestável").
@@ -89,13 +91,14 @@ def _texto(valor, padrao=None):
     return s if s and s.lower() not in ("nan", "none", "nat") else padrao
 
 
-def montar_linhas(fazendas: pd.DataFrame, visitas: pd.DataFrame, meses: list[pd.Timestamp], cfg_pro: dict) -> pd.DataFrame:
+def montar_linhas(fazendas: pd.DataFrame, visitas: pd.DataFrame, meses: list[pd.Timestamp], cfg_pro: dict,
+                  meses_smartquestion: set[tuple] | None = None) -> pd.DataFrame:
     regioes = cfg_pro.get("regioes_por_sigla", {})
     aliases = cfg_pro.get("aliases_consultor", {})
     marcador = cfg_pro["unidade_atendimento_bi"]
     agora = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S+00:00")
 
-    fazendas = fazendas[~fazendas["codigo_lr"].map(rn.eh_fazenda_smartquestion)].copy()
+    meses_smartquestion = meses_smartquestion or set()
     visitadas: set[tuple] = set()
     if not visitas.empty:
         v = visitas[visitas["rascunho"].fillna(False).astype(bool) == False]  # noqa: E712
@@ -120,6 +123,8 @@ def montar_linhas(fazendas: pd.DataFrame, visitas: pd.DataFrame, meses: list[pd.
                 na_janela = ini is not None and ini <= m
             if not (na_janela or (cod, m) in visitadas):
                 continue
+            if (cod, m) in meses_smartquestion:
+                continue   # fazenda LR: nos meses em que o SmartQuestion a lista, a linha dele já existe
             coord = rn.sanear_coordenada(r.get("latitude"), r.get("longitude"), rn.sigla_uf(r.get("uf")))
             # sem acento e em maiúsculas, como os consultores do SmartQuestion no BI (a exportação de visitas
             # às vezes troca 'José' por 'Jose'; com grafias diferentes o mesmo consultor apareceria duas vezes)
@@ -189,7 +194,16 @@ def executar_publicacao_dim_procampo(raiz: Path | None = None) -> pd.DataFrame:
     visitas = _buscar_tudo(supabase, tabelas["procampo_visitas_raw"], "id_composto,codigo_lr,data_visita,rascunho", "id_composto")
     print(f"   -> {len(fazendas)} fazendas na raw, {len(visitas)} visitas, meses {meses[0]:%Y-%m} a {meses[-1]:%Y-%m}")
 
-    linhas = montar_linhas(fazendas, visitas, meses, cfg_pro)
+    # (código, mês) que o SmartQuestion já lista na dim: não duplicar a fazenda LR do Procampo nesses meses
+    marcador = cfg_pro["unidade_atendimento_bi"]
+    codigos_lr = [c for c in fazendas["codigo_lr"].dropna().unique() if rn.eh_fazenda_smartquestion(c)]
+    meses_sq: set[tuple] = set()
+    for i in range(0, len(codigos_lr), 100):
+        dados = supabase.table(TABELA_DIM).select("codigo_produtor,mes_referencia,unidade_atendimento")             .in_("codigo_produtor", codigos_lr[i:i + 100]).limit(5000).execute().data or []
+        meses_sq.update((d["codigo_produtor"], _mes(d["mes_referencia"])) for d in dados if d.get("unidade_atendimento") != marcador)
+    print(f"   -> {len(codigos_lr)} fazendas LR na base do Procampo; {len(meses_sq)} (fazenda, mês) já listados pelo SmartQuestion")
+
+    linhas = montar_linhas(fazendas, visitas, meses, cfg_pro, meses_sq)
     if linhas.empty:
         raise RuntimeError("Nenhuma fazenda do Procampo caiu nos meses da dim; confira as datas de início na raw.")
     por_mes = linhas.groupby("mes_referencia").size()
@@ -212,7 +226,6 @@ def executar_publicacao_dim_procampo(raiz: Path | None = None) -> pd.DataFrame:
     print(f"⬆️ Enviando {len(registros)} linhas para {TABELA_DIM}...")
     _enviar(supabase, registros)
 
-    marcador = cfg_pro["unidade_atendimento_bi"]
     existentes = set(_buscar_tudo(supabase, TABELA_DIM, "id", "id", ("unidade_atendimento", marcador)).get("id", pd.Series(dtype=str)))
     obsoletas = sorted(existentes - set(linhas["id"]))
     for i in range(0, len(obsoletas), 200):

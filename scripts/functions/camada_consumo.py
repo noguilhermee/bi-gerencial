@@ -223,7 +223,7 @@ def carregar_fontes(supabase, conexao_elabore, data_inicio_elabore: str) -> Font
                                           ordem="id"),
         "pro_fazendas": _buscar_tudo(supabase, TAB_PRO_FAZENDAS,
                                      "matricula,codigo_lr,situacao,nome_produtor,nome_propriedade,data_inicio,data_conclusao,"
-                                     "uf,cidade,latitude,longitude",
+                                     "uf,cidade,regional,latitude,longitude",
                                      ordem="matricula"),
         "pro_visitas": _buscar_tudo(supabase, TAB_PRO_VISITAS,
                                     "id_composto,matricula,codigo_lr,nome_propriedade,nome_produtor,nome_consultor,tipo_visita,"
@@ -398,8 +398,18 @@ class Contexto:
                     self.inativacao_mais_recente[cod] = dt
 
         # Procampo: início na carteira = DATA.INÍCIO da base; fazenda que saiu é "inativada" na DATA.CONCLUSÃO.
-        # Fazenda LR###### é do SmartQuestion e mantém os dados de lá.
+        # Fazenda LR###### segue a carteira do SmartQuestion (a dim do Procampo só cobre os meses que ele não lista).
         self.pro_cfg = f.cfg_procampo
+        # Fazendas LR###### que a base do Procampo (Piracanjuba) lista: a agroindústria é a Piracanjuba em todo o
+        # histórico, mesmo nos meses em que o SmartQuestion as listava como Nestlé/Alvoar. Região = regional da base.
+        self.pro_lr: dict[str, str] = {}
+        if not f.pro_fazendas.empty:
+            siglas = (f.cfg_procampo or {}).get("regioes_por_sigla", {})
+            for r in f.pro_fazendas.to_dict("records"):
+                cod = rn.limpar_codigo_lr(r.get("codigo_lr"))
+                if rn.eh_fazenda_smartquestion(cod):
+                    self.pro_lr[cod] = siglas.get(str(r.get("regional") or "").strip().upper(), rn.REGIAO_NAO_INFORMADA)
+        self.agro_pro = rn.mapear_agroindustria((f.cfg_procampo or {}).get("agroindustria_bi", "Piracanjuba"))
         if not f.pro_fazendas.empty:
             pf = f.pro_fazendas.copy()
             pf["codigo_lr"] = pf["codigo_lr"].map(rn.limpar_codigo_lr)
@@ -458,6 +468,8 @@ class Contexto:
     def agroindustria(self, codigo_lr: str, projeto, mes=None) -> str:
         """Agroindústria canônica (= tab_dim_agroindustria.nome_bi). Sem agroindústria no SmartQuestion, usa a
         do Elabore e, na falta dela, a agroindústria dona da região do Elabore (só quando a região tem um único dono)."""
+        if codigo_lr in self.pro_lr:
+            return self.agro_pro
         faz = self.fazenda(codigo_lr, mes)
         agro = rn.mapear_agroindustria(_texto(faz.get("agroindustria")) or projeto)
         if rn.chave(agro) == rn.chave(rn.AGRO_NAO_INFORMADA):
@@ -491,6 +503,8 @@ class Contexto:
         cadastro, vira NÃO INFORMADA e entra no relatório de divergências, em vez de aparecer solta nos filtros."""
         faz = self.fazenda(codigo_lr, mes)
         candidatas = []
+        if codigo_lr in self.pro_lr:
+            candidatas.append(self.pro_lr[codigo_lr])   # regional da base do Procampo vem primeiro
         if codigo_lr in self.regiao_elabore:
             candidatas.append(self.regiao_elabore[codigo_lr])
         candidatas.append(self.regiao.resolver(_texto(faz.get("regiao")) or _texto(faz.get("unidade_atendimento")),

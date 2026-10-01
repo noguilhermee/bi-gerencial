@@ -6,6 +6,17 @@
   <meta name="theme-color" content="#ffffff">
   <title>Gestão de Projetos | Labor Rural</title>
 
+  <!-- Guarda de acesso: nada do dashboard é exibido nem carregado antes de validar o login -->
+  <style>html.auth-pendente body { display: none; }</style>
+  <script>
+    (() => {
+      document.documentElement.classList.add('auth-pendente');
+      let logado = false;
+      try { logado = Object.keys(localStorage).some((k) => /^sb-.+-auth-token$/.test(k)); } catch (_) { /* sem storage: valida no login */ }
+      if (!logado) location.replace('/login');
+    })();
+  </script>
+
   <script>
     (() => {
       try {
@@ -25,7 +36,6 @@
   <link rel="stylesheet" href="./css/dashboard.css?v=20261001-2">
   <link rel="stylesheet" href="./css/producao.css?v=20261001-9">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
-  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 </head>
 <body>
   <div class="progress-bar" aria-hidden="true"><span id="progressBarFill"></span></div>
@@ -941,12 +951,36 @@
   <!-- Backdrop para painel em tela cheia -->
   <div class="panel-fullscreen-backdrop" id="panelFsBackdrop" hidden></div>
 
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="./js/auth.js?v=20261001-1"></script>
-  <script src="./js/carousel.js?v=20260930-2"></script>
-  <script src="./js/charts.js?v=20261001-2"></script>
-  <script src="./js/producao.js?v=20261001-13"></script>
-  <script src="./js/main.js?v=20261001-8"></script>
+  <script src="./js/auth.js?v=20261001-2"></script>
+  <script>
+    // Só depois de /api/me confirmar login E perfil cadastrado o dashboard é exibido e seus scripts são baixados.
+    // Sem sessão válida, exigirLogin() redireciona para /login e esta cadeia nunca continua.
+    (() => {
+      const scripts = [
+        'https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js',
+        'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js',
+        './js/carousel.js?v=20260930-2',
+        './js/charts.js?v=20261001-2',
+        './js/producao.js?v=20261001-13',
+        './js/main.js?v=20261001-9'
+      ];
+      const carregar = (src) => new Promise((ok, falha) => {
+        const el = document.createElement('script');
+        el.src = src;
+        el.onload = ok;
+        el.onerror = () => falha(new Error(`Falha ao carregar ${src}`));
+        document.body.appendChild(el);
+      });
+      LRAuth.exigirLogin().then(async (perfil) => {
+        window.LRPerfil = perfil;
+        document.documentElement.classList.remove('auth-pendente');
+        for (const src of scripts) await carregar(src);
+      }).catch((erro) => {
+        console.error('Acesso não validado.', erro);
+        LRAuth.irParaLogin();
+      });
+    })();
+  </script>
 </body>
 </html>

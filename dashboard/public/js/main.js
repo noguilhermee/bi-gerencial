@@ -1,7 +1,8 @@
 /**
  * Controlador da interface e integração somente leitura com as APIs do dashboard.
  */
-document.addEventListener('DOMContentLoaded', () => {
+const aoCarregar = (fn) => (document.readyState === 'loading' ? document.addEventListener('DOMContentLoaded', fn) : fn());
+aoCarregar(() => {
   const root = document.documentElement;
   const themeToggle = document.getElementById('themeToggle');
   const themeMeta = document.querySelector('meta[name="theme-color"]');
@@ -893,6 +894,20 @@ document.addEventListener('DOMContentLoaded', () => {
     tableTrajetoria: {}
   };
 
+  // Filtro de coluna: o termo precisa começar uma palavra do valor. "consistente" não
+  // casa com "INCONSISTENTE" (o termo estaria no meio da palavra), mas "silva" casa com "João Silva".
+  function matchesFilterTerm(value, term) {
+    const v = String(value).toLowerCase();
+    const t = String(term).toLowerCase().trim();
+    if (!t) return true;
+    let i = v.indexOf(t);
+    while (i !== -1) {
+      if (i === 0 || !/[\p{L}\p{N}]/u.test(v[i - 1])) return true;
+      i = v.indexOf(t, i + 1);
+    }
+    return false;
+  }
+
   function applyColumnFilters(rows, tableId) {
     const filters = tableColFilters[tableId];
     if (!filters || Object.keys(filters).length === 0) return rows;
@@ -945,7 +960,7 @@ document.addEventListener('DOMContentLoaded', () => {
           rowVal = String(row[colKey] ?? '');
         }
 
-        if (!rowVal.toLowerCase().includes(searchVal)) {
+        if (!matchesFilterTerm(rowVal, searchVal)) {
           return false;
         }
       }
@@ -3447,7 +3462,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (filterInput && filterInput.tagName === 'SELECT') {
           return !v || val.toUpperCase() === v.toUpperCase();
         }
-        return val.toLowerCase().includes(v.toLowerCase());
+        return matchesFilterTerm(val, v);
       });
     });
   }
@@ -3734,7 +3749,7 @@ document.addEventListener('DOMContentLoaded', () => {
     el('userName').textContent = perfil.nome || perfil.email;
     el('userRole').textContent = rotulos[perfil.perfil] || perfil.perfil;
     box.hidden = false;
-    if (perfil.perfil === 'ADMIN' && el('linkAdmin')) el('linkAdmin').hidden = false;
+    if (perfil.gerenciaUsuarios && el('linkAdmin')) el('linkAdmin').hidden = false;
     el('btnLogout')?.addEventListener('click', () => window.LRAuth.logout());
     const menu = el('userMenu');
     const toggle = el('btnUserMenu');
@@ -3748,7 +3763,7 @@ document.addEventListener('DOMContentLoaded', () => {
     document.addEventListener('keydown', (e) => { if (e.key === 'Escape') fechar(); });
   }
 
-  window.LRAuth.exigirLogin().then((perfil) => {
+  Promise.resolve(window.LRPerfil || window.LRAuth.exigirLogin()).then((perfil) => {
     mostrarUsuario(perfil);
     loadAllData();
     setInterval(loadAllData, 300000);

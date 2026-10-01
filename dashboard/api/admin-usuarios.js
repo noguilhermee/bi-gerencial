@@ -91,10 +91,22 @@ async function atualizar(supabase, corpo, opcoes, eu) {
   const campos = { ...escopo, perfil, ativo, data_processamento: new Date().toISOString() };
   if (corpo.nome) campos.nome = chaveTexto(corpo.nome);
 
+  // Login (Supabase Auth): e-mail e/ou senha, numa única chamada
+  const loginNovo = {};
+  const email = corpo.email ? String(corpo.email).trim().toLowerCase() : '';
+  if (email && email !== atual.email) {
+    if (!EMAIL.test(email)) throw erro(400, 'E-mail inválido.');
+    loginNovo.email = email;
+    loginNovo.email_confirm = true; // sem exigir novo e-mail de confirmação
+    campos.email = email;
+  }
   if (corpo.senha) {
     validarSenha(corpo.senha);
-    const { error: erroSenha } = await supabase.auth.admin.updateUserById(id, { password: corpo.senha });
-    if (erroSenha) throw erro(400, erroSenha.message);
+    loginNovo.password = corpo.senha;
+  }
+  if (Object.keys(loginNovo).length) {
+    const { error: erroLogin } = await supabase.auth.admin.updateUserById(id, loginNovo);
+    if (erroLogin) throw erro(400, /already|registered|exists/i.test(erroLogin.message) ? 'Já existe um usuário com esse e-mail.' : erroLogin.message);
   }
   const { error: erroUpdate } = await supabase.from('tab_dim_usuario_acesso').update(campos).eq('id_usuario', id);
   if (erroUpdate) throw erroUpdate;
@@ -105,6 +117,9 @@ async function atualizar(supabase, corpo, opcoes, eu) {
 async function excluir(supabase, id, eu) {
   if (!id) throw erro(400, 'Usuário não informado.');
   if (id === eu.id_usuario) throw erro(400, 'Você não pode excluir o próprio usuário.');
+  // O projeto Supabase pode ter logins de outros apps: só mexe em quem tem perfil neste dashboard
+  const { data: perfil } = await supabase.from('tab_dim_usuario_acesso').select('id_usuario').eq('id_usuario', id).maybeSingle();
+  if (!perfil) throw erro(404, 'Usuário não encontrado neste dashboard.');
   const { error } = await supabase.auth.admin.deleteUser(id); // a linha de perfil cai junto (ON DELETE CASCADE)
   if (error) throw erro(400, error.message);
   limparCachePerfil(id);

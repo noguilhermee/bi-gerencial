@@ -77,7 +77,6 @@
     $('dlgTitulo').textContent = usuario ? 'Editar usuário' : 'Novo usuário';
     $('fNome').value = usuario ? usuario.nome : '';
     $('fEmail').value = usuario ? usuario.email : '';
-    $('fEmail').disabled = !!usuario;
     $('fSenha').value = '';
     $('lblSenha').firstChild.textContent = usuario ? 'Nova senha (deixe em branco para manter) ' : 'Senha (mínimo 8 caracteres) ';
     $('fPerfil').value = usuario ? usuario.perfil : 'CONSULTOR';
@@ -109,6 +108,7 @@
     try {
       if (editando) {
         corpo.id = editando.id_usuario;
+        corpo.email = $('fEmail').value.trim();
         corpo.ativo = $('fAtivo').checked;
         await chamar('PATCH', corpo);
         avisar('Usuário atualizado.');
@@ -138,8 +138,8 @@
   }
 
   async function iniciar() {
-    const eu = await LRAuth.exigirLogin();
-    if (eu.perfil !== 'ADMIN') { location.replace('/'); return; }
+    const eu = window.LRPerfil || await LRAuth.exigirLogin();
+    if (!eu.gerenciaUsuarios) { location.replace('/'); return; }
     $('btnNovo').addEventListener('click', () => abrirFormulario(null));
     $('btnCancelar').addEventListener('click', () => $('dlg').close());
     $('fPerfil').addEventListener('change', atualizarCamposPerfil);

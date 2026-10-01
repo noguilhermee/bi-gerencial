@@ -4,6 +4,16 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Usuários | Labor Rural</title>
+  <!-- Guarda de acesso: nada é exibido nem carregado antes de validar login e permissão de gerir usuários -->
+  <style>html.auth-pendente body { display: none; }</style>
+  <script>
+    (() => {
+      document.documentElement.classList.add('auth-pendente');
+      let logado = false;
+      try { logado = Object.keys(localStorage).some((k) => /^sb-.+-auth-token$/.test(k)); } catch (_) { /* valida no login */ }
+      if (!logado) location.replace('/login');
+    })();
+  </script>
   <link rel="icon" type="image/png" href="./img/lr.png">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;600;700&display=swap" rel="stylesheet">
@@ -60,6 +70,16 @@
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="./js/auth.js?v=20261001-1"></script>
-  <script src="./js/admin.js?v=20261001-1"></script>
+  <script>
+    // admin.js só é baixado depois de /api/me confirmar login válido E perfil ADMIN; os demais voltam ao dashboard.
+    LRAuth.exigirLogin().then((perfil) => {
+      if (!perfil.gerenciaUsuarios) { location.replace('/'); return; }
+      window.LRPerfil = perfil;
+      document.documentElement.classList.remove('auth-pendente');
+      const el = document.createElement('script');
+      el.src = './js/admin.js?v=20261001-3';
+      document.body.appendChild(el);
+    }).catch(() => LRAuth.irParaLogin());
+  </script>
 </body>
 </html>
