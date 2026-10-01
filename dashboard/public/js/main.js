@@ -424,7 +424,11 @@ document.addEventListener('DOMContentLoaded', () => {
     tbodyRankingConsultores: { colKey: null, dir: 'asc' },
     tbodyProdCcs: { colKey: 'valor', dir: 'desc' },
     tbodyProdCpp: { colKey: 'valor', dir: 'desc' },
-    tbodyTrajetoria: { colKey: 'variacao', dir: 'desc' }
+    tbodyTrajetoria: { colKey: 'variacao', dir: 'desc' },
+    tbodySafraSistema: { colKey: null, dir: 'asc' },
+    tbodySafraCobertura: { colKey: null, dir: 'asc' },
+    tbodySafraProdutividade: { colKey: null, dir: 'asc' },
+    tbodySafraCusto: { colKey: null, dir: 'asc' }
   };
 
   // Estado de paginação para cada tabela do dashboard
@@ -703,7 +707,11 @@ document.addEventListener('DOMContentLoaded', () => {
       tbodyRankingConsultores: ['posicao', 'consultor', 'total_visitas', 'fazendas_visitadas', 'total_fazendas', 'perc_cobertura_label', 'visitas_por_produtor_label'],
       tbodyProdCcs: ['codigo_lr', 'produtor', 'propriedade', 'consultor', 'regiao', 'valor'],
       tbodyProdCpp: ['codigo_lr', 'produtor', 'propriedade', 'consultor', 'regiao', 'valor'],
-      tbodyTrajetoria: ['codigo_lr', 'produtor', 'consultor', 'regiao', 'anterior', 'recente', 'variacao']
+      tbodyTrajetoria: ['codigo_lr', 'produtor', 'consultor', 'regiao', 'anterior', 'recente', 'variacao'],
+      tbodySafraSistema: ['nome_fazenda', 'produtor', 'consultor', 'sistema', 'area_plantada_ha', 'pct_area'],
+      tbodySafraCobertura: ['nome_fazenda', 'produtor', 'consultor', 'sistema', 'area_plantada_ha', 'area_com_cobertura_ha', 'area_sem_cobertura_ha', 'pct_cobertura'],
+      tbodySafraProdutividade: ['nome_fazenda', 'produtor', 'consultor', 'sistema', 'area_colhida_ha', 'toneladas', 't_ha'],
+      tbodySafraCusto: ['nome_fazenda', 'produtor', 'consultor', 'sistema', 'area_colhida_ha', 'toneladas', 'rs_ha', 'rs_t', 'custo_total', 'rs_pre_plantio', 'rs_plantio', 'rs_tratos', 'rs_colheita', 'rs_nao_informada']
     };
 
     Object.entries(MAPPINGS).forEach(([tbodyId, colKeys]) => {
@@ -1056,6 +1064,44 @@ document.addEventListener('DOMContentLoaded', () => {
     renderTablePagination('paginationRankingConsultores', 'tableRankingConsultores', consultants.length);
   }
 
+  // ─── Slide 7: tabelas de detalhe por fazenda × sistema (exibidas ao expandir cada painel) ───
+  const dec = (v, casas = 1) => (v === null || v === undefined || !Number.isFinite(Number(v)) ? '—' : Number(v).toLocaleString('pt-BR', { minimumFractionDigits: casas, maximumFractionDigits: casas }));
+  const pctDec = (v) => (v === null || v === undefined ? '—' : `${dec(v)}%`);
+  const reaisInt = (v) => (v === null || v === undefined ? '—' : `R$ ${dec(v, 0)}`);
+  const SAFRA_TABLES = {
+    Sistema: { filtro: (r) => r.area_plantada_ha > 0, arquivo: 'sistema_plantio_fazendas', cols: [['area_plantada_ha', dec], ['pct_area', pctDec]] },
+    Cobertura: { filtro: (r) => r.area_plantada_ha > 0, arquivo: 'cobertura_solo_fazendas', cols: [['area_plantada_ha', dec], ['area_com_cobertura_ha', dec], ['area_sem_cobertura_ha', dec], ['pct_cobertura', pctDec]] },
+    Produtividade: { filtro: (r) => r.area_colhida_ha > 0, arquivo: 'produtividade_fazendas', cols: [['area_colhida_ha', dec], ['toneladas', dec], ['t_ha', dec]] },
+    Custo: { filtro: (r) => r.area_colhida_ha > 0, arquivo: 'custo_producao_fazendas', cols: [['area_colhida_ha', dec], ['toneladas', dec], ['rs_ha', reaisInt], ['rs_t', reaisInt], ['custo_total', reaisInt], ['rs_pre_plantio', reaisInt], ['rs_plantio', reaisInt], ['rs_tratos', reaisInt], ['rs_colheita', reaisInt], ['rs_nao_informada', reaisInt]] }
+  };
+  const SAFRA_COLS_TEXTO = ['nome_fazenda', 'produtor', 'consultor', 'sistema'];
+
+  function safraRows(nome) {
+    return (state.safra?.detalhe || []).filter(SAFRA_TABLES[nome].filtro);
+  }
+
+  function renderSafraTables() {
+    Object.entries(SAFRA_TABLES).forEach(([nome, cfg]) => {
+      const tableId = `tableSafra${nome}`;
+      const tbodyId = `tbodySafra${nome}`;
+      let rows = applyColumnFilters(safraRows(nome), tableId);
+      updateCount(`countSafra${nome}`, rows);
+      rows = sortRows(rows, tableSort[tbodyId], (row, key) => row[key]);
+      updateTableHeadIcons(tbodyId, tableSort[tbodyId].colKey, tableSort[tbodyId].dir);
+      const page = getPaginatedSlice(tableId, rows);
+      if (el(tbodyId)) {
+        el(tbodyId).innerHTML = rowsOrEmpty(page, SAFRA_COLS_TEXTO.length + cfg.cols.length, (row) => `<tr>
+        <td class="col-left" title="${escapeHtml(row.nome_fazenda)}"><strong>${escapeHtml(row.nome_fazenda)}</strong></td>
+        <td class="col-left" title="${escapeHtml(row.produtor)}">${escapeHtml(row.produtor)}</td>
+        <td class="col-left" title="${escapeHtml(row.consultor)}">${escapeHtml(row.consultor)}</td>
+        <td class="col-center">${escapeHtml(row.sistema)}</td>
+        ${cfg.cols.map(([k, fmt]) => `<td class="col-right font-tabular">${fmt(row[k])}</td>`).join('')}
+      </tr>`);
+      }
+      renderTablePagination(`paginationSafra${nome}`, tableId, rows.length);
+    });
+  }
+
   // ─── Slide 5: tabelas de CCS/CPP acima do limite e lista da trajetória (mesmo sistema das demais tabelas) ───
   const PROD_TABLES = {
     tableProdCcs: { kind: 'ccs', tbody: 'tbodyProdCcs', pagination: 'paginationProdCcs', count: 'countProdCcs' },
@@ -1253,6 +1299,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     renderRankingTables();
     renderProductionTables();
+    renderSafraTables();
 
     // Tabela 3: Turnover / Movimentação
     let movements = (turnover.tabelaMovimentacao || []).filter((row) => matches(row, filter, true));
@@ -1874,6 +1921,15 @@ document.addEventListener('DOMContentLoaded', () => {
       };
     }
 
+    if (tableId.startsWith('tableSafra')) {
+      const nome = tableId.replace('tableSafra', '');
+      const cfg = SAFRA_TABLES[nome];
+      const heads = [...document.querySelectorAll(`#${tableId} thead tr:first-child th`)].map((th) => th.textContent.trim());
+      const keys = [...SAFRA_COLS_TEXTO, ...cfg.cols.map(([k]) => k)];
+      const data = sortRows(applyColumnFilters(safraRows(nome), tableId), tableSort[`tbodySafra${nome}`], (row, key) => row[key]);
+      return { headers: heads, rows: data.map((r) => keys.map((k) => r[k] ?? '—')) };
+    }
+
     if (tableId === 'tableTrajetoria') {
       const data = sortRows(applyColumnFilters(trajectoryRows(), 'tableTrajetoria'), tableSort.tbodyTrajetoria, (row, key) => row[key]);
       const t = state.production?.trajetoria;
@@ -1989,6 +2045,7 @@ document.addEventListener('DOMContentLoaded', () => {
     el('btnExportMbRankingDetalhe')?.addEventListener('click', () => exportTableToCsv('tableMbRankingDetalhe', 'top10_margem_bruta'));
     el('btnExportProdCcs')?.addEventListener('click', () => exportTableToCsv('tableProdCcs', 'ccs_acima_do_limite'));
     el('btnExportProdCpp')?.addEventListener('click', () => exportTableToCsv('tableProdCpp', 'cpp_acima_do_limite'));
+    Object.entries(SAFRA_TABLES).forEach(([nome, cfg]) => el(`btnExportSafra${nome}`)?.addEventListener('click', () => exportTableToCsv(`tableSafra${nome}`, cfg.arquivo)));
     el('btnExportTrajetoria')?.addEventListener('click', () => exportTableToCsv('tableTrajetoria', `trajetoria_produtores_${state.trajectoryGroup || 'lista'}`));
   }
 
@@ -2174,7 +2231,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const query = params.toString() ? `?${params.toString()}` : '';
     return getJson(`/api/safra${query}`).then((safra) => {
       if (loadId !== undefined && loadId !== loadSequence) return;
+      state.safra = safra;
       window.LRProducao.renderSafra(safra);
+      renderSafraTables();
     });
   }
   if (window.LRProducao) window.LRProducao.aoMudarSafra((selecao) => loadSafra(selecao).finally(() => hideLoading(0)));

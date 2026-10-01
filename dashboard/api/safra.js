@@ -149,6 +149,55 @@ module.exports = async (req, res) => {
         etapas
       };
     });
+
+    // ── Detalhe por fazenda × sistema (tabelas exibidas ao expandir os painéis) ──────────────────
+    const ROTULO_SISTEMA = { 'PLANTIO DIRETO': 'Plantio direto', 'CULTIVO MINIMO': 'Cultivo mínimo', CONVENCIONAL: 'Convencional' };
+    const detalheMap = new Map();
+    const linhaDetalhe = (r) => {
+      const chave = `${r.codigo_lr}|${r.sistema || ''}`;
+      if (!detalheMap.has(chave)) {
+        detalheMap.set(chave, {
+          codigo_lr: r.codigo_lr, nome_fazenda: r.nome_propriedade || '—', produtor: r.nome_produtor || '—', consultor: r.consultor || '—',
+          sistema: ROTULO_SISTEMA[r.sistema] || 'Não informado',
+          area_plantada_ha: 0, area_com_cobertura_ha: 0, area_colhida_ha: 0, toneladas: 0, custo_total: 0,
+          custo_pre_plantio: 0, custo_plantio: 0, custo_tratos: 0, custo_colheita: 0, custo_etapa_nao_informada: 0
+        });
+      }
+      return detalheMap.get(chave);
+    };
+    area.forEach((r) => {
+      const d = linhaDetalhe(r);
+      d.area_plantada_ha += n(r.area_plantada_ha);
+      d.area_com_cobertura_ha += n(r.area_com_cobertura_ha);
+    });
+    custo.filter((r) => n(r.n_producoes) > 0).forEach((r) => {
+      const d = linhaDetalhe(r);
+      ['area_colhida_ha', 'toneladas', 'custo_total', ...ETAPAS].forEach((c) => { d[c] += n(r[c]); });
+    });
+    const detalhe = [...detalheMap.values()].map((d) => ({
+      codigo_lr: d.codigo_lr,
+      nome_fazenda: d.nome_fazenda,
+      produtor: d.produtor,
+      consultor: d.consultor,
+      sistema: d.sistema,
+      area_plantada_ha: arred(d.area_plantada_ha, 1),
+      pct_area: areaTotal > 0 ? arred((d.area_plantada_ha / areaTotal) * 100, 2) : null,
+      area_com_cobertura_ha: arred(d.area_com_cobertura_ha, 1),
+      area_sem_cobertura_ha: arred(Math.max(0, d.area_plantada_ha - d.area_com_cobertura_ha), 1),
+      pct_cobertura: d.area_plantada_ha > 0 ? arred((d.area_com_cobertura_ha / d.area_plantada_ha) * 100, 1) : null,
+      area_colhida_ha: arred(d.area_colhida_ha, 1),
+      toneladas: arred(d.toneladas, 1),
+      t_ha: arred(div(d.toneladas, d.area_colhida_ha), 1),
+      rs_ha: arred(div(d.custo_total, d.area_colhida_ha), 0),
+      rs_t: arred(div(d.custo_total, d.toneladas), 0),
+      custo_total: arred(d.custo_total, 0),
+      rs_pre_plantio: arred(div(d.custo_pre_plantio, d.area_colhida_ha), 0),
+      rs_plantio: arred(div(d.custo_plantio, d.area_colhida_ha), 0),
+      rs_tratos: arred(div(d.custo_tratos, d.area_colhida_ha), 0),
+      rs_colheita: arred(div(d.custo_colheita, d.area_colhida_ha), 0),
+      rs_nao_informada: arred(div(d.custo_etapa_nao_informada, d.area_colhida_ha), 0)
+    })).sort((a, b) => String(a.nome_fazenda).localeCompare(String(b.nome_fazenda), 'pt-BR'));
+
     const comCustoRecorte = custo.filter((r) => n(r.n_producoes) > 0);
     const porFazenda = new Map();
     comCustoRecorte.forEach((r) => porFazenda.set(r.codigo_lr, (porFazenda.get(r.codigo_lr) || 0) + n(r.custo_pre_plantio)));
@@ -165,6 +214,7 @@ module.exports = async (req, res) => {
       sistema,
       cobertura,
       porSistema,
+      detalhe,
       rodape: {
         fazendasComCusto: fazendas(comCustoRecorte),
         fazendasSemPrePlantio: [...porFazenda.values()].filter((v) => v <= 0).length,

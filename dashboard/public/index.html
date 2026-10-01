@@ -509,33 +509,147 @@
         <div class="grid-safra">
           <article class="panel-card">
             <div class="panel-heading"><div><h2>Sistema de plantio</h2><p id="safraSistemaSub">—</p></div><div class="panel-actions"><button class="btn-panel-fs" type="button" title="Tela cheia" aria-label="Expandir painel para tela cheia"><span class="material-symbols-rounded">fullscreen</span></button></div></div>
-            <div class="safra-sistema">
+            <div class="safra-sistema safra-vista-grafico">
               <div class="safra-donut"><canvas id="chartSafraSistema"></canvas><div class="safra-donut-centro"><strong id="safraDonutTotal">—</strong><span>hectares</span></div></div>
               <div class="safra-sistema-lado">
                 <ul class="safra-legenda" id="safraSistemaLegenda"></ul>
                 <div class="safra-destaque" id="safraConservacionista"></div>
               </div>
             </div>
+            <div class="panel-table-view">
+              <div class="panel-table-view-heading"><span class="panel-table-view-title">Detalhe por fazenda e sistema de plantio</span><span class="record-count" id="countSafraSistema">0 registros</span><button class="btn-table-export" id="btnExportSafraSistema" type="button" title="Exportar tabela para CSV (Excel)" aria-label="Exportar para CSV"><span class="material-symbols-rounded" aria-hidden="true">download</span><span>Exportar</span></button></div>
+              <div class="table-scroll"><table class="data-table" id="tableSafraSistema">
+                <colgroup><col style="width:15%"><col style="width:15%"><col style="width:15%"><col style="width:12%"><col style="width:20%"><col style="width:20%"></colgroup>
+                <thead><tr>
+                  <th class="col-left">Fazenda</th>
+                  <th class="col-left">Produtor(a)</th>
+                  <th class="col-left">Consultor(a)</th>
+                  <th class="col-center">Sistema</th>
+                  <th class="col-right">Área plantada (ha)</th>
+                  <th class="col-right">% da área total</th>
+                </tr><tr class="table-filter-row">
+                  <th><input type="text" class="table-col-filter" data-table="tableSafraSistema" data-col="nome_fazenda" placeholder="Filtrar..." aria-label="Filtrar Fazenda"></th>
+                  <th><input type="text" class="table-col-filter" data-table="tableSafraSistema" data-col="produtor" placeholder="Filtrar..." aria-label="Filtrar Produtor(a)"></th>
+                  <th><input type="text" class="table-col-filter" data-table="tableSafraSistema" data-col="consultor" placeholder="Filtrar..." aria-label="Filtrar Consultor(a)"></th>
+                  <th><input type="text" class="table-col-filter" data-table="tableSafraSistema" data-col="sistema" placeholder="Filtrar..." aria-label="Filtrar Sistema"></th>
+                  <th><input type="text" class="table-col-filter" data-table="tableSafraSistema" data-col="area_plantada_ha" placeholder="Filtrar..." aria-label="Filtrar Área plantada (ha)"></th>
+                  <th><input type="text" class="table-col-filter" data-table="tableSafraSistema" data-col="pct_area" placeholder="Filtrar..." aria-label="Filtrar % da área total"></th>
+                </tr></thead>
+                <tbody id="tbodySafraSistema"><tr><td colspan="6" class="empty-cell">Carregando...</td></tr></tbody>
+              </table></div>
+              <div class="table-pagination" id="paginationSafraSistema" data-table="tableSafraSistema"></div>
+            </div>
           </article>
           <article class="panel-card">
             <div class="panel-heading"><div><h2>Cobertura do solo</h2><p id="safraCoberturaSub">—</p></div><div class="panel-actions"><button class="btn-panel-fs" type="button" title="Tela cheia" aria-label="Expandir painel para tela cheia"><span class="material-symbols-rounded">fullscreen</span></button></div></div>
-            <div class="safra-cob">
+            <div class="safra-cob safra-vista-grafico">
               <div class="safra-cob-lado safra-cob-lado--com"><strong id="safraCobPctCom">—</strong><span>Com plantas<br>de cobertura<small id="safraCobHaCom"></small></span></div>
               <div class="safra-cob-lado safra-cob-lado--sem"><strong id="safraCobPctSem">—</strong><span>Sem plantas<br>de cobertura<small id="safraCobHaSem"></small></span></div>
             </div>
-            <div class="safra-barra" id="safraCobBarra"><i class="com" id="safraCobBarraCom"></i><i class="sem" id="safraCobBarraSem"></i></div>
+            <div class="safra-barra safra-vista-grafico" id="safraCobBarra"><i class="com" id="safraCobBarraCom"></i><i class="sem" id="safraCobBarraSem"></i></div>
+            <div class="panel-table-view">
+              <div class="panel-table-view-heading"><span class="panel-table-view-title">Detalhe por fazenda e sistema de plantio</span><span class="record-count" id="countSafraCobertura">0 registros</span><button class="btn-table-export" id="btnExportSafraCobertura" type="button" title="Exportar tabela para CSV (Excel)" aria-label="Exportar para CSV"><span class="material-symbols-rounded" aria-hidden="true">download</span><span>Exportar</span></button></div>
+              <div class="table-scroll"><table class="data-table" id="tableSafraCobertura">
+                <colgroup><col style="width:15%"><col style="width:15%"><col style="width:15%"><col style="width:12%"><col style="width:12%"><col style="width:12%"><col style="width:12%"><col style="width:12%"></colgroup>
+                <thead><tr>
+                  <th class="col-left">Fazenda</th>
+                  <th class="col-left">Produtor(a)</th>
+                  <th class="col-left">Consultor(a)</th>
+                  <th class="col-center">Sistema</th>
+                  <th class="col-right">Área plantada (ha)</th>
+                  <th class="col-right">Com cobertura (ha)</th>
+                  <th class="col-right">Sem cobertura (ha)</th>
+                  <th class="col-right">% com cobertura</th>
+                </tr><tr class="table-filter-row">
+                  <th><input type="text" class="table-col-filter" data-table="tableSafraCobertura" data-col="nome_fazenda" placeholder="Filtrar..." aria-label="Filtrar Fazenda"></th>
+                  <th><input type="text" class="table-col-filter" data-table="tableSafraCobertura" data-col="produtor" placeholder="Filtrar..." aria-label="Filtrar Produtor(a)"></th>
+                  <th><input type="text" class="table-col-filter" data-table="tableSafraCobertura" data-col="consultor" placeholder="Filtrar..." aria-label="Filtrar Consultor(a)"></th>
+                  <th><input type="text" class="table-col-filter" data-table="tableSafraCobertura" data-col="sistema" placeholder="Filtrar..." aria-label="Filtrar Sistema"></th>
+                  <th><input type="text" class="table-col-filter" data-table="tableSafraCobertura" data-col="area_plantada_ha" placeholder="Filtrar..." aria-label="Filtrar Área plantada (ha)"></th>
+                  <th><input type="text" class="table-col-filter" data-table="tableSafraCobertura" data-col="area_com_cobertura_ha" placeholder="Filtrar..." aria-label="Filtrar Com cobertura (ha)"></th>
+                  <th><input type="text" class="table-col-filter" data-table="tableSafraCobertura" data-col="area_sem_cobertura_ha" placeholder="Filtrar..." aria-label="Filtrar Sem cobertura (ha)"></th>
+                  <th><input type="text" class="table-col-filter" data-table="tableSafraCobertura" data-col="pct_cobertura" placeholder="Filtrar..." aria-label="Filtrar % com cobertura"></th>
+                </tr></thead>
+                <tbody id="tbodySafraCobertura"><tr><td colspan="8" class="empty-cell">Carregando...</td></tr></tbody>
+              </table></div>
+              <div class="table-pagination" id="paginationSafraCobertura" data-table="tableSafraCobertura"></div>
+            </div>
           </article>
           <article class="panel-card">
             <div class="panel-heading"><div><h2>Produtividade</h2><p id="safraProdSub">—</p></div><div class="panel-actions"><button class="btn-panel-fs" type="button" title="Tela cheia" aria-label="Expandir painel para tela cheia"><span class="material-symbols-rounded">fullscreen</span></button></div></div>
-            <div class="chart-box"><canvas id="chartSafraProdutividade"></canvas></div>
+            <div class="chart-box chart-box--with-table"><canvas id="chartSafraProdutividade"></canvas></div>
+            <div class="panel-table-view">
+              <div class="panel-table-view-heading"><span class="panel-table-view-title">Detalhe por fazenda e sistema de plantio</span><span class="record-count" id="countSafraProdutividade">0 registros</span><button class="btn-table-export" id="btnExportSafraProdutividade" type="button" title="Exportar tabela para CSV (Excel)" aria-label="Exportar para CSV"><span class="material-symbols-rounded" aria-hidden="true">download</span><span>Exportar</span></button></div>
+              <div class="table-scroll"><table class="data-table" id="tableSafraProdutividade">
+                <colgroup><col style="width:15%"><col style="width:15%"><col style="width:15%"><col style="width:12%"><col style="width:15%"><col style="width:15%"><col style="width:15%"></colgroup>
+                <thead><tr>
+                  <th class="col-left">Fazenda</th>
+                  <th class="col-left">Produtor(a)</th>
+                  <th class="col-left">Consultor(a)</th>
+                  <th class="col-center">Sistema</th>
+                  <th class="col-right">Área colhida (ha)</th>
+                  <th class="col-right">Toneladas colhidas</th>
+                  <th class="col-right">Produtividade (t/ha)</th>
+                </tr><tr class="table-filter-row">
+                  <th><input type="text" class="table-col-filter" data-table="tableSafraProdutividade" data-col="nome_fazenda" placeholder="Filtrar..." aria-label="Filtrar Fazenda"></th>
+                  <th><input type="text" class="table-col-filter" data-table="tableSafraProdutividade" data-col="produtor" placeholder="Filtrar..." aria-label="Filtrar Produtor(a)"></th>
+                  <th><input type="text" class="table-col-filter" data-table="tableSafraProdutividade" data-col="consultor" placeholder="Filtrar..." aria-label="Filtrar Consultor(a)"></th>
+                  <th><input type="text" class="table-col-filter" data-table="tableSafraProdutividade" data-col="sistema" placeholder="Filtrar..." aria-label="Filtrar Sistema"></th>
+                  <th><input type="text" class="table-col-filter" data-table="tableSafraProdutividade" data-col="area_colhida_ha" placeholder="Filtrar..." aria-label="Filtrar Área colhida (ha)"></th>
+                  <th><input type="text" class="table-col-filter" data-table="tableSafraProdutividade" data-col="toneladas" placeholder="Filtrar..." aria-label="Filtrar Toneladas colhidas"></th>
+                  <th><input type="text" class="table-col-filter" data-table="tableSafraProdutividade" data-col="t_ha" placeholder="Filtrar..." aria-label="Filtrar Produtividade (t/ha)"></th>
+                </tr></thead>
+                <tbody id="tbodySafraProdutividade"><tr><td colspan="7" class="empty-cell">Carregando...</td></tr></tbody>
+              </table></div>
+              <div class="table-pagination" id="paginationSafraProdutividade" data-table="tableSafraProdutividade"></div>
+            </div>
           </article>
           <article class="panel-card">
-            <div class="panel-heading panel-heading--with-controls"><div><h2>Custos de produção</h2><p id="safraCustoSub">—</p></div><div class="panel-heading-actions"><button class="btn-pill" id="safraBtnComposicao" type="button" aria-pressed="false">Ver composição do custo</button><button class="btn-panel-fs" type="button" title="Tela cheia" aria-label="Expandir painel para tela cheia"><span class="material-symbols-rounded">fullscreen</span></button></div></div>
-            <div class="safra-custo-duplo" id="safraCustoDuplo">
+            <div class="panel-heading panel-heading--with-controls"><div><h2>Custos de produção</h2><p id="safraCustoSub">—</p></div><div class="panel-heading-actions"><button class="btn-pill chart-only-control" id="safraBtnComposicao" type="button" aria-pressed="false">Ver composição do custo</button><button class="btn-panel-fs" type="button" title="Tela cheia" aria-label="Expandir painel para tela cheia"><span class="material-symbols-rounded">fullscreen</span></button></div></div>
+            <div class="safra-custo-duplo safra-vista-grafico" id="safraCustoDuplo">
               <div><p class="safra-mini"><b>R$/ha</b> custo por hectare</p><div class="chart-box"><canvas id="chartSafraCustoHa"></canvas></div></div>
               <div><p class="safra-mini"><b>R$/t</b> custo por tonelada produzida</p><div class="chart-box"><canvas id="chartSafraCustoT"></canvas></div></div>
             </div>
-            <div class="safra-comp" id="safraCustoCompBox" hidden></div>
+            <div class="safra-comp safra-vista-grafico" id="safraCustoCompBox" hidden></div>
+            <div class="panel-table-view">
+              <div class="panel-table-view-heading"><span class="panel-table-view-title">Detalhe por fazenda e sistema de plantio</span><span class="record-count" id="countSafraCusto">0 registros</span><button class="btn-table-export" id="btnExportSafraCusto" type="button" title="Exportar tabela para CSV (Excel)" aria-label="Exportar para CSV"><span class="material-symbols-rounded" aria-hidden="true">download</span><span>Exportar</span></button></div>
+              <div class="table-scroll"><table class="data-table" id="tableSafraCusto">
+                <colgroup><col style="width:10%"><col style="width:10%"><col style="width:9%"><col style="width:8%"><col style="width:5%"><col style="width:6%"><col style="width:5%"><col style="width:5%"><col style="width:7%"><col style="width:7%"><col style="width:7%"><col style="width:7%"><col style="width:7%"><col style="width:7%"></colgroup>
+                <thead><tr>
+                  <th class="col-left">Fazenda</th>
+                  <th class="col-left">Produtor(a)</th>
+                  <th class="col-left">Consultor(a)</th>
+                  <th class="col-center">Sistema</th>
+                  <th class="col-right">Área colhida (ha)</th>
+                  <th class="col-right">Toneladas</th>
+                  <th class="col-right">R$/ha</th>
+                  <th class="col-right">R$/t</th>
+                  <th class="col-right">Custo total (R$)</th>
+                  <th class="col-right">Pré-plantio (R$/ha)</th>
+                  <th class="col-right">Plantio (R$/ha)</th>
+                  <th class="col-right">Tratos (R$/ha)</th>
+                  <th class="col-right">Colheita (R$/ha)</th>
+                  <th class="col-right">Não inform. (R$/ha)</th>
+                </tr><tr class="table-filter-row">
+                  <th><input type="text" class="table-col-filter" data-table="tableSafraCusto" data-col="nome_fazenda" placeholder="Filtrar..." aria-label="Filtrar Fazenda"></th>
+                  <th><input type="text" class="table-col-filter" data-table="tableSafraCusto" data-col="produtor" placeholder="Filtrar..." aria-label="Filtrar Produtor(a)"></th>
+                  <th><input type="text" class="table-col-filter" data-table="tableSafraCusto" data-col="consultor" placeholder="Filtrar..." aria-label="Filtrar Consultor(a)"></th>
+                  <th><input type="text" class="table-col-filter" data-table="tableSafraCusto" data-col="sistema" placeholder="Filtrar..." aria-label="Filtrar Sistema"></th>
+                  <th><input type="text" class="table-col-filter" data-table="tableSafraCusto" data-col="area_colhida_ha" placeholder="Filtrar..." aria-label="Filtrar Área colhida (ha)"></th>
+                  <th><input type="text" class="table-col-filter" data-table="tableSafraCusto" data-col="toneladas" placeholder="Filtrar..." aria-label="Filtrar Toneladas"></th>
+                  <th><input type="text" class="table-col-filter" data-table="tableSafraCusto" data-col="rs_ha" placeholder="Filtrar..." aria-label="Filtrar R$/ha"></th>
+                  <th><input type="text" class="table-col-filter" data-table="tableSafraCusto" data-col="rs_t" placeholder="Filtrar..." aria-label="Filtrar R$/t"></th>
+                  <th><input type="text" class="table-col-filter" data-table="tableSafraCusto" data-col="custo_total" placeholder="Filtrar..." aria-label="Filtrar Custo total (R$)"></th>
+                  <th><input type="text" class="table-col-filter" data-table="tableSafraCusto" data-col="rs_pre_plantio" placeholder="Filtrar..." aria-label="Filtrar Pré-plantio (R$/ha)"></th>
+                  <th><input type="text" class="table-col-filter" data-table="tableSafraCusto" data-col="rs_plantio" placeholder="Filtrar..." aria-label="Filtrar Plantio (R$/ha)"></th>
+                  <th><input type="text" class="table-col-filter" data-table="tableSafraCusto" data-col="rs_tratos" placeholder="Filtrar..." aria-label="Filtrar Tratos (R$/ha)"></th>
+                  <th><input type="text" class="table-col-filter" data-table="tableSafraCusto" data-col="rs_colheita" placeholder="Filtrar..." aria-label="Filtrar Colheita (R$/ha)"></th>
+                  <th><input type="text" class="table-col-filter" data-table="tableSafraCusto" data-col="rs_nao_informada" placeholder="Filtrar..." aria-label="Filtrar Não inform. (R$/ha)"></th>
+                </tr></thead>
+                <tbody id="tbodySafraCusto"><tr><td colspan="14" class="empty-cell">Carregando...</td></tr></tbody>
+              </table></div>
+              <div class="table-pagination" id="paginationSafraCusto" data-table="tableSafraCusto"></div>
+            </div>
           </article>
         </div>
         <div class="safra-rodape" id="safraRodape"></div>

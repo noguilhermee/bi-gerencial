@@ -386,3 +386,8 @@
   body.imprimindo-safra .custom-select-popup { display: none !important; }
   body.imprimindo-safra .panel-card { break-inside: avoid; box-shadow: none; }
 }
+
+/* Tela 7: conteúdo gráfico dos painéis some em tela cheia, dando lugar à tabela de detalhe por fazenda (mesmo padrão das telas 3–5). */
+.panel-card.is-fullscreen .safra-vista-grafico {
+  display: none !important;
+}
