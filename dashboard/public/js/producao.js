@@ -33,7 +33,7 @@
     terr: null,
     safra: null,
     safraComposicao: false,
-    safraSel: { safra: '', cultura: '', produto: '' },
+    safraSel: { safra: [], cultura: [], produto: [] },
     aoMudarSafra: null,
     indicador: 'volume_total',
     periodo: 6,
@@ -539,14 +539,23 @@
     if (aviso) { aviso.textContent = mensagem; aviso.hidden = false; }
   }
 
-  function preencherSelect(id, opcoes, atual, formato = (v) => v) {
+  function preencherSelect(id, opcoes, selecionados, formato = (v) => v) {
     const sel = el(id);
     if (!sel) return;
-    sel.innerHTML = opcoes.map((o) => `<option value="${escapeHtml(o)}"${o === atual ? ' selected' : ''}>${escapeHtml(formato(o))}</option>`).join('');
+    const marcados = new Set(selecionados || []);
+    sel.innerHTML = opcoes.map((o) => `<option value="${escapeHtml(o)}"${marcados.has(o) ? ' selected' : ''}>${escapeHtml(formato(o))}</option>`).join('');
     sel.disabled = !opcoes.length;
-    // O seletor é desenhado pelo dropdown padrão dos filtros (main.js): o texto exibido precisa acompanhar as opções
-    const exibido = sel.closest('.filter-control')?.querySelector('.select-display-value');
-    if (exibido) exibido.textContent = sel.options[sel.selectedIndex] ? sel.options[sel.selectedIndex].text : '';
+    // O seletor é desenhado pelo dropdown padrão dos filtros (main.js): o 'change' faz o texto exibido acompanhar as
+    // opções; a guarda impede que esse evento sintético recarregue a tela.
+    est.sincronizando = true;
+    sel.dispatchEvent(new Event('change'));
+    est.sincronizando = false;
+  }
+
+  /** "Milho", "Milho e Sorgo", "3 culturas" — rótulo curto de uma seleção múltipla. */
+  function rotuloSelecao(lista, formato = titulo) {
+    const itens = (lista || []).map(formato);
+    return itens.length <= 2 ? itens.join(' e ') : `${itens.length} selecionados`;
   }
 
   function renderSafra(dados) {
@@ -556,13 +565,19 @@
     if (dados.semDados) return limparSafra('Sem dados de safra para os filtros selecionados.');
 
     // A API devolve a seleção efetiva (padrão quando nada foi pedido): o painel passa a refleti-la
-    est.safraSel = { safra: dados.safra || '', cultura: dados.cultura || '', produto: dados.produto || '' };
-    preencherSelect('safraSelSafra', dados.safras || [], dados.safra);
-    preencherSelect('safraSelCultura', dados.culturas || [], dados.cultura, titulo);
-    preencherSelect('safraSelProduto', dados.produtos || [], dados.produto, titulo);
-    if (el('safraNota')) el('safraNota').textContent = `${String(dados.ciclo || '').replace('_', 'ª ').toLowerCase()} · soma/soma por sistema`;
+    const selecao = dados.selecao || { safra: [], cultura: [], produto: [] };
+    est.safraSel = { safra: [...selecao.safra], cultura: [...selecao.cultura], produto: [...selecao.produto] };
+    preencherSelect('safraSelSafra', dados.safras || [], selecao.safra);
+    preencherSelect('safraSelCultura', dados.culturas || [], selecao.cultura, titulo);
+    preencherSelect('safraSelProduto', dados.produtos || [], selecao.produto, titulo);
+    const baseCusto = dados.custoBase === 'DEFLACIONADO' ? 'custo deflacionado (IGP-DI)' : 'custo nominal';
+    if (el('safraNota')) { el('safraNota').textContent = `${String(dados.ciclo || '').replace('_', 'ª ').toLowerCase()} · soma/soma por sistema · ${baseCusto}`; el('safraNota').title = el('safraNota').textContent; }
     const aviso = el('safraAviso');
-    if (aviso) aviso.hidden = true;
+    if (aviso) {
+      // Avisos metodológicos (mais de um produto/cultura misturam bases): informativos, não bloqueiam a tela
+      aviso.textContent = (dados.avisos || []).join(' ');
+      aviso.hidden = !(dados.avisos || []).length;
+    }
 
     const sis = dados.sistema || {};
     const cob = dados.cobertura || {};
@@ -638,7 +653,7 @@
     const cob = dados.cobertura || {};
     const porSis = dados.porSistema || [];
     const nome = (s) => SISTEMA_ROTULO[s] || titulo(s);
-    const produto = titulo(dados.produto);
+    const produto = rotuloSelecao((dados.selecao || {}).produto);
     const ciclo = `${String(dados.ciclo || '').replace('_', 'ª ').toLowerCase()}`;
     const fazLabel = (n) => `${num(n)} ${n === 1 ? 'fazenda' : 'fazendas'}`;
 
@@ -694,7 +709,6 @@
     });
 
     // 4) Custos: R$/ha e R$/t lado a lado (ou composição por etapa)
-    if (el('safraCustoSub')) el('safraCustoSub').textContent = `${produto} · custo por área × custo por tonelada`;
     aplicarVistaCusto();
   }
 
@@ -771,11 +785,12 @@
     if (el('safraCustoCompBox')) el('safraCustoCompBox').hidden = !comp;
     const btn = el('safraBtnComposicao');
     if (btn) { btn.textContent = comp ? 'Ver custo por ha e t' : 'Ver composição do custo'; btn.setAttribute('aria-pressed', String(comp)); }
-    const produtoNome = titulo(dados.produto);
+    const produtoNome = rotuloSelecao((dados.selecao || {}).produto);
+    const sufixoBase = dados.custoBase === 'DEFLACIONADO' ? ' · deflacionado (IGP-DI)' : '';
     const nFaz = (dados.rodape && dados.rodape.fazendasComCusto) || 0;
     if (el('safraCustoSub')) el('safraCustoSub').textContent = comp
-      ? `${produtoNome} · composição do custo por etapa · ${num(nFaz)} ${nFaz === 1 ? 'fazenda' : 'fazendas'}`
-      : `${produtoNome} · custo por área × custo por tonelada`;
+      ? `${produtoNome} · composição do custo por etapa · ${num(nFaz)} ${nFaz === 1 ? 'fazenda' : 'fazendas'}${sufixoBase}`
+      : `${produtoNome} · custo por área × custo por tonelada${sufixoBase}`;
     if (comp) { destruirGrafico('chartSafraCustoHa'); destruirGrafico('chartSafraCustoT'); composicaoCusto(dados); }
     else { barrasCusto('chartSafraCustoHa', 'rsHa', dados); barrasCusto('chartSafraCustoT', 'rsT', dados); }
   }
@@ -795,9 +810,9 @@
     const sel = est.safraSel || {};
     const tituloOriginal = document.title;
     const hoje = new Date().toLocaleDateString('pt-BR');
-    if (el('safraCabFiltros')) el('safraCabFiltros').textContent = `Safra ${sel.safra || ''} · ${titulo(sel.cultura)} · ${titulo(sel.produto)} · ${textoFiltrosGlobais()}`;
+    if (el('safraCabFiltros')) el('safraCabFiltros').textContent = `Safra ${(sel.safra || []).join(', ')} · ${(sel.cultura || []).map(titulo).join(', ')} · ${(sel.produto || []).map(titulo).join(', ')} · ${textoFiltrosGlobais()}`;
     if (el('safraCabData')) el('safraCabData').textContent = `Gerado em ${hoje}`;
-    const nomeArquivo = ['Safra_Forrageiras', String(sel.safra || '').replace('/', '-'), titulo(sel.produto)].filter(Boolean).join('_').replace(/[^\w-]+/g, '_');
+    const nomeArquivo = ['Safra_Forrageiras', (sel.safra || []).join('_').replace(/\//g, '-'), (sel.produto || []).map(titulo).join('_')].filter(Boolean).join('_').replace(/[^\w-]+/g, '_');
     const restaurar = () => {
       document.body.classList.remove('imprimindo-safra');
       document.title = tituloOriginal;
@@ -832,13 +847,22 @@
     const zerarRolagem = () => [0, 60, 200, 450].forEach((ms) => setTimeout(() => { if (viewport && viewport.scrollLeft) viewport.scrollLeft = 0; }, ms));
     ['click', 'keydown', 'focusin'].forEach((evento) => document.querySelector('.safra-toolbar')?.addEventListener(evento, zerarRolagem, true));
     el('safraBtnComposicao')?.addEventListener('click', () => { est.safraComposicao = !est.safraComposicao; aplicarVistaCusto(); });
+    const valores = (id) => [...(el(id)?.selectedOptions || [])].map((o) => o.value);
     [['safraSelSafra', 'safra'], ['safraSelCultura', 'cultura'], ['safraSelProduto', 'produto']].forEach(([id, campo]) => {
-      el(id)?.addEventListener('change', (e) => {
-        est.safraSel[campo] = e.target.value;
+      el(id)?.addEventListener('change', () => {
+        if (est.sincronizando) return;
+        const nova = { safra: valores('safraSelSafra'), cultura: valores('safraSelCultura'), produto: valores('safraSelProduto') };
+        if (!nova[campo].length) {
+          // Nada marcado não é uma consulta válida: volta a mostrar a seleção que está na tela
+          const d = est.safra;
+          if (d && d.selecao) { preencherSelect('safraSelSafra', d.safras || [], d.selecao.safra); preencherSelect('safraSelCultura', d.culturas || [], d.selecao.cultura, titulo); preencherSelect('safraSelProduto', d.produtos || [], d.selecao.produto, titulo); }
+          return;
+        }
         // Trocar a safra/cultura invalida as escolhas que dependem dela: a API devolve o padrão válido
-        if (campo === 'safra') { est.safraSel.cultura = ''; est.safraSel.produto = ''; }
-        if (campo === 'cultura') est.safraSel.produto = '';
-        if (est.aoMudarSafra) est.aoMudarSafra({ ...est.safraSel });
+        if (campo === 'safra') { nova.cultura = []; nova.produto = []; }
+        if (campo === 'cultura') nova.produto = [];
+        est.safraSel = nova;
+        if (est.aoMudarSafra) est.aoMudarSafra({ ...nova });
       });
     });
     new MutationObserver(() => {

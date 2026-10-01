@@ -23,7 +23,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20,500,0,0" rel="stylesheet">
   <link rel="stylesheet" href="./css/dashboard.css?v=20260930-4">
-  <link rel="stylesheet" href="./css/producao.css?v=20261001-8">
+  <link rel="stylesheet" href="./css/producao.css?v=20261001-9">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 </head>
@@ -497,9 +497,9 @@
           <span id="safraCabData"></span>
         </div>
         <div class="safra-toolbar">
-          <label class="filter-control safra-filtro"><span class="material-symbols-rounded safra-ico" aria-hidden="true">grass</span><span class="safra-rot">Safra:</span><select id="safraSelSafra" data-popup-estilo="caixas" aria-label="Safra"></select></label>
-          <label class="filter-control safra-filtro"><span class="material-symbols-rounded safra-ico" aria-hidden="true">agriculture</span><span class="safra-rot">Cultura:</span><select id="safraSelCultura" data-popup-estilo="caixas" aria-label="Cultura"></select></label>
-          <label class="filter-control safra-filtro"><span class="material-symbols-rounded safra-ico" aria-hidden="true">inventory_2</span><span class="safra-rot">Produto:</span><select id="safraSelProduto" data-popup-estilo="caixas" aria-label="Produto"></select></label>
+          <label class="filter-control safra-filtro"><span class="material-symbols-rounded safra-ico" aria-hidden="true">grass</span><span class="safra-rot">Safra:</span><select id="safraSelSafra" aria-label="Safra" multiple data-all-label="Todas"></select></label>
+          <label class="filter-control safra-filtro"><span class="material-symbols-rounded safra-ico" aria-hidden="true">agriculture</span><span class="safra-rot">Cultura:</span><select id="safraSelCultura" aria-label="Cultura" multiple data-all-label="Todas"></select></label>
+          <label class="filter-control safra-filtro"><span class="material-symbols-rounded safra-ico" aria-hidden="true">inventory_2</span><span class="safra-rot">Produto:</span><select id="safraSelProduto" aria-label="Produto" multiple data-all-label="Todos"></select></label>
           <div class="filter-control safra-filtro safra-filtro--info"><span class="material-symbols-rounded safra-ico" aria-hidden="true">home_work</span><span class="safra-rot">Fazendas:</span><strong id="safraNFazendas">–</strong></div>
           <span class="safra-toolbar-nota" id="safraNota">1ª safra</span>
           <div class="safra-toolbar-espaco"></div>
@@ -933,7 +933,7 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
   <script src="./js/carousel.js?v=20260930-2"></script>
   <script src="./js/charts.js?v=20261001-1"></script>
-  <script src="./js/producao.js?v=20261001-11"></script>
-  <script src="./js/main.js?v=20261001-2"></script>
+  <script src="./js/producao.js?v=20261001-13"></script>
+  <script src="./js/main.js?v=20261001-3"></script>
 </body>
 </html>

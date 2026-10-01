@@ -10,7 +10,12 @@
 //  • Produtividade = Σ toneladas ÷ Σ área colhida; R$/ha = Σ custo ÷ Σ área colhida; R$/t = Σ custo ÷ Σ toneladas.
 //  • Produtor com áreas em dois sistemas conta nos dois: os "n produtores" por sistema não somam o total.
 //  • Percentuais exibidos são arredondados para somar 100 % (maior resto).
-const { COLUNAS, getSupabaseClient, fetchAll, fetchWithCache, parseFilters, rowMatchesFilters } = require('./shared');
+//  • Safra, cultura e produto aceitam várias opções (lista separada por "|"). Com MAIS DE UMA safra o custo vem
+//    DEFLACIONADO (IGP-DI, colunas *_defl da base do Elabore): custo nominal de safras diferentes não é comparável.
+//    Com uma safra só, vale o custo nominal.
+//  • Mais de um produto ou cultura soma toneladas e custos de bases diferentes (silagem × grão, milho × sorgo): a tela
+//    mostra um aviso (campo `avisos`), mas não bloqueia.
+const { COLUNAS, getSupabaseClient, fetchAll, fetchWithCache, parseFilters, parseList, rowMatchesFilters } = require('./shared');
 
 const SISTEMAS = ['PLANTIO DIRETO', 'CULTIVO MINIMO', 'CONVENCIONAL'];
 const CICLO_PADRAO = '1_SAFRA';
@@ -59,8 +64,14 @@ module.exports = async (req, res) => {
 
     let todas;
     try {
+      // As colunas *_defl vêm da migration 2026_10_01_add_custo_deflacionado_safra.sql: antes dela a tela segue com o custo nominal
       todas = await fetchWithCache('FATO_SAFRA_ALL', () =>
-        fetchAll(() => supabase.from('tab_fato_safra_forrageira').select(COLUNAS.safra), undefined, 'id_composto'));
+        fetchAll(() => supabase.from('tab_fato_safra_forrageira').select(COLUNAS.safra), undefined, 'id_composto')
+          .catch((erro) => {
+            if (!/custo_.*_defl|column/i.test(String(erro && erro.message))) throw erro;
+            console.warn('Colunas deflacionadas ausentes em tab_fato_safra_forrageira; lendo só o custo nominal:', erro.message);
+            return fetchAll(() => supabase.from('tab_fato_safra_forrageira').select(COLUNAS.safra.split(',').filter((c) => !c.endsWith('_defl')).join(',')), undefined, 'id_composto');
+          }));
     } catch (error) {
       // Tabela ainda não criada/carregada (migration + carga + camada_consumo.py pendentes): a tela mostra o aviso.
       console.warn('tab_fato_safra_forrageira indisponível:', error.message);
@@ -82,21 +93,37 @@ module.exports = async (req, res) => {
     });
     const maiorCobertura = Math.max(0, ...[...fazendasPorSafra.values()].map((s) => s.size));
     const safraPadrao = safras.find((s) => (fazendasPorSafra.get(s)?.size || 0) >= maiorCobertura * COBERTURA_SAFRA_PADRAO && maiorCobertura > 0);
-    const safra = escolher(safras, String(req.query?.safra || ''), safraPadrao);
-    const daSafra = linhas.filter((r) => r.safra === safra);
+    const pedidas = (campo, ajuste = (v) => v) => parseList(req.query?.[campo]).map(ajuste);
+    const dentro = (pedido, opcoes) => pedido.filter((p) => opcoes.includes(p));
+    let safrasSel = dentro(pedidas('safra'), safras);
+    if (!safrasSel.length) safrasSel = [escolher(safras, '', safraPadrao)];
+    const daSafra = linhas.filter((r) => safrasSel.includes(r.safra));
 
     const areaPorCultura = new Map();
     daSafra.filter((r) => r.bloco === 'AREA').forEach((r) => areaPorCultura.set(r.cultura, (areaPorCultura.get(r.cultura) || 0) + n(r.area_plantada_ha)));
     const culturas = [...new Set(daSafra.map((r) => r.cultura))].sort((a, b) => (areaPorCultura.get(b) || 0) - (areaPorCultura.get(a) || 0));
-    const cultura = escolher(culturas, String(req.query?.cultura || '').toUpperCase(), CULTURA_PADRAO);
-    const area = daSafra.filter((r) => r.bloco === 'AREA' && r.cultura === cultura);
-    const custoCultura = daSafra.filter((r) => r.bloco === 'CUSTO' && r.cultura === cultura);
+    let culturasSel = dentro(pedidas('cultura', (v) => v.toUpperCase()), culturas);
+    if (!culturasSel.length) culturasSel = [escolher(culturas, '', CULTURA_PADRAO)].filter(Boolean);
+    const area = daSafra.filter((r) => r.bloco === 'AREA' && culturasSel.includes(r.cultura));
+    const custoCultura = daSafra.filter((r) => r.bloco === 'CUSTO' && culturasSel.includes(r.cultura));
 
     const areaPorProduto = new Map();
     custoCultura.forEach((r) => areaPorProduto.set(r.produto, (areaPorProduto.get(r.produto) || 0) + n(r.area_colhida_ha)));
     const produtos = [...areaPorProduto.keys()].filter(Boolean).sort((a, b) => areaPorProduto.get(b) - areaPorProduto.get(a));
-    const produto = escolher(produtos, String(req.query?.produto || '').toUpperCase(), null);
-    const custo = custoCultura.filter((r) => r.produto === produto);
+    let produtosSel = dentro(pedidas('produto', (v) => v.toUpperCase()), produtos);
+    if (!produtosSel.length) produtosSel = produtos.slice(0, 1);
+    const custo = custoCultura.filter((r) => produtosSel.includes(r.produto));
+
+    // Base do custo: deflacionado quando há mais de uma safra (e a coluna estiver carregada), senão nominal
+    const comparaSafras = safrasSel.length > 1;
+    const temDefl = soma(custo, 'custo_total_defl') > 0;
+    const custoBase = comparaSafras && temDefl ? 'DEFLACIONADO' : 'NOMINAL';
+    const sufixo = custoBase === 'DEFLACIONADO' ? '_defl' : '';
+    const campo = (nome) => `${nome}${sufixo}`;
+    const avisos = [];
+    if (comparaSafras && !temDefl) avisos.push('Custo deflacionado indisponível: carregue as colunas deflacionadas (migration + carga); o custo exibido é nominal e não é comparável entre safras.');
+    if (produtosSel.length > 1) avisos.push('Mais de um produto selecionado: toneladas de silagem (matéria verde) e de grão (matéria seca) não são comparáveis, então t/ha e R$/t misturam bases diferentes.');
+    if (culturasSel.length > 1) avisos.push('Mais de uma cultura selecionada: produtividade e custo juntam culturas com rendimentos diferentes.');
 
     // ── Sistema de plantio (participação na área) ────────────────────────────────────────────────
     const areaTotal = soma(area, 'area_plantada_ha');
@@ -135,9 +162,9 @@ module.exports = async (req, res) => {
       const doSistema = custo.filter((r) => r.sistema === s && n(r.n_producoes) > 0);
       const ha = soma(doSistema, 'area_colhida_ha');
       const t = soma(doSistema, 'toneladas');
-      const rs = soma(doSistema, 'custo_total');
+      const rs = soma(doSistema, campo('custo_total'));
       const etapas = {};
-      ETAPAS.forEach((e) => { etapas[e.replace('custo_', '')] = arred(div(soma(doSistema, e), ha), 0); });
+      ETAPAS.forEach((e) => { etapas[e.replace('custo_', '')] = arred(div(soma(doSistema, campo(e)), ha), 0); });
       return {
         sistema: s,
         fazendas: fazendas(doSistema),
@@ -172,7 +199,8 @@ module.exports = async (req, res) => {
     });
     custo.filter((r) => n(r.n_producoes) > 0).forEach((r) => {
       const d = linhaDetalhe(r);
-      ['area_colhida_ha', 'toneladas', 'custo_total', ...ETAPAS].forEach((c) => { d[c] += n(r[c]); });
+      ['area_colhida_ha', 'toneladas'].forEach((c) => { d[c] += n(r[c]); });
+      ['custo_total', ...ETAPAS].forEach((c) => { d[c] += n(r[campo(c)]); });
     });
     const detalhe = [...detalheMap.values()].map((d) => ({
       codigo_lr: d.codigo_lr,
@@ -204,12 +232,12 @@ module.exports = async (req, res) => {
 
     return res.status(200).json({
       disponivel: true,
-      safra,
       safras,
-      cultura,
       culturas,
-      produto,
       produtos,
+      selecao: { safra: safrasSel, cultura: culturasSel, produto: produtosSel },
+      custoBase,
+      avisos,
       ciclo: CICLO_PADRAO,
       sistema,
       cobertura,

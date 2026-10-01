@@ -82,6 +82,12 @@ COLUNAS_CUSTO = {
     "Etapa Não Informada (R$) (Nom)": "custo_etapa_nao_informada_nom",
     "Custo Total Rateado (R$) (Nom)": "custo_total_nom",
     "Custo Total Rateado (R$) (Defl)": "custo_total_defl",
+    "Pré-plantio (R$) (Defl)": "custo_pre_plantio_defl",
+    "Plantio (R$) (Defl)": "custo_plantio_defl",
+    "Tratos Culturais (R$) (Defl)": "custo_tratos_defl",
+    "Colheita/Ensilagem Planta Inteira (R$) (Defl)": "custo_colheita_planta_inteira_defl",
+    "Colheita/Ensilagem Grão (R$) (Defl)": "custo_colheita_grao_defl",
+    "Etapa Não Informada (R$) (Defl)": "custo_etapa_nao_informada_defl",
     "Plantio Direto": "plantio_direto",
     "Sistema de Plantio": "sistema_plantio",
     "Origem do Sistema de Plantio": "origem_sistema_plantio",
@@ -115,7 +121,9 @@ COLUNAS_SISTEMA = {
 
 NUMERICAS = {"area_colhida_ha", "area_plantada_ha", "quantidade_kg", "custo_pre_plantio_nom", "custo_plantio_nom",
              "custo_tratos_nom", "custo_colheita_planta_inteira_nom", "custo_colheita_grao_nom",
-             "custo_etapa_nao_informada_nom", "custo_total_nom", "custo_total_defl"}
+             "custo_etapa_nao_informada_nom", "custo_total_nom", "custo_total_defl", "custo_pre_plantio_defl",
+             "custo_plantio_defl", "custo_tratos_defl", "custo_colheita_planta_inteira_defl",
+             "custo_colheita_grao_defl", "custo_etapa_nao_informada_defl"}
 BOOLEANAS = {"plantio_direto", "sem_quantidade_produzida", "ciclo_divergente", "alerta_custo_ha",
              "planta_cobertura", "cobertura_apos", "sucessao_apos"}
 DATAS = {"data_plantio", "data_colheita"}

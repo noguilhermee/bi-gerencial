@@ -113,7 +113,9 @@ const COLUNAS = {
     'id_composto', 'bloco', 'codigo_lr', 'nome_produtor', 'nome_propriedade', 'consultor', 'projeto', 'agroindustria',
     'regiao', 'safra', 'cultura', 'ciclo', 'produto', 'sistema', 'fonte', 'area_plantada_ha', 'area_com_cobertura_ha',
     'n_producoes', 'producoes_inconsistentes', 'area_colhida_ha', 'toneladas', 'custo_total', 'custo_pre_plantio',
-    'custo_plantio', 'custo_tratos', 'custo_colheita', 'custo_etapa_nao_informada'
+    'custo_plantio', 'custo_tratos', 'custo_colheita', 'custo_etapa_nao_informada',
+    'custo_total_defl', 'custo_pre_plantio_defl', 'custo_plantio_defl', 'custo_tratos_defl', 'custo_colheita_defl',
+    'custo_etapa_nao_informada_defl'
   ].join(','),
   // Coordenada de cada fazenda vive em tab_dim_fazendas_ativas (1 linha por fazenda × mês; ver AGENTS.md, regra 10)
   dimLocalizacao: [

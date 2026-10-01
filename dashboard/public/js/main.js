@@ -2211,7 +2211,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
         // Safra (slide 7): ao trocar os filtros da tela a seleção de safra/cultura/produto volta ao padrão da API
         state.safraQuery = query;
-        loadSafra({ safra: '', cultura: '', produto: '' }, loadId);
+        loadSafra({ safra: [], cultura: [], produto: [] }, loadId);
       }
 
       // Econômico chega depois sem travar o restante do dashboard
@@ -2227,7 +2227,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
   function loadSafra(selecao, loadId) {
     const params = new URLSearchParams((state.safraQuery || '').replace(/^\?/, ''));
-    Object.entries(selecao).forEach(([k, v]) => { if (v) params.set(k, v); });
+    Object.entries(selecao).forEach(([k, v]) => {
+      const valor = Array.isArray(v) ? v.join('|') : v;
+      if (valor) params.set(k, valor);
+    });
     const query = params.toString() ? `?${params.toString()}` : '';
     return getJson(`/api/safra${query}`).then((safra) => {
       if (loadId !== undefined && loadId !== loadSequence) return;
@@ -2287,10 +2290,6 @@ document.addEventListener('DOMContentLoaded', () => {
       }
 
       const multi = select.multiple;
-      // Modo "caixas": escolha única exibida como a lista dos filtros multi-seleção (caixa de marcação por linha e
-      // botão Aplicar). A linha clicada só vira a escolha de fato ao aplicar.
-      const caixas = !multi && select.dataset.popupEstilo === 'caixas';
-      let pendente = select.value;
       let multiDirty = false;
       // Excel-like: após ↑/↓ o foco "está na lista" e a barra de espaço marca a linha; digitar volta a pesquisar
       let modoLista = false;
@@ -2373,25 +2372,9 @@ document.addEventListener('DOMContentLoaded', () => {
         select.dispatchEvent(new Event('change', { bubbles: true }));
       });
 
-      function aplicarCaixas() {
-        const novo = pendente;
-        closeAllPopups();
-        control.focus();
-        if (novo === select.value) return;
-        select.value = novo;
-        syncDisplayValue();
-        showLoading('Atualizando dashboard com filtros...');
-        select.dispatchEvent(new Event('change', { bubbles: true }));
-      }
-
       function selectOptionByValue(val) {
         if (multi) {
           toggleMultiOption(val);
-          return;
-        }
-        if (caixas) {
-          pendente = val;
-          updatePopupOptions(popup.querySelector('.custom-select-search-input')?.value || '', true);
           return;
         }
         select.value = val;
@@ -2420,12 +2403,11 @@ document.addEventListener('DOMContentLoaded', () => {
               <input type="text" class="custom-select-search-input" placeholder="Pesquisar..." aria-label="Pesquisar opção">
             </div>
             <div class="custom-select-options-list"></div>
-            ${multi || caixas ? '<div class="custom-select-footer"><button type="button" class="custom-select-apply">Aplicar</button></div>' : ''}
+            ${multi ? '<div class="custom-select-footer"><button type="button" class="custom-select-apply">Aplicar</button></div>' : ''}
           `;
           popup.querySelector('.custom-select-apply')?.addEventListener('click', (e) => {
             e.stopPropagation();
             e.preventDefault();
-            if (caixas) { aplicarCaixas(); return; }
             closeAllPopups(); // fecha e aplica a seleção (evento multicommit)
             control.focus();
           });
@@ -2457,17 +2439,11 @@ document.addEventListener('DOMContentLoaded', () => {
               e.preventDefault();
               modoLista = true;
               highlightOption(highlightedIndex - 1, true);
-            } else if (isSpace && (multi || caixas) && (modoLista || !inputEl.value)) {
+            } else if (isSpace && multi && (modoLista || !inputEl.value)) {
               // Espaço marca/desmarca a linha destacada (com texto digitado e sem navegar, o espaço é só um caractere)
               e.preventDefault();
               const alvo = optEls[highlightedIndex];
-              if (alvo) (caixas ? selectOptionByValue : toggleMultiOption)(alvo.dataset.value);
-            } else if (isEnter && caixas) {
-              // Enter aplica a escolha; se ainda não marcou nada novo e há linha destacada, marca essa
-              e.preventDefault();
-              const alvo = optEls[highlightedIndex];
-              if (alvo && alvo.dataset.value !== undefined && modoLista) pendente = alvo.dataset.value;
-              aplicarCaixas();
+              if (alvo) toggleMultiOption(alvo.dataset.value);
             } else if (isEnter && multi) {
               // Enter aplica a seleção (como o botão Aplicar)
               e.preventDefault();
@@ -2519,19 +2495,18 @@ document.addEventListener('DOMContentLoaded', () => {
           const previousHighlight = highlightedIndex;
           const selectedIdx = multi
             ? currentFilteredOptions.findIndex(opt => opt.selected)
-            : currentFilteredOptions.findIndex(opt => opt.value === (caixas ? pendente : select.value));
+            : currentFilteredOptions.findIndex(opt => opt.value === select.value);
           highlightedIndex = keepHighlight && previousHighlight >= 0 ? previousHighlight : (selectedIdx >= 0 ? selectedIdx : 0);
           const extrasCount = (extras.match(/is-all/g) || []).length;
           if (!(keepHighlight && previousHighlight >= 0)) highlightedIndex += extrasCount; // posição na lista (após as linhas extras)
 
           const rowsHtml = currentFilteredOptions.map((opt, idx) => {
-            const isSelected = multi ? opt.selected : opt.value === (caixas ? pendente : select.value);
-            const comCaixa = multi || caixas;
+            const isSelected = multi ? opt.selected : opt.value === select.value;
             const isHighlighted = idx + (extras.match(/is-all/g) || []).length === highlightedIndex;
-            return `<div class="custom-select-option ${comCaixa ? 'is-multi' : ''} ${isSelected ? 'selected' : ''} ${isHighlighted ? 'highlighted' : ''}" data-value="${escapeHtml(opt.value)}" data-index="${idx}">
-              ${comCaixa ? `<span class="multi-check" aria-hidden="true">${isSelected ? '✓' : ''}</span>` : ''}
+            return `<div class="custom-select-option ${multi ? 'is-multi' : ''} ${isSelected ? 'selected' : ''} ${isHighlighted ? 'highlighted' : ''}" data-value="${escapeHtml(opt.value)}" data-index="${idx}">
+              ${multi ? `<span class="multi-check" aria-hidden="true">${isSelected ? '✓' : ''}</span>` : ''}
               <span>${escapeHtml(opt.text)}</span>
-              ${!comCaixa && isSelected ? '<span style="font-size:10px;">✓</span>' : ''}
+              ${!multi && isSelected ? '<span style="font-size:10px;">✓</span>' : ''}
             </div>`;
           }).join('');
           optionsList.innerHTML = extras + rowsHtml;
@@ -2564,7 +2539,6 @@ document.addEventListener('DOMContentLoaded', () => {
         closeAllPopups();
         if (!isOpen) {
           modoLista = false;
-          pendente = select.value;
           updatePopupOptions('');
           popup.classList.add('open');
           control.classList.add('active-popup');

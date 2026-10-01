@@ -84,7 +84,9 @@ TAB_SAFRA_SISTEMA_RAW = "elabore_raw_sistema_cobertura"
 COLS_RAW_SAFRA_CUSTO = ("id_production,codigo_lr,cultura,safra,ciclo,produto_colhido,categoria,area_colhida_ha,"
                         "quantidade_kg,custo_pre_plantio_nom,custo_plantio_nom,custo_tratos_nom,"
                         "custo_colheita_planta_inteira_nom,custo_colheita_grao_nom,custo_etapa_nao_informada_nom,"
-                        "custo_total_nom,sistema_plantio,sem_quantidade_produzida,ciclo_divergente,alerta_custo_ha")
+                        "custo_total_nom,custo_total_defl,custo_pre_plantio_defl,custo_plantio_defl,custo_tratos_defl,"
+                        "custo_colheita_planta_inteira_defl,custo_colheita_grao_defl,custo_etapa_nao_informada_defl,"
+                        "sistema_plantio,sem_quantidade_produzida,ciclo_divergente,alerta_custo_ha")
 COLS_RAW_SAFRA_SISTEMA = ("id_plantio,fonte,codigo_lr,cultura,safra,ciclo,area_plantada_ha,sistema_plantio,"
                           "cobertura_apos,sucessao_apos")
 
@@ -1100,7 +1102,8 @@ COLS_SAFRA = ["id_composto", "bloco", "codigo_lr", "nome_produtor", "nome_propri
               "n_plantios", "area_plantada_ha", "area_com_cobertura_ha", "area_cobertura_declarada_ha",
               "area_sucessao_ha", "n_producoes", "producoes_inconsistentes", "area_colhida_ha", "toneladas",
               "custo_total", "custo_pre_plantio", "custo_plantio", "custo_tratos", "custo_colheita",
-              "custo_etapa_nao_informada"]
+              "custo_etapa_nao_informada", "custo_total_defl", "custo_pre_plantio_defl", "custo_plantio_defl",
+              "custo_tratos_defl", "custo_colheita_defl", "custo_etapa_nao_informada_defl"]
 
 # Ciclo da origem (já em maiúsculo sem acento) -> código estável usado pela API/tela
 CICLOS_SAFRA = {"1A SAFRA": "1_SAFRA", "2A SAFRA": "2_SAFRA", "3A SAFRA": "3_SAFRA",
@@ -1198,6 +1201,11 @@ def construir_safra_forrageira(f: Fontes, carteira: pd.DataFrame) -> tuple[pd.Da
             "custo_plantio": num("custo_plantio_nom"), "custo_tratos": num("custo_tratos_nom"),
             "custo_colheita": num("custo_colheita_planta_inteira_nom") + num("custo_colheita_grao_nom"),
             "custo_etapa_nao_informada": num("custo_etapa_nao_informada_nom"),
+            # Mesmos valores deflacionados pelo IGP-DI na origem (por data de compra): base de comparação entre safras
+            "custo_total_defl": num("custo_total_defl"), "custo_pre_plantio_defl": num("custo_pre_plantio_defl"),
+            "custo_plantio_defl": num("custo_plantio_defl"), "custo_tratos_defl": num("custo_tratos_defl"),
+            "custo_colheita_defl": num("custo_colheita_planta_inteira_defl") + num("custo_colheita_grao_defl"),
+            "custo_etapa_nao_informada_defl": num("custo_etapa_nao_informada_defl"),
         }
         for col, valores in medidas.items():
             c[col] = valores.where(consistente, 0.0)
@@ -1229,7 +1237,8 @@ def construir_safra_forrageira(f: Fontes, carteira: pd.DataFrame) -> tuple[pd.Da
         fato[col] = pd.to_numeric(fato[col], errors="coerce").astype("Int64")
     for col in ("area_plantada_ha", "area_com_cobertura_ha", "area_cobertura_declarada_ha", "area_sucessao_ha",
                 "area_colhida_ha", "toneladas", "custo_total", "custo_pre_plantio", "custo_plantio", "custo_tratos",
-                "custo_colheita", "custo_etapa_nao_informada"):
+                "custo_colheita", "custo_etapa_nao_informada", "custo_total_defl", "custo_pre_plantio_defl",
+                "custo_plantio_defl", "custo_tratos_defl", "custo_colheita_defl", "custo_etapa_nao_informada_defl"):
         fato[col] = pd.to_numeric(fato[col], errors="coerce").round(3)
     return fato[COLS_SAFRA].reset_index(drop=True), resumo
 
