@@ -130,7 +130,7 @@ class DashboardCharts {
               ? 'rgba(0, 0, 0, 0.45)'
               : (requestedPosition === 'insideBase'
                 ? String(dataset.backgroundColor || color.dark)
-                : (isDoughnut ? 'rgba(0, 40, 35, 0.55)' : color.surface));
+                : (isDoughnut ? 'rgba(0, 63, 60, 0.95)' : color.surface));
             if (options.pill) {
               const w = context.measureText(label).width + 10;
               const h = (options.fontSize || 11.2) + 8;
@@ -766,7 +766,7 @@ class DashboardCharts {
           const prefix = num > 0 ? '+' : '';
           return `${prefix}${num.toFixed(1).replace('.', ',')}%`;
         },
-        { fontSize: 11, color: '#e6a800', strokeColor: '#ffffff' }
+        { fontSize: 11, color: '#e6a800', strokeColor: '#004d49' }
       )],
       data: {
         labels,

@@ -66,7 +66,7 @@
   }
 
   /** Rótulos de valor (formatter em closure: funções dentro de options viram "scriptable" no Chart.js v4). */
-  function rotulos(formatter, { horizontal = false } = {}) {
+  function rotulos(formatter, { horizontal = false, dentro = false } = {}) {
     return {
       id: 'lrRotulos',
       afterDatasetsDraw(chart) {
@@ -85,6 +85,16 @@
             if (v === null || v === undefined) return;
             const texto = formatter(v, i);
             if (!texto) return;
+            // dentro: rótulo branco em negrito na parte superior interna da barra (barra baixa demais: volta para fora)
+            if (dentro && !horizontal && Math.abs(ponto.base - ponto.y) >= 24) {
+              ctx.save();
+              ctx.fillStyle = '#ffffff';
+              ctx.font = '800 12px "Open Sans", Arial, sans-serif';
+              ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+              ctx.fillText(texto, ponto.x, Math.min(ponto.y, ponto.base) + 6);
+              ctx.restore();
+              return;
+            }
             if (horizontal) { ctx.textAlign = 'left'; ctx.textBaseline = 'middle'; ctx.strokeText(texto, ponto.x + 6, ponto.y); ctx.fillText(texto, ponto.x + 6, ponto.y); }
             else { ctx.textAlign = 'center'; ctx.textBaseline = 'bottom'; ctx.strokeText(texto, ponto.x, ponto.y - 8); ctx.fillText(texto, ponto.x, ponto.y - 8); }
           });
@@ -508,18 +518,18 @@
   const SISTEMA_ROTULO = { 'PLANTIO DIRETO': 'Plantio direto', 'CULTIVO MINIMO': 'Cultivo mínimo', CONVENCIONAL: 'Convencional' };
   const SISTEMA_COR = { 'PLANTIO DIRETO': '#0f7a55', 'CULTIVO MINIMO': '#72b35a', CONVENCIONAL: '#4f93d6' };
   const ETAPAS_CUSTO = [
-    { chave: 'pre_plantio', rotulo: 'Pré-plantio', cor: '#014945' },
-    { chave: 'plantio', rotulo: 'Plantio', cor: '#2385c7' },
-    { chave: 'tratos', rotulo: 'Tratos', cor: '#e28a10' },
-    { chave: 'colheita', rotulo: 'Colheita', cor: '#7c5cbf' },
-    { chave: 'etapa_nao_informada', rotulo: 'Etapa não informada', cor: '#9AAEAB' }
+    { chave: 'pre_plantio', rotulo: 'Pré-plantio', cor: '#cfe8da', texto: '#0f2f2a' },
+    { chave: 'plantio', rotulo: 'Plantio', cor: '#85c4a2', texto: '#0f2f2a' },
+    { chave: 'tratos', rotulo: 'Tratos culturais', cor: '#2f9168', texto: '#ffffff' },
+    { chave: 'colheita', rotulo: 'Colheita e ensilagem', cor: '#0e5a42', texto: '#ffffff' },
+    { chave: 'etapa_nao_informada', rotulo: 'Etapa não informada', cor: '#9AAEAB', texto: '#0f2f2a' }
   ];
   const titulo = (v) => { const t = String(v ?? '').toLowerCase(); return t ? t.charAt(0).toUpperCase() + t.slice(1) : '—'; };
   const pct = (v) => (v === null || v === undefined ? '—' : `${num(v)}%`);
-  const GRAFICOS_SAFRA = ['chartSafraSistema', 'chartSafraProdutividade', 'chartSafraCustoHa', 'chartSafraCustoT', 'chartSafraCusto'];
+  const GRAFICOS_SAFRA = ['chartSafraSistema', 'chartSafraProdutividade', 'chartSafraCustoHa', 'chartSafraCustoT'];
 
   function limparSafra(mensagem) {
-    ['kpiSafraArea', 'kpiSafraConserv', 'kpiSafraCobertura', 'kpiSafraTha', 'kpiSafraFazendas', 'kpiSafraInconsistentes'].forEach((id) => { if (el(id)) el(id).textContent = '—'; });
+    if (el('safraNFazendas')) el('safraNFazendas').textContent = '–';
     GRAFICOS_SAFRA.forEach(destruirGrafico);
     ['safraSistemaSub', 'safraCoberturaSub', 'safraProdSub', 'safraCustoSub', 'safraDonutTotal', 'safraCobPctCom', 'safraCobPctSem'].forEach((id) => { if (el(id)) el(id).textContent = '—'; });
     ['safraSistemaLegenda', 'safraConservacionista', 'safraCobDestaque', 'safraCobHaCom', 'safraCobHaSem'].forEach((id) => { if (el(id)) el(id).innerHTML = ''; });
@@ -534,6 +544,9 @@
     if (!sel) return;
     sel.innerHTML = opcoes.map((o) => `<option value="${escapeHtml(o)}"${o === atual ? ' selected' : ''}>${escapeHtml(formato(o))}</option>`).join('');
     sel.disabled = !opcoes.length;
+    // O seletor é desenhado pelo dropdown padrão dos filtros (main.js): o texto exibido precisa acompanhar as opções
+    const exibido = sel.closest('.filter-control')?.querySelector('.select-display-value');
+    if (exibido) exibido.textContent = sel.options[sel.selectedIndex] ? sel.options[sel.selectedIndex].text : '';
   }
 
   function renderSafra(dados) {
@@ -555,16 +568,7 @@
     const cob = dados.cobertura || {};
     const porSis = dados.porSistema || [];
     const rod = dados.rodape || {};
-    const haColhida = porSis.reduce((a, r) => a + (r.areaColhida || 0), 0);
-    const ton = porSis.reduce((a, r) => a + (r.toneladas || 0), 0);
-
-    const set = (id, v, sub, txt) => { if (el(id)) el(id).textContent = v; if (el(sub) && txt) el(sub).textContent = txt; };
-    set('kpiSafraArea', num(sis.areaTotal), 'kpiSafraAreaSub', `ha · ${num(sis.fazendas)} fazendas · safra ${dados.safra}`);
-    set('kpiSafraConserv', pct(sis.conservacionistaPct), 'kpiSafraConservSub', 'Direto + mínimo');
-    set('kpiSafraCobertura', pct(cob.pctCom), 'kpiSafraCoberturaSub', `${num(cob.fazendasCom)} de ${num(cob.fazendas)} fazendas`);
-    set('kpiSafraTha', haColhida > 0 ? num(ton / haColhida, 1) : '—', 'kpiSafraThaSub', `t / ha · ${titulo(dados.produto)}`);
-    set('kpiSafraFazendas', num(rod.fazendasComCusto), 'kpiSafraFazendasSub', `${num(ton)} t colhidas`);
-    set('kpiSafraInconsistentes', num(rod.producoesInconsistentes));
+    if (el('safraNFazendas')) el('safraNFazendas').textContent = num(sis.fazendas);
 
     renderGraficosSafra(dados);
 
@@ -572,10 +576,39 @@
     if (rodape) {
       const partes = [`Produtor com áreas em dois sistemas conta nos dois: os nº de fazendas por sistema não somam o total.`];
       if (sis.areaNaoInformada > 0) partes.push(`${num(sis.areaNaoInformada, 1)} ha sem sistema de plantio informado (fora dos percentuais).`);
+      if (rod.producoesInconsistentes > 0) partes.push(`${num(rod.producoesInconsistentes)} produções descartadas por inconsistência na origem (sem colheita, ciclo divergente ou custo/ha acima do teto).`);
       if (rod.fazendasSemPrePlantio > 0) partes.push(`${num(rod.fazendasSemPrePlantio)} de ${num(rod.fazendasComCusto)} fazendas sem custo de pré-plantio lançado.`);
       if (rod.fontes && rod.fontes.length) partes.push(`Fonte: ${rod.fontes.map(titulo).join(', ')}.`);
       rodape.textContent = partes.join(' ');
     }
+  }
+
+  /** Rótulos do eixo X em duas linhas: a 1ª (nome do sistema) em negrito, a 2ª (fazendas/área) normal, cor #004D48.
+   * Os ticks nativos ficam transparentes só para reservar o espaço; o Chart.js aplica uma única fonte a todas as linhas. */
+  function eixoXDuasLinhas(tamanho) {
+    return {
+      id: 'lrEixoXDuasLinhas',
+      afterDraw(chart) {
+        const escala = chart.scales.x;
+        if (!escala) return;
+        const ctx = chart.ctx;
+        const cor = document.documentElement.dataset.theme === 'dark' ? cssVar('--ink', '#E8F2EF') : '#004D48';
+        const passo = tamanho * 1.25;
+        ctx.save();
+        ctx.fillStyle = cor;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'top';
+        chart.data.labels.forEach((rotulo, i) => {
+          const linhas = Array.isArray(rotulo) ? rotulo : [rotulo];
+          const x = escala.getPixelForTick(i);
+          linhas.forEach((linha, j) => {
+            ctx.font = `${j === 0 ? 800 : 400} ${tamanho}px "Open Sans", Arial, sans-serif`;
+            ctx.fillText(String(linha), x, escala.top + 5 + j * passo);
+          });
+        });
+        ctx.restore();
+      }
+    };
   }
 
   /** Percentual dentro de cada fatia da rosca (só fatias com espaço). */
@@ -637,24 +670,24 @@
     if (el('safraCobHaSem')) el('safraCobHaSem').textContent = `${num(cob.areaSem, 1)} ha`;
     const barraCom = el('safraCobBarraCom');
     const barraSem = el('safraCobBarraSem');
-    if (barraCom) { barraCom.style.width = `${cob.pctCom || 0}%`; barraCom.textContent = cob.pctCom ? `${cob.pctCom}%` : ''; }
-    if (barraSem) { barraSem.style.width = `${cob.pctSem || 0}%`; barraSem.textContent = cob.pctSem ? `${cob.pctSem}%` : ''; }
-    if (el('safraCobDestaque')) {
-      el('safraCobDestaque').innerHTML = `<span class="material-symbols-rounded" aria-hidden="true">eco</span><strong>${num(cob.fazendasCom)} de ${num(cob.fazendas)}</strong><span>fazendas utilizaram plantas de cobertura</span>`;
-    }
+    // Rótulo "35% (139 fazendas)"; sem espaço na fatia, só o percentual. Sem cobertura = fazendas sem nenhuma área coberta.
+    const fazSem = Math.max(0, (cob.fazendas || 0) - (cob.fazendasCom || 0));
+    const rotuloFatia = (p, f) => (!p ? '' : p >= 22 ? `${p}% (${fazLabel(f)})` : `${p}%`);
+    if (barraCom) { barraCom.style.width = `${cob.pctCom || 0}%`; barraCom.textContent = rotuloFatia(cob.pctCom, cob.fazendasCom); }
+    if (barraSem) { barraSem.style.width = `${cob.pctSem || 0}%`; barraSem.textContent = rotuloFatia(cob.pctSem, fazSem); }
 
     // 3) Produtividade por sistema (t/ha)
     if (el('safraProdSub')) el('safraProdSub').textContent = `${produto} · toneladas colhidas por hectare · ${fazLabel(porSis.reduce((a, r) => a + (r.fazendas || 0), 0))}`;
     const rotuloX = (r) => [nome(r.sistema), `${fazLabel(r.fazendas)} · ${num(r.areaColhida)} ha`];
     criarGrafico('chartSafraProdutividade', {
       type: 'bar',
-      plugins: [rotulos((v) => (v === null ? '' : num(v, 1)))],
+      plugins: [rotulos((v) => (v === null ? '' : num(v, 1)), { dentro: true }), eixoXDuasLinhas(11)],
       data: { labels: porSis.map(rotuloX), datasets: [{ data: porSis.map((r) => r.tHa), backgroundColor: porSis.map((r) => SISTEMA_COR[r.sistema]), borderRadius: 5, maxBarThickness: 96 }] },
       options: {
         responsive: true, maintainAspectRatio: false, layout: { padding: { top: 22 } },
         plugins: { legend: { display: false }, tooltip: { ...tooltipBase(), callbacks: { label: (c) => { const r = porSis[c.dataIndex]; return ` ${num(r.tHa, 1)} t/ha · ${num(r.toneladas)} t em ${num(r.areaColhida, 1)} ha`; } } } },
         scales: {
-          x: { grid: { display: false }, border: { display: false }, ticks: { color: eixo, font: { size: 11, weight: '600' } } },
+          x: { grid: { display: false }, border: { display: false }, ticks: { color: 'transparent', font: { size: 11 } } },
           y: { beginAtZero: true, grid: { color: grade }, border: { display: false }, title: { display: true, text: 't/ha', color: eixo, font: { size: 10.5 } }, ticks: { color: eixo, font: { size: 10.5 } } }
         }
       }
@@ -671,58 +704,62 @@
     const eixo = cssVar('--muted', '#65707c');
     criarGrafico(id, {
       type: 'bar',
-      plugins: [rotulos((v) => (v === null ? '' : `R$ ${num(v)}`))],
+      plugins: [rotulos((v) => (v === null ? '' : `R$ ${num(v)}`), { dentro: true }), eixoXDuasLinhas(10.5)],
       data: {
         labels: porSis.map((r) => [nome(r.sistema), `${num(r.fazendas)} faz.`]),
-        datasets: [{ data: porSis.map((r) => r[campo]), backgroundColor: porSis.map((r) => SISTEMA_COR[r.sistema]), borderRadius: 5, maxBarThickness: 64 }]
+        datasets: [{ data: porSis.map((r) => r[campo]), backgroundColor: porSis.map((r) => SISTEMA_COR[r.sistema]), borderRadius: 5, maxBarThickness: 84, barPercentage: 0.92, categoryPercentage: 0.96 }]
       },
       options: {
         responsive: true, maintainAspectRatio: false, layout: { padding: { top: 22 } },
         plugins: { legend: { display: false }, tooltip: { ...tooltipBase(), callbacks: { label: (c) => ` R$ ${num(c.parsed.y)}${campo === 'rsHa' ? '/ha' : '/t'}` } } },
         scales: {
-          x: { grid: { display: false }, border: { display: false }, ticks: { color: eixo, font: { size: 10.5, weight: '600' } } },
+          x: { grid: { display: false }, border: { display: false }, ticks: { color: 'transparent', font: { size: 10.5 } } },
           y: { display: false, beginAtZero: true }
         }
       }
     });
   }
 
+  /** Percentuais inteiros que somam 100 (maior resto), como no resto da tela. */
+  function pctsSoma100(valores) {
+    const total = valores.reduce((x, y) => x + y, 0);
+    if (!total) return valores.map(() => 0);
+    const brutos = valores.map((v) => (v / total) * 100);
+    const base = brutos.map(Math.floor);
+    let resto = 100 - base.reduce((x, y) => x + y, 0);
+    brutos.map((v, i) => [v - base[i], i]).sort((x, y) => y[0] - x[0]).forEach(([, i]) => { if (resto > 0 && valores[i] > 0) { base[i] += 1; resto -= 1; } });
+    return base;
+  }
+
+  /** Composição do custo por etapa (R$/ha): uma barra horizontal empilhada por sistema de plantio. */
   function composicaoCusto(dados) {
-    const porSis = dados.porSistema || [];
+    const caixa = el('safraCustoCompBox');
+    if (!caixa) return;
+    const porSis = (dados.porSistema || []).filter((r) => r.rsHa);
+    const rod = dados.rodape || {};
     const nome = (s) => SISTEMA_ROTULO[s] || titulo(s);
-    const eixo = cssVar('--muted', '#65707c');
-    const grade = cssVar('--line-soft', '#e9edef');
-    criarGrafico('chartSafraCusto', {
-      type: 'bar',
-      plugins: [{
-        id: 'lrTotalCusto',
-        afterDatasetsDraw(chart) {
-          const ctx = chart.ctx;
-          const ultimo = chart.getDatasetMeta(chart.data.datasets.length - 1);
-          ctx.save();
-          ctx.font = '700 11px "Open Sans", Arial, sans-serif';
-          ctx.fillStyle = cssVar('--ink', '#162640');
-          ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
-          porSis.forEach((r, i) => { const ponto = ultimo.data[i]; if (ponto && r.rsHa) ctx.fillText(`R$ ${num(r.rsHa)}/ha · R$ ${num(r.rsT)}/t`, ponto.x, ponto.y - 6); });
-          ctx.restore();
-        }
-      }],
-      data: {
-        labels: porSis.map((r) => nome(r.sistema)),
-        datasets: ETAPAS_CUSTO.map((e) => ({ label: e.rotulo, data: porSis.map((r) => (r.etapas && r.etapas[e.chave]) || 0), backgroundColor: e.cor, stack: 'custo', maxBarThickness: 60 }))
-      },
-      options: {
-        responsive: true, maintainAspectRatio: false, layout: { padding: { top: 22 } },
-        plugins: {
-          legend: { position: 'bottom', labels: { color: eixo, usePointStyle: true, boxWidth: 8, font: { size: 10.5 } } },
-          tooltip: { ...tooltipBase(), callbacks: { label: (c) => ` ${c.dataset.label}: R$ ${num(c.parsed.y)}/ha` } }
-        },
-        scales: {
-          x: { stacked: true, grid: { display: false }, border: { display: false }, ticks: { color: eixo, font: { size: 11, weight: '600' } } },
-          y: { stacked: true, beginAtZero: true, grid: { color: grade }, border: { display: false }, ticks: { color: eixo, font: { size: 10.5 } } }
-        }
-      }
-    });
+    const fazLabel = (n) => `${num(n)} ${n === 1 ? 'fazenda' : 'fazendas'}`;
+    if (!porSis.length) { caixa.innerHTML = '<div class="traj-empty">Sem custo de produção para os filtros selecionados.</div>'; return; }
+    const etapas = ETAPAS_CUSTO.filter((e) => porSis.some((r) => Number((r.etapas && r.etapas[e.chave]) || 0) > 0));
+    const maior = Math.max(...porSis.map((r) => r.rsHa));
+    const linhas = porSis.map((r) => {
+      const vals = etapas.map((e) => Number((r.etapas && r.etapas[e.chave]) || 0));
+      const pcts = pctsSoma100(vals);
+      const total = vals.reduce((x, y) => x + y, 0);
+      const segmentos = etapas.map((e, i) => (vals[i] > 0
+        ? `<div class="safra-comp-seg" style="flex:${vals[i]} 1 0;background:${e.cor};color:${e.texto}" title="${escapeHtml(nome(r.sistema))} · ${escapeHtml(e.rotulo)}: R$ ${num(vals[i])}/ha · ${pcts[i]}% do custo">${pcts[i] >= 7 ? `<span class="${e.texto === '#ffffff' ? 'claro' : ''}">${pcts[i]}%</span>` : ''}</div>`
+        : '')).join('');
+      return `<div class="safra-comp-linha">
+        <div class="safra-comp-nome"><i style="background:${SISTEMA_COR[r.sistema]}"></i><span><b>${escapeHtml(nome(r.sistema))}</b><small>${fazLabel(r.fazendas)}</small></span></div>
+        <div class="safra-comp-trilho"><div class="safra-comp-barra" style="width:${(total / maior) * 100}%">${segmentos}</div></div>
+        <strong class="safra-comp-total">R$ ${num(r.rsHa)}</strong>
+      </div>`;
+    }).join('');
+    const legenda = etapas.map((e) => `<span><i style="background:${e.cor}"></i>${escapeHtml(e.rotulo)}</span>`).join('');
+    const nota = rod.fazendasSemPrePlantio > 0
+      ? `Pré-plantio não lançado separadamente por ${num(rod.fazendasSemPrePlantio)} de ${num(rod.fazendasComCusto)} fazendas. Valores em R$/ha.`
+      : 'Valores em R$/ha.';
+    caixa.innerHTML = `<div class="safra-comp-legenda">${legenda}</div><div class="safra-comp-linhas">${linhas}</div><p class="safra-comp-nota">${escapeHtml(nota)}</p>`;
   }
 
   /** Alterna entre "R$/ha e R$/t" e a composição por etapa; só o gráfico visível é (re)desenhado. */
@@ -734,14 +771,66 @@
     if (el('safraCustoCompBox')) el('safraCustoCompBox').hidden = !comp;
     const btn = el('safraBtnComposicao');
     if (btn) { btn.textContent = comp ? 'Ver custo por ha e t' : 'Ver composição do custo'; btn.setAttribute('aria-pressed', String(comp)); }
+    const produtoNome = titulo(dados.produto);
+    const nFaz = (dados.rodape && dados.rodape.fazendasComCusto) || 0;
+    if (el('safraCustoSub')) el('safraCustoSub').textContent = comp
+      ? `${produtoNome} · composição do custo por etapa · ${num(nFaz)} ${nFaz === 1 ? 'fazenda' : 'fazendas'}`
+      : `${produtoNome} · custo por área × custo por tonelada`;
     if (comp) { destruirGrafico('chartSafraCustoHa'); destruirGrafico('chartSafraCustoT'); composicaoCusto(dados); }
-    else { destruirGrafico('chartSafraCusto'); barrasCusto('chartSafraCustoHa', 'rsHa', dados); barrasCusto('chartSafraCustoT', 'rsT', dados); }
+    else { barrasCusto('chartSafraCustoHa', 'rsHa', dados); barrasCusto('chartSafraCustoT', 'rsT', dados); }
+  }
+
+  /** Gerar PDF da tela 7: imprime só o slide 7 em A4 paisagem (destino "Salvar como PDF"). */
+  function textoFiltrosGlobais() {
+    const rotulos = [['filterIndustry', 'Agroindústria'], ['filterRegion', 'Região'], ['filterProject', 'Projeto'], ['filterConsultant', 'Consultor'], ['filterProducer', 'Produtor']];
+    const partes = rotulos.map(([id, rotulo]) => {
+      const sel = el(id);
+      const escolhidos = sel ? [...sel.selectedOptions].map((o) => o.textContent.trim()).filter(Boolean) : [];
+      return escolhidos.length ? `${rotulo}: ${escolhidos.join(', ')}` : '';
+    }).filter(Boolean);
+    return partes.length ? partes.join(' · ') : 'Todas as agroindústrias, regiões e consultores';
+  }
+
+  function gerarPdfSafra() {
+    const sel = est.safraSel || {};
+    const tituloOriginal = document.title;
+    const hoje = new Date().toLocaleDateString('pt-BR');
+    if (el('safraCabFiltros')) el('safraCabFiltros').textContent = `Safra ${sel.safra || ''} · ${titulo(sel.cultura)} · ${titulo(sel.produto)} · ${textoFiltrosGlobais()}`;
+    if (el('safraCabData')) el('safraCabData').textContent = `Gerado em ${hoje}`;
+    const nomeArquivo = ['Safra_Forrageiras', String(sel.safra || '').replace('/', '-'), titulo(sel.produto)].filter(Boolean).join('_').replace(/[^\w-]+/g, '_');
+    const restaurar = () => {
+      document.body.classList.remove('imprimindo-safra');
+      document.title = tituloOriginal;
+      redesenharSafra();
+      window.removeEventListener('afterprint', restaurar);
+    };
+    window.addEventListener('afterprint', restaurar);
+    document.title = nomeArquivo;
+    document.body.classList.add('imprimindo-safra');
+    // Os gráficos precisam ser redimensionados para a página de impressão antes de abrir o diálogo
+    requestAnimationFrame(() => {
+      redesenharSafra();
+      setTimeout(() => window.print(), 250);
+    });
+  }
+
+  function redesenharSafra() {
+    GRAFICOS_SAFRA.forEach((id) => { if (est.charts[id]) est.charts[id].resize(); });
   }
 
   // ── Interações e tema ─────────────────────────────────────────────────────────────────────────────
   function ligarControles() {
     document.querySelectorAll('#prodIndicador button').forEach((b) => b.addEventListener('click', () => { est.indicador = b.dataset.ind; renderEvolucao(); }));
     document.querySelectorAll('#prodBase button').forEach((b) => b.addEventListener('click', () => { est.periodo = Number(b.dataset.periodo); renderEvolucao(); }));
+    el('safraBtnPdf')?.addEventListener('click', gerarPdfSafra);
+    // O dropdown dos filtros da tela 7 vive dentro do carrossel (overflow oculto, deslocado por transform): abrir o popup faz
+    // o navegador rolar o viewport na horizontal e o slide some. O carrossel só se move por transform, então zera a rolagem.
+    const viewport = document.querySelector('.carousel-viewport');
+    viewport?.addEventListener('scroll', () => { if (viewport.scrollLeft) viewport.scrollLeft = 0; }, { passive: true });
+    // Nem todo navegador dispara 'scroll' a tempo (foco, scrollIntoView e a transição do popup rolam em momentos diferentes):
+    // também zera depois de cada interação com a barra de filtros.
+    const zerarRolagem = () => [0, 60, 200, 450].forEach((ms) => setTimeout(() => { if (viewport && viewport.scrollLeft) viewport.scrollLeft = 0; }, ms));
+    ['click', 'keydown', 'focusin'].forEach((evento) => document.querySelector('.safra-toolbar')?.addEventListener(evento, zerarRolagem, true));
     el('safraBtnComposicao')?.addEventListener('click', () => { est.safraComposicao = !est.safraComposicao; aplicarVistaCusto(); });
     [['safraSelSafra', 'safra'], ['safraSelCultura', 'cultura'], ['safraSelProduto', 'produto']].forEach(([id, campo]) => {
       el(id)?.addEventListener('change', (e) => {

@@ -2017,6 +2017,18 @@ document.addEventListener('DOMContentLoaded', () => {
       getJson(`/api/consistency${query}`)
     ]);
 
+    // Mês padrão (calendário) ainda sem carteira publicada: usa o mês mais recente com dados e busca de novo,
+    // senão a base dos filtros fica vazia e nenhuma opção aparece.
+    if (selectedMonth && !state.hasUserChangedMonth && !(overview?.dim_fazendas || []).length) {
+      const anterior = (overview?.filterOptions?.meses || []).filter((m) => m < selectedMonth).sort().pop();
+      if (anterior) {
+        const select = el('filterMonth');
+        populateMonthSelect(overview.filterOptions.meses);
+        if (select) select.value = anterior;
+        return fetchMonthMasterData();
+      }
+    }
+
     state.masterOverview = overview;
     state.masterVisits = visits;
     state.masterTurnover = turnover;
@@ -2165,7 +2177,7 @@ document.addEventListener('DOMContentLoaded', () => {
       window.LRProducao.renderSafra(safra);
     });
   }
-  if (window.LRProducao) window.LRProducao.aoMudarSafra((selecao) => loadSafra(selecao));
+  if (window.LRProducao) window.LRProducao.aoMudarSafra((selecao) => loadSafra(selecao).finally(() => hideLoading(0)));
 
   function handleFilterSelectionChange() {
     updateAllCrossFilters();

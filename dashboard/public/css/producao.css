@@ -173,21 +173,71 @@
 }
 
 /* Slide 7: Safra de Forrageiras */
-.safra-filtros { flex: 0 0 auto; display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px; }
-.safra-filtros label { display: flex; align-items: center; gap: 6px; color: var(--muted); font-size: 11.5px; font-weight: 700; }
-.safra-filtros select {
-  min-width: 110px;
-  padding: 5px 26px 5px 9px;
-  color: var(--ink);
-  border: 1px solid var(--line);
-  border-radius: 8px;
+/* Barra de filtros da tela 7: chips em pílula (ícone, rótulo e valor na mesma linha, como no resumo executivo do Semear).
+   O seletor segue sendo o dropdown padrão dos filtros (.filter-control): ao abrir, mostra a caixa de seleção com pesquisa. */
+.safra-toolbar { flex: 0 0 auto; display: flex; flex-wrap: wrap; align-items: center; gap: 10px 12px; }
+.safra-toolbar .safra-filtro {
+  height: 40px;
+  min-width: 0;
+  max-width: none;
+  flex: 0 0 auto;
+  padding: 0 16px;
+  flex-direction: row;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 8px;
+  border-radius: 999px;
   background: var(--surface);
-  font: inherit;
-  font-size: 12px;
-  font-weight: 600;
+  box-shadow: var(--shadow-soft);
 }
-.safra-filtros select:disabled { opacity: 0.55; }
-.safra-filtros-nota { margin-left: auto; color: var(--muted); font-size: 11px; font-weight: 600; }
+.safra-toolbar .safra-filtro:hover { background: var(--surface); }
+.safra-toolbar .safra-filtro .safra-ico {
+  flex: 0 0 auto;
+  margin: 0;
+  color: var(--green-600);
+  font-size: 20px;
+  letter-spacing: normal;
+  text-transform: none;
+  line-height: 1;
+}
+.safra-toolbar .safra-filtro .safra-rot {
+  margin: 0;
+  color: var(--ink);
+  font-size: 13px;
+  font-weight: 500;
+  letter-spacing: normal;
+  text-transform: none;
+  line-height: 1;
+}
+.safra-toolbar .safra-filtro .select-display-value,
+.safra-toolbar .safra-filtro > strong {
+  color: var(--ink-strong);
+  font-size: 13px;
+  font-weight: 800;
+  line-height: 1.15;
+}
+.safra-toolbar .safra-filtro .select-display-value { max-width: 240px; padding-right: 20px; background-size: 14px; }
+.safra-toolbar .safra-filtro--info { cursor: default; }
+.safra-toolbar .safra-filtro--info:hover { border-color: var(--line); background: var(--surface); }
+.safra-toolbar-nota { color: var(--muted); font-size: 11.5px; font-weight: 600; }
+.safra-toolbar-espaco { flex: 1; }
+.safra-btn-pdf {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 8px 16px;
+  color: #fff;
+  border: 0;
+  border-radius: 999px;
+  background: var(--green-700);
+  box-shadow: var(--shadow-soft);
+  font-size: 12.5px;
+  font-weight: 800;
+  cursor: pointer;
+}
+.safra-btn-pdf:hover { background: var(--green-800); }
+.safra-btn-pdf .material-symbols-rounded { font-size: 18px; }
+.safra-cab-print { display: none; }
 .grid-safra {
   flex: 1;
   min-height: 0;
@@ -257,12 +307,14 @@
 .safra-cob-lado--sem strong { color: #4f93d6; }
 .safra-cob-lado span { color: var(--ink); font-size: 13px; font-weight: 600; line-height: 1.25; }
 .safra-cob-lado small { display: block; margin-top: 2px; color: var(--muted); font-size: 11px; font-weight: 500; }
-.safra-barra { flex: 0 0 auto; height: 34px; display: flex; overflow: hidden; border-radius: 8px; }
+.safra-barra { flex: 0 0 auto; height: 43px; display: flex; overflow: hidden; border-radius: 8px; }
 .safra-barra i { display: flex; align-items: center; justify-content: center; color: #fff; font-size: 12px; font-style: normal; font-weight: 800; transition: width 300ms ease; }
 .safra-barra .com { background: #0f7a55; }
 .safra-barra .sem { background: #4f93d6; }
 
-.safra-custo-duplo { flex: 1; min-height: 0; display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.safra-custo-duplo { flex: 1; min-height: 0; display: grid; grid-template-columns: 1fr 1fr; gap: 44px; }
+.safra-custo-duplo > div + div { position: relative; }
+.safra-custo-duplo > div + div::before { content: ''; position: absolute; left: -22px; top: 6px; bottom: 6px; border-left: 1px solid var(--line-soft); }
 .safra-custo-duplo > div { min-height: 0; display: flex; flex-direction: column; }
 .safra-custo-duplo .chart-box { flex: 1; min-height: 0; }
 .safra-mini { margin: 0 0 2px; color: var(--muted); font-size: 11px; }
@@ -281,3 +333,56 @@
 .safra-sistema-lado { min-height: 0; display: flex; flex-direction: column; justify-content: center; gap: 10px; }
 .safra-sistema-lado .safra-destaque { margin-top: 0; }
 @media (max-width: 1024px) { .safra-sistema { grid-template-columns: 1fr; } }
+
+/* Composição do custo por etapa: barras horizontais empilhadas (uma por sistema de plantio) */
+.safra-comp { flex: 1; min-height: 0; display: flex; flex-direction: column; justify-content: center; gap: 14px; padding: 4px 4px 0; }
+.safra-comp[hidden] { display: none; }
+.safra-comp-legenda { display: flex; flex-wrap: wrap; gap: 6px 16px; color: var(--muted); font-size: 11.5px; font-weight: 600; }
+.safra-comp-legenda span { display: inline-flex; align-items: center; gap: 6px; }
+.safra-comp-legenda i { width: 12px; height: 12px; border-radius: 3px; }
+.safra-comp-linhas { display: flex; flex-direction: column; gap: 12px; }
+.safra-comp-linha { display: grid; grid-template-columns: minmax(110px, 0.9fr) minmax(0, 3fr) auto; align-items: center; gap: 14px; }
+.safra-comp-nome { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.safra-comp-nome i { flex: 0 0 auto; width: 10px; height: 10px; border-radius: 50%; }
+.safra-comp-nome span { display: flex; flex-direction: column; min-width: 0; font-size: 13px; line-height: 1.15; }
+.safra-comp-nome b { color: var(--ink-strong); font-weight: 800; }
+.safra-comp-nome small { color: var(--muted); font-size: 11px; font-weight: 500; }
+.safra-comp-trilho { height: 30px; min-width: 0; }
+.safra-comp-barra { height: 100%; display: flex; gap: 1px; overflow: hidden; border-radius: 8px; transition: width 300ms ease; }
+.safra-comp-seg { display: flex; align-items: center; justify-content: center; min-width: 0; font-size: 12px; font-weight: 800; }
+.safra-comp-total { min-width: 92px; color: var(--ink-strong); font-size: 18px; font-weight: 800; text-align: right; white-space: nowrap; }
+.safra-comp-nota { margin: 0; color: var(--muted); font-size: 11px; }
+
+/* Gerar PDF da tela 7: só o slide 7, em A4 paisagem */
+@page { size: A4 landscape; margin: 8mm; }
+@media print {
+  body.imprimindo-safra { display: block; height: auto; min-height: 0; overflow: visible; background: #fff; }
+  html:has(body.imprimindo-safra) { height: auto; overflow: visible; }
+  body.imprimindo-safra * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+  body.imprimindo-safra .progress-bar,
+  body.imprimindo-safra .app-header,
+  body.imprimindo-safra .app-footer,
+  body.imprimindo-safra .loading-overlay,
+  body.imprimindo-safra .no-print,
+  body.imprimindo-safra .btn-panel-fs,
+  body.imprimindo-safra .kpi-info-btn,
+  body.imprimindo-safra .slide:not(#slide7) { display: none !important; }
+  body.imprimindo-safra .carousel-viewport { overflow: visible; height: auto; }
+  body.imprimindo-safra .carousel-track { width: 100%; height: auto; display: block; transform: none !important; }
+  body.imprimindo-safra #slide7 { width: 100%; min-width: 0; height: 186mm; padding: 0; display: flex; overflow: visible; }
+  body.imprimindo-safra .safra-cab-print {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    gap: 12px;
+    padding-bottom: 6px;
+    color: var(--ink-strong);
+    border-bottom: 2px solid var(--green-700);
+    font-size: 11px;
+  }
+  body.imprimindo-safra .safra-cab-print strong { display: block; font-size: 16px; font-weight: 800; }
+  body.imprimindo-safra .safra-cab-print span { color: var(--muted); font-weight: 600; }
+  body.imprimindo-safra .safra-toolbar .safra-filtro .select-display-value { background-image: none; padding-right: 0; }
+  body.imprimindo-safra .custom-select-popup { display: none !important; }
+  body.imprimindo-safra .panel-card { break-inside: avoid; box-shadow: none; }
+}

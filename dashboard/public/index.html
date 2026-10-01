@@ -23,7 +23,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20,500,0,0" rel="stylesheet">
   <link rel="stylesheet" href="./css/dashboard.css?v=20260930-4">
-  <link rel="stylesheet" href="./css/producao.css?v=20260930-6">
+  <link rel="stylesheet" href="./css/producao.css?v=20261001-8">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 </head>
@@ -492,19 +492,18 @@
 
       <!-- Slide 7: Safra de Forrageiras -->
       <section class="slide" id="slide7" aria-label="Safra de Forrageiras">
-        <div class="safra-filtros">
-          <label>Safra <select id="safraSelSafra" aria-label="Safra"></select></label>
-          <label>Cultura <select id="safraSelCultura" aria-label="Cultura"></select></label>
-          <label>Produto <select id="safraSelProduto" aria-label="Produto"></select></label>
-          <span class="safra-filtros-nota" id="safraNota">1ª safra</span>
+        <div class="safra-cab-print" id="safraCabPrint" aria-hidden="true">
+          <div><strong>Labor Rural · Safra de Forrageiras</strong><span id="safraCabFiltros"></span></div>
+          <span id="safraCabData"></span>
         </div>
-        <div class="kpi-grid">
-          <article class="metric-card metric-card--primary"><span class="metric-icon material-symbols-rounded" aria-hidden="true">grass</span><span class="metric-label">Área plantada <button class="kpi-info-btn" type="button" aria-label="Informações sobre o indicador" data-info-title="Área plantada" data-info-body="Soma da área plantada (ha) da safra e cultura escolhidas, cada talhão no seu sistema de plantio."><span class="material-symbols-rounded" aria-hidden="true">info</span></button></span><strong id="kpiSafraArea">—</strong><small id="kpiSafraAreaSub">Hectares</small></article>
-          <article class="metric-card"><span class="metric-icon material-symbols-rounded" aria-hidden="true">agriculture</span><span class="metric-label">Conservacionista <button class="kpi-info-btn" type="button" aria-label="Informações sobre o indicador" data-info-title="Plantio conservacionista" data-info-body="Plantio Direto + Cultivo Mínimo sobre a área com sistema de plantio informado."><span class="material-symbols-rounded" aria-hidden="true">info</span></button></span><strong id="kpiSafraConserv">—</strong><small id="kpiSafraConservSub">Direto + mínimo</small></article>
-          <article class="metric-card metric-card--soft"><span class="metric-icon material-symbols-rounded" aria-hidden="true">eco</span><span class="metric-label">Cobertura do solo <button class="kpi-info-btn" type="button" aria-label="Informações sobre o indicador" data-info-title="Cobertura do solo" data-info-body="Área que recebeu cobertura (planta de cobertura ou cultivo de sucessão em até 365 dias) sobre a área plantada."><span class="material-symbols-rounded" aria-hidden="true">info</span></button></span><strong id="kpiSafraCobertura">—</strong><small id="kpiSafraCoberturaSub">Da área plantada</small></article>
-          <article class="metric-card"><span class="metric-icon material-symbols-rounded" aria-hidden="true">scale</span><span class="metric-label">Produtividade <button class="kpi-info-btn" type="button" aria-label="Informações sobre o indicador" data-info-title="Produtividade" data-info-body="Σ toneladas ÷ Σ área colhida das produções consistentes do produto escolhido."><span class="material-symbols-rounded" aria-hidden="true">info</span></button></span><strong id="kpiSafraTha">—</strong><small id="kpiSafraThaSub">t / ha</small></article>
-          <article class="metric-card metric-card--soft"><span class="metric-icon material-symbols-rounded" aria-hidden="true">groups</span><span class="metric-label">Fazendas com custo <button class="kpi-info-btn" type="button" aria-label="Informações sobre o indicador" data-info-title="Fazendas com custo" data-info-body="Fazendas com produção consistente e custo lançado para o produto escolhido."><span class="material-symbols-rounded" aria-hidden="true">info</span></button></span><strong id="kpiSafraFazendas">—</strong><small id="kpiSafraFazendasSub">Produto escolhido</small></article>
-          <article class="metric-card metric-card--pending"><span class="metric-icon material-symbols-rounded" aria-hidden="true">rule</span><span class="metric-label">Produções descartadas <button class="kpi-info-btn" type="button" aria-label="Informações sobre o indicador" data-info-title="Produções descartadas" data-info-body="Produções inconsistentes na origem (sem colheita, ciclo divergente, custo/ha ≥ R$ 50 mil ou categoria a revisar). Não entram na produtividade nem no custo."><span class="material-symbols-rounded" aria-hidden="true">info</span></button></span><strong id="kpiSafraInconsistentes">—</strong><small id="kpiSafraInconsistentesSub">Fora do cálculo</small></article>
+        <div class="safra-toolbar">
+          <label class="filter-control safra-filtro"><span class="material-symbols-rounded safra-ico" aria-hidden="true">grass</span><span class="safra-rot">Safra:</span><select id="safraSelSafra" aria-label="Safra"></select></label>
+          <label class="filter-control safra-filtro"><span class="material-symbols-rounded safra-ico" aria-hidden="true">agriculture</span><span class="safra-rot">Cultura:</span><select id="safraSelCultura" aria-label="Cultura"></select></label>
+          <label class="filter-control safra-filtro"><span class="material-symbols-rounded safra-ico" aria-hidden="true">inventory_2</span><span class="safra-rot">Produto:</span><select id="safraSelProduto" aria-label="Produto"></select></label>
+          <div class="filter-control safra-filtro safra-filtro--info"><span class="material-symbols-rounded safra-ico" aria-hidden="true">home_work</span><span class="safra-rot">Fazendas:</span><strong id="safraNFazendas">–</strong></div>
+          <span class="safra-toolbar-nota" id="safraNota">1ª safra</span>
+          <div class="safra-toolbar-espaco"></div>
+          <button class="safra-btn-pdf no-print" id="safraBtnPdf" type="button" title="Gera um PDF com o conteúdo exibido nesta tela"><span class="material-symbols-rounded" aria-hidden="true">download</span>Gerar PDF</button>
         </div>
         <div class="prod-aviso" id="safraAviso" hidden></div>
         <div class="grid-safra">
@@ -525,7 +524,6 @@
               <div class="safra-cob-lado safra-cob-lado--sem"><strong id="safraCobPctSem">—</strong><span>Sem plantas<br>de cobertura<small id="safraCobHaSem"></small></span></div>
             </div>
             <div class="safra-barra" id="safraCobBarra"><i class="com" id="safraCobBarraCom"></i><i class="sem" id="safraCobBarraSem"></i></div>
-            <div class="safra-destaque" id="safraCobDestaque"></div>
           </article>
           <article class="panel-card">
             <div class="panel-heading"><div><h2>Produtividade</h2><p id="safraProdSub">—</p></div><div class="panel-actions"><button class="btn-panel-fs" type="button" title="Tela cheia" aria-label="Expandir painel para tela cheia"><span class="material-symbols-rounded">fullscreen</span></button></div></div>
@@ -537,7 +535,7 @@
               <div><p class="safra-mini"><b>R$/ha</b> custo por hectare</p><div class="chart-box"><canvas id="chartSafraCustoHa"></canvas></div></div>
               <div><p class="safra-mini"><b>R$/t</b> custo por tonelada produzida</p><div class="chart-box"><canvas id="chartSafraCustoT"></canvas></div></div>
             </div>
-            <div class="chart-box" id="safraCustoCompBox" hidden><canvas id="chartSafraCusto"></canvas></div>
+            <div class="safra-comp" id="safraCustoCompBox" hidden></div>
           </article>
         </div>
         <div class="safra-rodape" id="safraRodape"></div>
@@ -820,8 +818,8 @@
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
   <script src="./js/carousel.js?v=20260930-2"></script>
-  <script src="./js/charts.js?v=20260916-4"></script>
-  <script src="./js/producao.js?v=20260930-6"></script>
-  <script src="./js/main.js?v=20260930-6"></script>
+  <script src="./js/charts.js?v=20261001-1"></script>
+  <script src="./js/producao.js?v=20261001-11"></script>
+  <script src="./js/main.js?v=20261001-1"></script>
 </body>
 </html>
