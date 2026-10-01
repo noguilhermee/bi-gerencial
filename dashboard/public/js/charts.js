@@ -144,7 +144,21 @@ class DashboardCharts {
               context.fill();
               context.restore();
             }
-            if (!options.noStroke) context.strokeText(label, x, y);
+            if (options.badge) {
+              const w = context.measureText(label).width + 12;
+              const h = (options.fontSize || 11.2) + 8;
+              const left = align === 'left' ? x - 6 : (align === 'right' ? x - w + 6 : x - w / 2);
+              context.save();
+              context.fillStyle = options.badge.fill;
+              context.strokeStyle = options.badge.border;
+              context.lineWidth = 1.5;
+              context.beginPath();
+              context.roundRect(left, y - h / 2, w, h, 6);
+              context.fill();
+              context.stroke();
+              context.restore();
+              fill = options.badge.text;
+            } else if (!options.noStroke) context.strokeText(label, x, y);
             context.fillStyle = fill;
             context.fillText(label, x, y);
           });
@@ -766,8 +780,53 @@ class DashboardCharts {
           const prefix = num > 0 ? '+' : '';
           return `${prefix}${num.toFixed(1).replace('.', ',')}%`;
         },
-        { fontSize: 11, color: '#e6a800', strokeColor: '#004d49' }
-      )],
+        { fontSize: 11, badge: { fill: '#004d49', border: '#f5b800', text: '#ffffff' } }
+      ), {
+        // Rótulo de volume no topo interno da barra. Se o ponto/rótulo de variação % da linha cair
+        // no mesmo lugar, o rótulo do volume desce para logo abaixo dele, sem se sobrepor.
+        id: 'volumeBarLabels',
+        afterDatasetsDraw: (chart) => {
+          const ctx = chart.ctx;
+          const barIdx = chart.data.datasets.findIndex(d => d.type === 'bar');
+          const lineIdx = chart.data.datasets.findIndex(d => d.type === 'line');
+          if (barIdx < 0) return;
+          const bars = chart.getDatasetMeta(barIdx).data;
+          const pontos = lineIdx >= 0 ? chart.getDatasetMeta(lineIdx).data : [];
+          const formatar = (num) => {
+            if (num >= 1e6) return `${(num / 1e6).toFixed(2).replace('.', ',')} mi`;
+            if (num >= 1e4) return `${Math.round(num / 1000).toLocaleString('pt-BR')} mil`;
+            if (num >= 1e3) return `${(num / 1000).toFixed(1).replace('.', ',')} mil`;
+            return Math.round(num).toLocaleString('pt-BR');
+          };
+          const ALTURA = 14;
+          ctx.save();
+          ctx.font = '700 10.5px Open Sans, Arial, sans-serif';
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.lineJoin = 'round';
+          bars.forEach((bar, k) => {
+            const valor = Number(chart.data.datasets[barIdx].data[k] || 0);
+            if (!valor) return;
+            const base = bar.base;
+            let y = bar.y + ALTURA / 2 + 3;
+            const p = pontos[k];
+            if (p) {
+              // Faixa ocupada pelo marcador e pelo rótulo de variação (desenhado ~11px acima do ponto)
+              const topo = p.y - 22;
+              const fundo = p.y + 7;
+              if (y + ALTURA / 2 > topo && y - ALTURA / 2 < fundo) y = fundo + ALTURA / 2 + 1;
+            }
+            if (y + ALTURA / 2 > base) return; // barra baixa demais: não cabe sem sobrepor
+            const texto = formatar(valor);
+            ctx.lineWidth = 3;
+            ctx.strokeStyle = String(chart.data.datasets[barIdx].backgroundColor);
+            ctx.strokeText(texto, bar.x, y);
+            ctx.fillStyle = '#ffffff';
+            ctx.fillText(texto, bar.x, y);
+          });
+          ctx.restore();
+        }
+      }],
       data: {
         labels,
         datasets: [

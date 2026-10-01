@@ -101,8 +101,16 @@ module.exports = comAuth(async (req, res) => {
     // econSemFiltroMes mantém todos os meses (para séries históricas); econComDados aplica
     // também o filtro de mês (para KPIs pontuais e ranking do mês selecionado).
     const econSemFiltroMes = econList.filter(r => Number(r.possui_dados_economicos) === 1);
-    const econTabela = filterMonth
-      ? econSemFiltroMes.filter(r => String(r.mes_referencia).startsWith(filterMonth))
+    // Sem mês escolhido ("Todos"), KPIs e gráficos pontuais mostram o ÚLTIMO mês com dado consistente
+    // do recorte. Somar todos os meses empilharia volumes diários de meses diferentes (ex.: 268
+    // fazenda-mês somando L/dia) e não bateria com o gráfico de evolução, que é mês a mês.
+    const ehConsistenteMes = r => r.status_consistencia_mensal === 'CONSISTENTE';
+    const mesesConsistentesRecorte = Array.from(new Set(
+      econSemFiltroMes.filter(ehConsistenteMes).map(r => String(r.mes_referencia).substring(0, 7))
+    )).sort();
+    const mesEfetivo = filterMonth || mesesConsistentesRecorte[mesesConsistentesRecorte.length - 1] || '';
+    const econTabela = mesEfetivo
+      ? econSemFiltroMes.filter(r => String(r.mes_referencia).startsWith(mesEfetivo))
       : econSemFiltroMes;
 
     // Regra de consistência da tela 4: KPIs e gráficos usam apenas fazenda-mês com
@@ -118,15 +126,18 @@ module.exports = comAuth(async (req, res) => {
     const volDiarioTotal = econComDados.reduce((acc, r) => acc + Number(r.volume_diario_litros || 0), 0);
     const volumeTotalLitros = econComDados.reduce((acc, r) => acc + Number(r.volume_leite_mes || 0), 0);
     const receitaTotalBruta = econComDados.reduce((acc, r) => acc + Number(r.receita_bruta_atividade || 0), 0);
-    const coeTotalGeral = econComDados.reduce((acc, r) => acc + Number(r.coe_total_reais || 0), 0);
-    const mbTotalGeral = econComDados.reduce((acc, r) => acc + Number(r.margem_bruta_total || 0), 0);
     const somaProdutividadePonderada = econComDados.reduce((acc, r) => acc + Number(r.produtividade_l_vl_dia || 0) * Number(r.vacas_lactacao || 0), 0);
     const somaVacasLactacao = econComDados.reduce((acc, r) => acc + Number(r.vacas_lactacao || 0), 0);
 
     const prodMedia = somaVacasLactacao > 0 ? (somaProdutividadePonderada / somaVacasLactacao) : 0;
     const precoMedio = volumeTotalLitros > 0 ? (receitaTotalBruta / volumeTotalLitros) : 0;
-    const coeMedio = volumeTotalLitros > 0 ? (coeTotalGeral / volumeTotalLitros) : 0;
-    const mbMedia = volumeTotalLitros > 0 ? (mbTotalGeral / volumeTotalLitros) : 0;
+    // COE e Margem Bruta (R$/L): média dos R$/L de cada fazenda consistente PONDERADA pelo
+    // Volume Diário (L) — Σ(R$/L × volume diário) ÷ Σ(volume diário).
+    const mediaPonderadaPorVolDiario = campo => (volDiarioTotal > 0
+      ? econComDados.reduce((acc, r) => acc + Number(r[campo] || 0) * Number(r.volume_diario_litros || 0), 0) / volDiarioTotal
+      : 0);
+    const coeMedio = mediaPonderadaPorVolDiario('coe_por_litro');
+    const mbMedia = mediaPonderadaPorVolDiario('margem_bruta_por_litro');
 
     const mbPositivas = econComDados.filter(r => Number(r.margem_bruta_total || 0) > 0);
     const percMbPositiva = totalRegistros > 0 ? ((mbPositivas.length / totalRegistros) * 100) : 0;
@@ -185,7 +196,6 @@ module.exports = comAuth(async (req, res) => {
     const cadastroDetalhe = [];
 
     econTabela.forEach(r => {
-      const consistente = ehConsistente(r);
       let categoria;
       let tempoLabel = '—';
       let diffAnos = null;
@@ -207,12 +217,11 @@ module.exports = comAuth(async (req, res) => {
       } else {
         categoria = '1 ano de cadastro'; // Fallback padrão
       }
-      // O donut conta só os consistentes; a tabela lista todos
-      if (consistente) {
-        if (categoria === '1 ano de cadastro') cad1Ano++;
-        else if (categoria === '2 anos de cadastro') cad2Anos++;
-        else cad3PlusAnos++;
-      }
+      // Exceção à regra de consistência: o donut de tempo de cadastro conta toda a amostra
+      // (mesmo recorte da tabela), pois o tempo de cadastro não depende dos dados do Elabore.
+      if (categoria === '1 ano de cadastro') cad1Ano++;
+      else if (categoria === '2 anos de cadastro') cad2Anos++;
+      else cad3PlusAnos++;
 
       cadastroDetalhe.push({
         codigo_lr: r.codigo_lr,
@@ -231,7 +240,7 @@ module.exports = comAuth(async (req, res) => {
         tempo_meses: tempoMeses,
         categoria_cadastro: categoria,
         consistencia_mensal: r.status_consistencia_mensal || 'SEM DADOS',
-        no_grafico: consistente
+        no_grafico: true
       });
     });
 
@@ -242,6 +251,7 @@ module.exports = comAuth(async (req, res) => {
     });
 
     const totalFazendas = econComDados.length;
+    const totalCadastro = econTabela.length;
     const mbNegativasCount = totalFazendas - mbPositivas.length;
 
     // Top 10 Fazendas por Margem Bruta
@@ -322,9 +332,9 @@ module.exports = comAuth(async (req, res) => {
     }).sort((a, b) => b.coe_total_reais - a.coe_total_reais);
 
     const cadastroBreakdown = [
-      { categoria: '1 ano de cadastro', count: cad1Ano, perc: totalFazendas > 0 ? Number(((cad1Ano / totalFazendas) * 100).toFixed(1)) : 0 },
-      { categoria: '2 anos de cadastro', count: cad2Anos, perc: totalFazendas > 0 ? Number(((cad2Anos / totalFazendas) * 100).toFixed(1)) : 0 },
-      { categoria: '3+ anos de cadastro', count: cad3PlusAnos, perc: totalFazendas > 0 ? Number(((cad3PlusAnos / totalFazendas) * 100).toFixed(1)) : 0 }
+      { categoria: '1 ano de cadastro', count: cad1Ano, perc: totalCadastro > 0 ? Number(((cad1Ano / totalCadastro) * 100).toFixed(1)) : 0 },
+      { categoria: '2 anos de cadastro', count: cad2Anos, perc: totalCadastro > 0 ? Number(((cad2Anos / totalCadastro) * 100).toFixed(1)) : 0 },
+      { categoria: '3+ anos de cadastro', count: cad3PlusAnos, perc: totalCadastro > 0 ? Number(((cad3PlusAnos / totalCadastro) * 100).toFixed(1)) : 0 }
     ];
 
     const kpisConsolidados = {
@@ -335,16 +345,20 @@ module.exports = comAuth(async (req, res) => {
       margem_bruta_litro: Number(mbMedia.toFixed(2)),
       perc_mb_positiva: Number(percMbPositiva.toFixed(1)),
       total_fazendas_ativas: totalFazendas,
+      // Amostra dos KPIs: fazendas consistentes (usadas) de todas as fazendas com dados no recorte
+      n_fazendas_consistentes: new Set(econComDados.map(r => r.codigo_lr)).size,
+      mes_referencia_label: mesEfetivo ? monthLabel(mesEfetivo.substring(0, 7)) : null,
+      n_fazendas_total: new Set(econTabela.map(r => r.codigo_lr)).size,
       fazendas_mb_positiva: mbPositivas.length,
       perc_mb_positiva_base: totalFazendas > 0 ? Number(((mbPositivas.length / totalFazendas) * 100).toFixed(1)) : 0,
       fazendas_mb_negativa: mbNegativasCount,
       perc_mb_negativa: totalFazendas > 0 ? Number(((mbNegativasCount / totalFazendas) * 100).toFixed(1)) : 0,
       cad_1_ano: cad1Ano,
-      perc_cad_1_ano: totalFazendas > 0 ? Number(((cad1Ano / totalFazendas) * 100).toFixed(1)) : 0,
+      perc_cad_1_ano: totalCadastro > 0 ? Number(((cad1Ano / totalCadastro) * 100).toFixed(1)) : 0,
       cad_2_anos: cad2Anos,
-      perc_cad_2_anos: totalFazendas > 0 ? Number(((cad2Anos / totalFazendas) * 100).toFixed(1)) : 0,
+      perc_cad_2_anos: totalCadastro > 0 ? Number(((cad2Anos / totalCadastro) * 100).toFixed(1)) : 0,
       cad_3_plus_anos: cad3PlusAnos,
-      perc_cad_3_plus_anos: totalFazendas > 0 ? Number(((cad3PlusAnos / totalFazendas) * 100).toFixed(1)) : 0
+      perc_cad_3_plus_anos: totalCadastro > 0 ? Number(((cad3PlusAnos / totalCadastro) * 100).toFixed(1)) : 0
     };
 
     // Aviso da tela 4: mês filtrado sem nenhuma fazenda-mês consistente (ex.: mês corrente ainda

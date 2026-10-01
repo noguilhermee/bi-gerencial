@@ -2133,6 +2133,22 @@ document.addEventListener('DOMContentLoaded', () => {
     updateValue('kpiEconMargemBruta', kpi.margem_bruta_litro !== undefined ? `R$ ${kpi.margem_bruta_litro}` : '—');
     updateValue('kpiEconPercMbPositiva', percent(kpi.perc_mb_positiva));
 
+    // Amostra dos KPIs: entra no texto do botão de informação de cada card
+    const nCons = kpi.n_fazendas_consistentes;
+    const nTotal = kpi.n_fazendas_total;
+    const textoAmostra = nCons !== undefined && nTotal !== undefined
+      ? `Amostra${kpi.mes_referencia_label ? ` (${kpi.mes_referencia_label})` : ''}: n = ${number(nCons)} fazendas consistentes de ${number(nTotal)} com dados no recorte.`
+      : '';
+    ['kpiEconVolTotal', 'kpiEconProdutividade', 'kpiEconPrecoMedio', 'kpiEconCoeMedio', 'kpiEconMargemBruta', 'kpiEconPercMbPositiva'].forEach(id => {
+      const btn = el(id)?.closest('.metric-card')?.querySelector('.kpi-info-btn');
+      if (btn) btn.dataset.infoAmostra = textoAmostra;
+    });
+
+    // Mês de referência nos subtítulos dos gráficos pontuais (a evolução mensal mostra o histórico)
+    document.querySelectorAll('#slide4 .sub-mes').forEach((node, i) => {
+      node.textContent = i > 0 && kpi.mes_referencia_label ? ` · ${kpi.mes_referencia_label}` : '';
+    });
+
     const top5Coe = data.top5_coe || slide4.top5_coe;
     const volEvolutionRaw = data.volume_evolution || slide4.volume_evolution;
     const cadBreakdown = data.cadastro_breakdown || slide5.cadastro_breakdown;
@@ -2816,7 +2832,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const refMonthDisplay = btn.dataset.infoRef || getActiveReferenceMonthDisplay(isElabore);
 
       popoverTitle.textContent = title;
-      popoverBody.textContent = body;
+      popoverBody.textContent = btn.dataset.infoAmostra ? `${body} ${btn.dataset.infoAmostra}` : body;
 
       if (popoverRefBox && popoverRefVal) {
         if (refMonthDisplay) {
