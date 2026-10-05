@@ -104,6 +104,10 @@
     };
   }
 
+  /** Telas 5 e 6: a API devolve os dados de M-1 para o mês selecionado M. Ex.: "dados de Ago/26 (mês anterior a Set/26)". */
+  const anteriorA = (dados) => (dados && dados.mesSelecionadoLabel ? ` (mês anterior a ${dados.mesSelecionadoLabel})` : '');
+  const dadosDe = (dados) => `dados de ${dados.mesReferenciaLabel}${anteriorA(dados)}`;
+
   const tooltipBase = () => ({
     backgroundColor: 'rgba(0, 77, 73, 0.94)', titleColor: '#fff', bodyColor: '#fff', padding: 10, cornerRadius: 7,
     titleFont: { size: 11.2, weight: '700' }, bodyFont: { size: 11.2 }
@@ -173,7 +177,8 @@
     const cfg = INDICADORES[est.indicador];
     const sub = el('prodEvolucaoSub');
     if (sub) {
-      sub.textContent = `todas as fazendas medidas em cada mês · ${cfg.unidade}`;
+      const ate = est.prod && est.prod.mesFimLabel ? ` · até ${est.prod.mesFimLabel}${anteriorA(est.prod)}` : '';
+      sub.textContent = `todas as fazendas medidas em cada mês · ${cfg.unidade}${ate}`;
     }
     const valores = serie[est.indicador] || [];
     const fmt = (x) => num(x, cfg.casas);
@@ -223,7 +228,7 @@
     const rot = (lista) => `${lista[0]}–${lista[lista.length - 1]}`;
     const rotRec = rot(t.janelaRecente);
     const rotAnt = rot(t.janelaAnterior);
-    if (sub) sub.textContent = `volume diário · ${rotRec} contra ${rotAnt}`;
+    if (sub) sub.textContent = `volume diário · ${rotRec} contra ${rotAnt}${anteriorA(est.prod)}`;
     const linhas = [
       ['evoluiu', 'up', 'Evoluíram', `acima de +${t.banda}%`],
       ['estavel', 'flat', 'Estáveis', `entre −${t.banda}% e +${t.banda}%`],
@@ -248,8 +253,8 @@
 
   /** As tabelas de CCS/CPP acima do limite são montadas por main.js; aqui só os subtítulos. */
   function renderAtencao(dados) {
-    if (el('prodCcsSub')) el('prodCcsSub').textContent = `CCS acima de 500 mil céls./mL · ${dados.mesReferenciaLabel}`;
-    if (el('prodCppSub')) el('prodCppSub').textContent = `CPP acima de 300 mil UFC/mL · ${dados.mesReferenciaLabel}`;
+    if (el('prodCcsSub')) el('prodCcsSub').textContent = `CCS acima de 500 mil céls./mL · ${dadosDe(dados)}`;
+    if (el('prodCppSub')) el('prodCppSub').textContent = `CPP acima de 300 mil UFC/mL · ${dadosDe(dados)}`;
   }
 
   // ── Tela 6: Carteira e Território ─────────────────────────────────────────────────────────────────
@@ -275,7 +280,7 @@
     const k = dados.kpis;
     est.regioes = [...new Set([...(dados.regioes || []).map((r) => r.regiao), ...(dados.pontos || []).map((p) => p.regiao)])].sort((a, b) => a.localeCompare(b, 'pt-BR'));
     const set = (id, v, sub, txt) => { if (el(id)) el(id).textContent = v; if (el(sub) && txt) el(sub).textContent = txt; };
-    set('kpiTerrPropriedades', num(k.propriedades), 'kpiTerrPropriedadesSub', `Carteira de ${dados.mesReferenciaLabel}`);
+    set('kpiTerrPropriedades', num(k.propriedades), 'kpiTerrPropriedadesSub', `Carteira de ${dados.mesReferenciaLabel}${anteriorA(dados)}`);
     set('kpiTerrRegioes', num(k.regioes));
     set('kpiTerrMunicipios', num(k.municipios));
     set('kpiTerrLitros', num(k.litrosTotal), 'kpiTerrLitrosSub', `${num(k.fazendasMedidas)} medidas · ${dados.janelaMedicao}`);
@@ -283,7 +288,9 @@
     set('kpiTerrAprox', num(k.aproximadas));
     const aviso = el('terrAviso');
     if (aviso) aviso.hidden = true;
-    if (el('terrLitrosSub')) el('terrLitrosSub').textContent = `Última medição · ${dados.janelaMedicao} · L/dia`;
+    if (el('terrLitrosSub')) el('terrLitrosSub').textContent = `Última medição · ${dados.janelaMedicao} · L/dia${anteriorA(dados)}`;
+    if (el('terrPropSub')) el('terrPropSub').textContent = `Carteira ativa · nº de propriedades · ${dadosDe(dados)}`;
+    if (el('terrMapaSub')) el('terrMapaSub').textContent = `Clique em uma propriedade para ver os dados · ${dadosDe(dados)}`;
 
     renderBarrasRegiao(dados);
     renderMapa(dados);

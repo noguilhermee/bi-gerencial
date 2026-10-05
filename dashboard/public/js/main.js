@@ -2185,9 +2185,11 @@ aoCarregar(() => {
       if (btn) btn.dataset.infoAmostra = textoAmostra;
     });
 
-    // Mês de referência nos subtítulos dos gráficos pontuais (a evolução mensal mostra o histórico)
+    // Mês dos dados nos subtítulos dos gráficos pontuais (a evolução mensal mostra o histórico).
+    // A API devolve os dados de M-1 para o mês selecionado M.
+    const anteriorA = kpi.mes_selecionado_label ? ` (mês anterior a ${kpi.mes_selecionado_label})` : '';
     document.querySelectorAll('#slide4 .sub-mes').forEach((node, i) => {
-      node.textContent = i > 0 && kpi.mes_referencia_label ? ` · ${kpi.mes_referencia_label}` : '';
+      node.textContent = i > 0 && kpi.mes_referencia_label ? ` · dados de ${kpi.mes_referencia_label}${anteriorA}` : '';
     });
 
     const top5Coe = data.top5_coe || slide4.top5_coe;
