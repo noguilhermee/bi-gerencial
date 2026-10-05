@@ -541,6 +541,15 @@ def sigla_uf(valor) -> str | None:
     return _UF_POR_NOME.get(chave(s))
 
 
+_NOME_POR_UF = {sigla: nome for nome, sigla in _UF_POR_NOME.items()}
+
+
+def nome_uf(valor) -> str | None:
+    """Nome completo da UF, maiúsculo e sem acento ('SE' -> 'SERGIPE', 'Goiás' -> 'GOIAS'); None se não for UF."""
+    sigla = sigla_uf(valor)
+    return _NOME_POR_UF.get(sigla) if sigla else None
+
+
 def _dentro(lat: float, lon: float, caixa: tuple, tol: float = 0.0) -> bool:
     return caixa[0] - tol <= lat <= caixa[1] + tol and caixa[2] - tol <= lon <= caixa[3] + tol
 

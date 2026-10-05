@@ -518,14 +518,14 @@ class Contexto:
                 or self.uf_lista_geral.get(codigo_lr) or self.uf_procampo.get(codigo_lr))
 
     def regiao_de(self, codigo_lr: str, agroindustria: str, projeto, mes=None) -> str:
-        """Região da fazenda (filtro "Região" do BI) = UF da fazenda, para todas as agroindústrias.
+        """Região da fazenda (filtro "Região" do BI) = nome completo da UF da fazenda, para todas as agroindústrias.
 
-        Ex.: LR09765 tem regional ALAGOAS/SERGIPE e região SE; fazenda Piracanjuba da regional CCS tem região MG,
-        SP etc. A regional fica em regional_de. Sem UF conhecida vira NÃO INFORMADA e entra no relatório de
-        divergências."""
+        Ex.: LR09765 tem regional ALAGOAS/SERGIPE e região SERGIPE; fazenda Piracanjuba da regional CCS tem região
+        MINAS GERAIS, SAO PAULO etc. A regional fica em regional_de. Sem UF conhecida vira NÃO INFORMADA e entra no
+        relatório de divergências."""
         uf = self.uf_de(codigo_lr, mes)
         if uf:
-            return uf
+            return rn.nome_uf(uf)
         self._divergencia("UF_NAO_INFORMADA", codigo_lr, agroindustria, None,
                           estado_cadastro=_texto(self.fazenda(codigo_lr, mes).get("estado")))
         return rn.REGIAO_NAO_INFORMADA
@@ -1683,7 +1683,7 @@ def alinhar_fato_economico(supabase, ctx: Contexto, gravar: bool) -> int:
 def pares_fora_da_dimensao(ctx: Contexto, r: dict) -> pd.DataFrame:
     """Valores gravados nas fatos que não fecham com as regras (esperado: nenhum).
 
-    Região precisa ser uma UF; regional precisa existir em tab_dim_regiao para a agroindústria.
+    Região precisa ser o nome de uma UF; regional precisa existir em tab_dim_regiao para a agroindústria.
     'NÃO INFORMADA' é sempre aceita."""
     achados = []
     nao_informada = rn.chave(rn.REGIAO_NAO_INFORMADA)
@@ -1693,7 +1693,7 @@ def pares_fora_da_dimensao(ctx: Contexto, r: dict) -> pd.DataFrame:
             continue
         trios = df.reindex(columns=["agroindustria", "regiao", "regional"]).drop_duplicates()
         for agro, regiao, regional in trios.itertuples(index=False):
-            regiao_ok = rn.chave(regiao) == nao_informada or rn.sigla_uf(regiao) == regiao
+            regiao_ok = rn.chave(regiao) == nao_informada or rn.nome_uf(regiao) == regiao
             regional_ok = rn.chave(regional) in ("", nao_informada) or ctx.regiao.valida(agro, regional)
             if not (regiao_ok and regional_ok):
                 achados.append({"fato": fato, "agroindustria": agro, "regiao": regiao, "regional": regional})
@@ -1824,7 +1824,7 @@ def executar_camada_consumo(raiz: Path | None = None, gravar: bool = True) -> di
 
     ctx = r["ctx"]
     fora = pares_fora_da_dimensao(ctx, r)
-    print(f"   🔗 região fora de UF ou regional fora de tab_dim_regiao nas fatos: {len(fora)} (esperado: 0)")
+    print(f"   🔗 região fora do nome de UF ou regional fora de tab_dim_regiao nas fatos: {len(fora)} (esperado: 0)")
     if not fora.empty:
         print(fora.to_string(index=False))
 
