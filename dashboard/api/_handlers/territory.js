@@ -7,7 +7,7 @@
 //    indica posição aproximada pela mediana das outras fazendas da cidade);
 //  • tab_fato_producao_mensal — litros/dia. Como a medição não é mensal em todas as fazendas, cada fazenda
 //    usa a ÚLTIMA medição dos últimos 3 meses (mês de referência incluído).
-const { COLUNAS, getSupabaseClient, fetchAll, fetchWithCache, monthLabel, parseFilters, rowMatchesFilters, obterEscopo } = require('../_shared');
+const { COLUNAS, getSupabaseClient, fetchAll, fetchWithCache, monthLabel, parseFilters, rowMatchesFilters, obterEscopo, shiftMonthMinus1 } = require('../_shared');
 const { comAuth } = require('../_auth');
 
 const MESES_ULTIMA_MEDICAO = 3;
@@ -50,7 +50,9 @@ module.exports = comAuth(async (req, res) => {
     producao = escopo.fatos(producao);
 
     const meses = [...new Set(carteira.map(mesDe))].sort();
-    const mesRef = /^\d{4}-\d{2}-\d{2}$/.test(filters.month) ? filters.month : meses[meses.length - 1];
+    // Regra das telas 3 a 6: o mês selecionado M exibe os dados de M-1 (ex.: Setembro/2026 → Agosto/2026)
+    const mesSelecionado = filters.monthRef || null; // vários meses: foto do mais recente escolhido
+    const mesRef = mesSelecionado ? shiftMonthMinus1(mesSelecionado) : meses[meses.length - 1];
     if (!mesRef) return res.status(200).json({ disponivel: true, semDados: true });
 
     let dimMes;
@@ -133,6 +135,7 @@ module.exports = comAuth(async (req, res) => {
       disponivel: true,
       mesReferencia: mesRef,
       mesReferenciaLabel: monthLabel(mesRef),
+      mesSelecionadoLabel: mesSelecionado ? monthLabel(mesSelecionado) : null,
       janelaMedicao: `${monthLabel(inicioJanela)} a ${monthLabel(mesRef)}`,
       kpis: {
         propriedades: fazendas.size,

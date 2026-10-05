@@ -7,8 +7,9 @@ module.exports = comAuth(async (req, res) => {
     const supabase = getSupabaseClient();
     const escopo = await obterEscopo(req, supabase);
     const filters = parseFilters(req.query);
-    const isAllMonths = !/^\d{4}-\d{2}-\d{2}$/.test(filters.month);
-    const refMonth = isAllMonths ? null : filters.month;
+    // Mês: um só = foto do mês; vários = período (agrega como "Todos", restrito aos meses escolhidos)
+    const refMonth = filters.month || null;
+    const corteSerie = filters.monthRef || null; // séries históricas vão até o mês mais recente escolhido
 
     const [movimentacaoTodasBruta, carteiraTodosBruta] = await Promise.all([
       fetchWithCache('FATO_MOVIMENTACAO_ALL', () => fetchAll(() => supabase.from('tab_fato_movimentacao').select(COLUNAS.movimentacao).order('data_movimentacao', { ascending: false }), undefined, 'id_composto')),
@@ -18,16 +19,14 @@ module.exports = comAuth(async (req, res) => {
     const carteiraTodos = escopo.carteira(carteiraTodosBruta);
 
     const movimentacaoFiltrada = movimentacaoTodas.filter(m => rowMatchesFilters(m, filters));
-    const carteiraMes = refMonth ? carteiraTodos.filter(r => String(r.mes_referencia).slice(0, 10) === refMonth) : carteiraTodos;
+    const carteiraMes = carteiraTodos.filter(r => filters.noPeriodo(r.mes_referencia));
     const carteiraFiltrada = carteiraMes.filter(r => rowMatchesFilters({ ...r, status: r.status_visita }, filters));
 
     const totalAtivos = new Set(carteiraFiltrada.map(r => r.codigo_lr)).size;
     const totalConsultores = new Set(carteiraFiltrada.map(r => r.consultor)).size;
 
-    const currentMonthKey = refMonth ? refMonth.slice(0, 7) : null;
-    const movimentacoesDoMes = currentMonthKey
-      ? movimentacaoFiltrada.filter(m => String(m.data_movimentacao || '').slice(0, 7) === currentMonthKey)
-      : movimentacaoFiltrada;
+    // Movimentações cuja data cai num dos meses escolhidos (todas, sem seleção)
+    const movimentacoesDoMes = movimentacaoFiltrada.filter(m => filters.noPeriodo(`${String(m.data_movimentacao || '').slice(0, 7)}-01`));
 
     let entradas = 0, saidas = 0;
     const motivosMap = {};
@@ -55,7 +54,7 @@ module.exports = comAuth(async (req, res) => {
       motivo: m.motivo
     }));
 
-    const referencias = [...new Set(carteiraTodos.map(r => String(r.mes_referencia).slice(0, 10)))].filter(ref => !refMonth || ref <= refMonth).sort();
+    const referencias = [...new Set(carteiraTodos.map(r => String(r.mes_referencia).slice(0, 10)))].filter(ref => !corteSerie || ref <= corteSerie).sort();
     const movimentosPorMes = new Map();
     movimentacaoFiltrada.forEach(m => {
       const key = String(m.data_movimentacao || '').slice(0, 7);
@@ -87,6 +86,7 @@ module.exports = comAuth(async (req, res) => {
     return res.status(200).json({
       timestamp: new Date().toISOString(),
       refMonth,
+      meses: filters.months,
       kpis: {
         entradas_mes: entradas,
         saidas_mes: saidas,

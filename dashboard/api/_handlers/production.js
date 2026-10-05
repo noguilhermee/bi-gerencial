@@ -11,7 +11,7 @@
 //  • Variação contra o mês anterior: só nas fazendas medidas nos DOIS meses (mês em andamento não distorce).
 //  • Evolução "base comparável": mesmas fazendas medidas em todos os meses da janela.
 //  • Trajetória: média dos 3 últimos meses contra a dos 3 anteriores, faixa de estabilidade ±5 %.
-const { COLUNAS, getSupabaseClient, fetchAll, fetchWithCache, monthLabel, parseFilters, rowMatchesFilters, obterEscopo } = require('../_shared');
+const { COLUNAS, getSupabaseClient, fetchAll, fetchWithCache, monthLabel, parseFilters, rowMatchesFilters, obterEscopo, shiftMonthMinus1 } = require('../_shared');
 const { comAuth } = require('../_auth');
 
 const BANDA_TRAJETORIA_PCT = 5;
@@ -99,9 +99,11 @@ module.exports = comAuth(async (req, res) => {
 
     const linhas = escopo.fatos(todas).filter((r) => rowMatchesFilters({ ...r, status: r.status_produtor }, { ...filters, month: '' }));
     const meses = [...new Set(linhas.map(mesDe))].sort();
-    if (!meses.length) return res.status(200).json({ disponivel: true, semDados: true, mesReferencia: filters.month || null });
+    // Regra das telas 3 a 6: o mês selecionado M exibe os dados de M-1 (ex.: Setembro/2026 → Agosto/2026)
+    const mesSelecionado = filters.monthRef || null; // vários meses: foto do mais recente escolhido
+    if (!meses.length) return res.status(200).json({ disponivel: true, semDados: true, mesReferencia: mesSelecionado ? shiftMonthMinus1(mesSelecionado) : null });
 
-    const mesRef = /^\d{4}-\d{2}-\d{2}$/.test(filters.month) ? filters.month : meses[meses.length - 1];
+    const mesRef = mesSelecionado ? shiftMonthMinus1(mesSelecionado) : meses[meses.length - 1];
     const porMes = new Map();
     linhas.forEach((r) => {
       const m = mesDe(r);
@@ -180,6 +182,7 @@ module.exports = comAuth(async (req, res) => {
       disponivel: true,
       mesReferencia: mesRef,
       mesReferenciaLabel: monthLabel(mesRef),
+      mesSelecionadoLabel: mesSelecionado ? monthLabel(mesSelecionado) : null,
       mesFim,
       mesFimLabel: monthLabel(mesFim),
       parcial,

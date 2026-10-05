@@ -201,7 +201,8 @@ def carregar_fontes(supabase, conexao_elabore, data_inicio_elabore: str) -> Font
                                     "novilhas,reprodutores,receptoras,rebanho_total,data_processamento"),
         "dim_fazendas": _buscar_tudo(supabase, "tab_dim_fazendas_ativas"),
         "raw_fazendas_grupo": _buscar_tudo(supabase, "sq_raw_fazendas_grupo",
-                                           "codigo_produtor,grupo_ponto_atendimento,consultor"),
+                                           "id,codigo_produtor,grupo_ponto_atendimento,consultor,estado,mes_referencia",
+                                           ordem="id"),
         "raw_vinculos": _buscar_tudo(supabase, "sq_raw_vinculos",
                                      "codigo_lr,nome_produtor,nome_propriedade,projeto,unidade_atendimento,"
                                      "tipo_ponto_atendimento,data_associacao,grupo_atendimento,consultor_grupo_atendimento,estado_produtor"),
@@ -352,6 +353,13 @@ class Contexto:
                 self.agro_elabore[r["codigo_lr"]] = self.agro_dim[rn.chave(agro)].get("nome_bi") or agro
         # UF da fazenda segundo o Elabore (qualquer status): fallback da região quando a carteira não traz o estado
         self.uf_elabore = {r["codigo_lr"]: rn.sigla_uf(r.get("uf")) for r in props.to_dict("records") if rn.sigla_uf(r.get("uf"))}
+        # UF mais recente da LISTA_GERAL (sq_raw_fazendas_grupo): cobre fazendas que já saíram da carteira e só
+        # aparecem nas visitas/movimentações históricas
+        self.uf_lista_geral: dict[str, str] = {}
+        for r in f.raw_fazendas_grupo.sort_values("mes_referencia").to_dict("records"):
+            uf = rn.sigla_uf(r.get("estado"))
+            if uf:
+                self.uf_lista_geral[rn.limpar_codigo_lr(r.get("codigo_produtor"))] = uf
         codigos_consistencia = set(f.raw_consistencia_mensal["codigo_lr"].map(rn.limpar_codigo_lr))
         self.cadastrados_elabore = set(props["codigo_lr"]) | codigos_consistencia
 
@@ -499,10 +507,12 @@ class Contexto:
         return None
 
     def uf_de(self, codigo_lr: str, mes=None) -> str | None:
-        """Sigla da UF da fazenda: carteira do mês (estado do SmartQuestion/Procampo) > Elabore > vínculo."""
+        """Sigla da UF da fazenda: carteira do mês (estado do SmartQuestion/Procampo) > Elabore > vínculo >
+        LISTA_GERAL mais recente."""
         faz = self.fazenda(codigo_lr, mes)
         return (rn.sigla_uf(faz.get("estado")) or self.uf_elabore.get(codigo_lr)
-                or rn.sigla_uf(self.vinculo_qualquer.get(codigo_lr, {}).get("estado_produtor")))
+                or rn.sigla_uf(self.vinculo_qualquer.get(codigo_lr, {}).get("estado_produtor"))
+                or self.uf_lista_geral.get(codigo_lr))
 
     def usa_regional(self, agroindustria) -> bool:
         """True quando a região da agroindústria é a regional de tab_dim_regiao (Piracanjuba), e não a UF."""
@@ -512,17 +522,23 @@ class Contexto:
         """Região da fazenda exibida no filtro do BI.
 
         Regra geral: região = UF da fazenda (ex.: LR09765, regional ALAGOAS/SERGIPE, região SE). Exceção: as
-        agroindústrias de rn.AGROINDUSTRIAS_REGIAO_POR_REGIONAL usam a regional canônica de tab_dim_regiao.
-        Sem UF conhecida, ou com regional que não é da agroindústria, vira NÃO INFORMADA e entra no relatório
-        de divergências, em vez de aparecer solta nos filtros."""
+        agroindústrias de rn.AGROINDUSTRIAS_REGIAO_POR_REGIONAL usam a regional (ver regional_de).
+        Sem UF conhecida vira NÃO INFORMADA e entra no relatório de divergências."""
+        if self.usa_regional(agroindustria):
+            return self.regional_de(codigo_lr, agroindustria, projeto, mes)
+        uf = self.uf_de(codigo_lr, mes)
+        if uf:
+            return uf
+        self._divergencia("UF_NAO_INFORMADA", codigo_lr, agroindustria, None,
+                          estado_cadastro=_texto(self.fazenda(codigo_lr, mes).get("estado")))
+        return rn.REGIAO_NAO_INFORMADA
+
+    def regional_de(self, codigo_lr: str, agroindustria: str, projeto, mes=None) -> str:
+        """Regional da fazenda: agrupamento definido pela agroindústria, sempre um que ela possui em tab_dim_regiao.
+
+        Candidatas, em ordem: base do Procampo, Elabore e cadastro da fazenda. Regional de outra agroindústria, ou
+        que não está no cadastro, vira NÃO INFORMADA e entra no relatório de divergências."""
         faz = self.fazenda(codigo_lr, mes)
-        if not self.usa_regional(agroindustria):
-            uf = self.uf_de(codigo_lr, mes)
-            if uf:
-                return uf
-            self._divergencia("UF_NAO_INFORMADA", codigo_lr, agroindustria, None,
-                              estado_cadastro=_texto(faz.get("estado")))
-            return rn.REGIAO_NAO_INFORMADA
         candidatas = []
         if codigo_lr in self.pro_lr:
             candidatas.append(self.pro_lr[codigo_lr])   # regional da base do Procampo vem primeiro
@@ -536,11 +552,11 @@ class Contexto:
                 return self.regiao.canonica[(rn.chave(agroindustria), rn.chave(c))]
         for c in reais:
             if rn.chave(agroindustria) == rn.chave(rn.AGRO_NAO_INFORMADA):
-                tipo = "REGIAO_SEM_AGROINDUSTRIA"
+                tipo = "REGIONAL_SEM_AGROINDUSTRIA"
             elif self.regiao.agroindustrias_da(c):
-                tipo = "REGIAO_DE_OUTRA_AGROINDUSTRIA"
+                tipo = "REGIONAL_DE_OUTRA_AGROINDUSTRIA"
             else:
-                tipo = "REGIAO_NAO_CADASTRADA"
+                tipo = "REGIONAL_NAO_CADASTRADA"
             self._divergencia(tipo, codigo_lr, agroindustria, c, regiao_elabore=self.regiao_elabore.get(codigo_lr),
                               regiao_cadastro=_texto(faz.get("regiao")), unidade_atendimento=_texto(faz.get("unidade_atendimento")))
         return rn.REGIAO_NAO_INFORMADA
@@ -645,6 +661,7 @@ def construir_fato_visitas(f: Fontes, ctx: Contexto) -> tuple[pd.DataFrame, pd.D
             "projeto": projeto or "NÃO INFORMADO",
             "agroindustria": agro,
             "regiao": ctx.regiao_de(cod, agro, projeto, mes),
+            "regional": ctx.regional_de(cod, agro, projeto, mes),
             "codigo_agroindustria": _texto(faz.get("codigo_agroindustria")),
             "id_farm": _texto(r.get("id_farm")) or _texto(faz.get("codigo_fazenda")),
             "valor_pago_produtor": float(r["valor_pago_produtor"]) if pd.notna(r.get("valor_pago_produtor")) else 0.0,
@@ -738,6 +755,7 @@ def construir_visitas_procampo(f: Fontes, ctx: Contexto) -> tuple[list[dict], li
             "projeto": projeto or projeto_padrao,
             "agroindustria": agro,
             "regiao": ctx.regiao_de(cod, agro, projeto, mes),
+            "regional": ctx.regional_de(cod, agro, projeto, mes),
             "codigo_agroindustria": _texto(faz.get("codigo_agroindustria")) or _texto(r.get("matricula")),
             "id_farm": None,
             "valor_pago_produtor": 0.0,
@@ -823,6 +841,7 @@ def construir_carteira_mensal(f: Fontes, ctx: Contexto, visitas: pd.DataFrame) -
 
         agro = ctx.agroindustria(cod, projeto, mes)
         regiao = ctx.regiao_de(cod, agro, projeto, mes)
+        regional = ctx.regional_de(cod, agro, projeto, mes)
         inicio_vinculo = assoc.to_period("M").to_timestamp() if assoc is not None else None
         carencia_fim = inicio_vinculo + pd.DateOffset(months=2) if inicio_vinculo is not None else None
         elab = ctx.elabore(cod, mes)
@@ -843,6 +862,7 @@ def construir_carteira_mensal(f: Fontes, ctx: Contexto, visitas: pd.DataFrame) -
                 "projeto": projeto,
                 "agroindustria": agro,
                 "regiao": regiao,
+                "regional": regional,
                 "data_associacao": assoc,
                 "qtd_visitas_mes": qtd,
                 "visitas_consultor_mes": int(qtd_consultor_mes.get((cod, mes, consultor), 0)),
@@ -879,6 +899,7 @@ def construir_fato_consistencia(f: Fontes, ctx: Contexto, carteira: pd.DataFrame
         if ativo:
             p = principal.loc[(cod, mes)]
             projeto, agro, regiao, consultor = p["projeto"], p["agroindustria"], p["regiao"], p["consultor"]
+            regional = p.get("regional")
             nome = p["nome_produtor"]
             sem_lancamento = bool(p["sem_lancamento_elabore"])
         else:
@@ -895,6 +916,7 @@ def construir_fato_consistencia(f: Fontes, ctx: Contexto, carteira: pd.DataFrame
             sem_lancamento = rn.eh_grupo_sem_lancamento_elabore(grupo)
             agro = ctx.agroindustria(cod, projeto)
             regiao = ctx.regiao_de(cod, agro, projeto)
+            regional = ctx.regional_de(cod, agro, projeto)
             nome = _texto(faz.get("nome_produtor")) or _texto(vinc.get("nome_produtor")) or _texto(r.get("nome_produtor")) or cod
         assoc = ctx.data_associacao.get(cod)
         inicio_vinculo = assoc.to_period("M").to_timestamp() if assoc is not None else None
@@ -907,6 +929,7 @@ def construir_fato_consistencia(f: Fontes, ctx: Contexto, carteira: pd.DataFrame
             "projeto": projeto or "NÃO INFORMADO",
             "agroindustria": agro,
             "regiao": regiao,
+            "regional": regional,
             "mes_referencia": mes,
             "data_carencia_fim": inicio_vinculo + pd.DateOffset(months=2) if inicio_vinculo is not None else None,
             "status_code": "active_approved",
@@ -948,6 +971,7 @@ def construir_fato_movimentacao(f: Fontes, ctx: Contexto) -> pd.DataFrame:
             "projeto": projeto or "NÃO INFORMADO",
             "agroindustria": agro,
             "regiao": ctx.regiao_de(cod, agro, projeto),
+            "regional": ctx.regional_de(cod, agro, projeto),
         })
     return pd.DataFrame(linhas + construir_movimentacao_procampo(f, ctx))
 
@@ -1008,6 +1032,7 @@ def construir_movimentacao_procampo(f: Fontes, ctx: Contexto) -> list[dict]:
             "projeto": projeto or projeto_padrao,
             "agroindustria": agro,
             "regiao": ctx.regiao_de(cod, agro, projeto),
+            "regional": ctx.regional_de(cod, agro, projeto),
         }
         unicas[chave_evento] = linha
     if repetidos:
@@ -1020,7 +1045,7 @@ def construir_movimentacao_procampo(f: Fontes, ctx: Contexto) -> list[dict]:
 # ─── tab_fato_producao_mensal ──────────────────────────────────────────────────
 
 COLS_PRODUCAO = ["id_composto", "codigo_lr", "mes_referencia", "nome_produtor", "nome_propriedade", "nome_consultor",
-                 "projeto", "agroindustria", "regiao", "status_produtor", "origem_dados", "data_visita", "n_visitas_mes",
+                 "projeto", "agroindustria", "regiao", "regional", "status_produtor", "origem_dados", "data_visita", "n_visitas_mes",
                  "producao_l_dia", "producao_l_dia_bruto", "vacas_lactacao", "produtividade_l_vaca_dia",
                  "ccs", "cpp", "gordura", "proteina", "producao_suspeita", "producao_imputada",
                  "ccs_acima_limite", "cpp_acima_limite", "qualidade_descartada"]
@@ -1114,7 +1139,7 @@ def construir_producao_mensal(visitas: pd.DataFrame, cfg: dict) -> pd.DataFrame:
                 "codigo_lr": cod, "mes_referencia": r["mes_referencia"],
                 "nome_produtor": r.get("nome_produtor"), "nome_propriedade": r.get("nome_propriedade"),
                 "nome_consultor": r.get("nome_consultor"), "projeto": r.get("projeto"),
-                "agroindustria": r.get("agroindustria"), "regiao": r.get("regiao"),
+                "agroindustria": r.get("agroindustria"), "regiao": r.get("regiao"), "regional": r.get("regional"),
                 "status_produtor": r.get("status_produtor"), "origem_dados": r.get("origem_dados"),
                 "data_visita": r["data_visita"], "n_visitas_mes": int(r["n_visitas_mes"]),
                 "producao_l_dia": None if volume is None else round(volume, 2),
@@ -1133,7 +1158,7 @@ def construir_producao_mensal(visitas: pd.DataFrame, cfg: dict) -> pd.DataFrame:
 # ─── tab_fato_safra_forrageira (slide 7) ───────────────────────────────────────
 
 COLS_SAFRA = ["id_composto", "bloco", "codigo_lr", "nome_produtor", "nome_propriedade", "consultor", "consultores_grupo",
-              "projeto", "agroindustria", "regiao", "safra", "cultura", "ciclo", "produto", "sistema", "fonte",
+              "projeto", "agroindustria", "regiao", "regional", "safra", "cultura", "ciclo", "produto", "sistema", "fonte",
               "n_plantios", "area_plantada_ha", "area_com_cobertura_ha", "area_cobertura_declarada_ha",
               "area_sucessao_ha", "n_producoes", "producoes_inconsistentes", "area_colhida_ha", "toneladas",
               "custo_total", "custo_pre_plantio", "custo_plantio", "custo_tratos", "custo_colheita",
@@ -1258,7 +1283,8 @@ def construir_safra_forrageira(f: Fontes, carteira: pd.DataFrame) -> tuple[pd.Da
     resumo["sem_carteira"] = int(fato.loc[~no_cadastro, "codigo_lr"].nunique())
     resumo["codigos_sem_carteira"] = sorted(fato.loc[~no_cadastro, "codigo_lr"].unique())
     fato = fato[no_cadastro].copy()
-    for campo in ("nome_produtor", "nome_propriedade", "consultor", "consultores_grupo", "projeto", "agroindustria", "regiao"):
+    for campo in ("nome_produtor", "nome_propriedade", "consultor", "consultores_grupo", "projeto", "agroindustria", "regiao",
+                  "regional"):
         fato[campo] = fato["codigo_lr"].map(lambda cod: cadastro[cod].get(campo))
     fato["id_composto"] = fato.apply(
         lambda r: "|".join(str(x) for x in (r["bloco"], r["codigo_lr"], r["safra"], r["cultura"], r["ciclo"],
@@ -1620,11 +1646,12 @@ def construir_consultor_atuacao(ctx: Contexto, r: dict, ids_consultor: dict[str,
 
 
 def alinhar_fato_economico(supabase, ctx: Contexto, gravar: bool) -> int:
-    """Dá a tab_fato_economico a mesma agroindústria/região canônicas das demais fatos.
+    """Dá a tab_fato_economico a mesma agroindústria/região/regional canônicas das demais fatos.
 
     carregar_fato_economico.py grava o texto bruto da planilha do Elabore ('NESTLÉ', 'LABOR RURAL'...), que não
     casa com nenhuma dimensão: o filtro de região do dashboard ficava sem relação nas telas econômicas."""
-    eco = _buscar_tudo(supabase, TAB_ECONOMICO, "id_composto,codigo_lr,mes_referencia,agroindustria,regiao", ordem="id_composto")
+    eco = _buscar_tudo(supabase, TAB_ECONOMICO, "id_composto,codigo_lr,mes_referencia,agroindustria,regiao,regional",
+                       ordem="id_composto")
     if eco.empty:
         return 0
     eco["_mes"] = _mes(eco["mes_referencia"])
@@ -1637,18 +1664,20 @@ def alinhar_fato_economico(supabase, ctx: Contexto, gravar: bool) -> int:
         if rn.chave(agro) not in ctx.agro_dim:   # contas internas/teste ("LATICÍNIOS LABOR RURAL"): fora das dimensões
             agro = rn.AGRO_NAO_INFORMADA
         regiao = ctx.regiao_de(cod, agro, projeto, mes)
-        if agro != r.get("agroindustria") or regiao != r.get("regiao"):
-            grupos.setdefault((agro, regiao), []).append(r["id_composto"])
+        regional = ctx.regional_de(cod, agro, projeto, mes)
+        novo = (agro, regiao, regional)
+        if [rn.chave(x) for x in novo] != [rn.chave(r.get(c)) for c in ("agroindustria", "regiao", "regional")]:
+            grupos.setdefault(novo, []).append(r["id_composto"])
     total = sum(len(v) for v in grupos.values())
-    sem_regiao = sum(len(v) for (_, regiao), v in grupos.items() if regiao == rn.REGIAO_NAO_INFORMADA)
-    print(f"   🔗 {TAB_ECONOMICO}: {total} de {len(eco)} linhas com agroindústria/região fora do padrão canônico "
+    sem_regiao = sum(len(v) for (_, regiao, _), v in grupos.items() if regiao == rn.REGIAO_NAO_INFORMADA)
+    print(f"   🔗 {TAB_ECONOMICO}: {total} de {len(eco)} linhas com agroindústria/região/regional fora do padrão canônico "
           f"({sem_regiao} ficarão com região NÃO INFORMADA).")
     if gravar:
-        for (agro, regiao), ids in grupos.items():
+        for (agro, regiao, regional), ids in grupos.items():
             for i in range(0, len(ids), 200):
-                supabase.table(TAB_ECONOMICO).update({"agroindustria": agro, "regiao": regiao}) \
+                supabase.table(TAB_ECONOMICO).update({"agroindustria": agro, "regiao": regiao, "regional": regional}) \
                     .in_("id_composto", ids[i:i + 200]).execute()
-        print(f"   ✅ {TAB_ECONOMICO}: agroindústria/região alinhadas com as dimensões.")
+        print(f"   ✅ {TAB_ECONOMICO}: agroindústria/região/regional alinhadas com as dimensões.")
     return total
 
 
@@ -1689,7 +1718,7 @@ def exportar_divergencias(ctx: Contexto, raiz: Path) -> Path | None:
 # ─── Orquestração ─────────────────────────────────────────────────────────────
 
 COLS_VISITAS = ["id_composto", "id_atendimento", "codigo_lr", "nome_consultor", "profissao_consultor", "mes_referencia",
-                "data_visita", "tipo_visita", "nome_produtor", "nome_propriedade", "projeto", "agroindustria", "regiao",
+                "data_visita", "tipo_visita", "nome_produtor", "nome_propriedade", "projeto", "agroindustria", "regiao", "regional",
                 "codigo_agroindustria", "id_farm", "valor_pago_produtor", "valor_pago_agroindustria",
                 "area_pecuaria_ha", "mdo_dias_homem", "producao_l_dia", "ccs_mensal", "cpp_mensal", "gordura_mensal",
                 "proteina_mensal", "vacas_lactacao", "vacas_secas", "bezerras_aleitamento", "bezerros_aleitamento",
@@ -1699,11 +1728,11 @@ COLS_VISITAS = ["id_composto", "id_atendimento", "codigo_lr", "nome_consultor", 
 COLS_CONSISTENCIA = ["id_composto", "codigo_lr", "nome_consultor", "profissao_consultor", "projeto", "mes_referencia",
                      "data_carencia_fim", "mes_elabore", "consistencia_mensal", "consistencia_anual",
                      "status_code", "excecao", "sem_lancamento_elabore", "meses_sequenciais", "detalhamento_inconsistencia",
-                     "agroindustria", "regiao", "na_carteira", "detalhamento_anual",
+                     "agroindustria", "regiao", "regional", "na_carteira", "detalhamento_anual",
                      "cadastro_elabore", "dados_elabore_pct", "dados_elabore_status", "blocos_elabore"]
 
 COLS_MOVIMENTACAO = ["id_composto", "codigo_lr", "nome_produtor", "numero_atendimento", "data_movimentacao",
-                     "data_solicitacao", "consultor", "tipo", "motivo", "projeto", "agroindustria", "regiao"]
+                     "data_solicitacao", "consultor", "tipo", "motivo", "projeto", "agroindustria", "regiao", "regional"]
 
 
 def construir_tudo(f: Fontes, agora: datetime | None = None, data_inicial_consistencia: str = "2025-01-01") -> dict:

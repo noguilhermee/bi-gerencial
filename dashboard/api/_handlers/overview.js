@@ -7,8 +7,9 @@ module.exports = comAuth(async (req, res) => {
     const supabase = getSupabaseClient();
     const escopo = await obterEscopo(req, supabase);
     const filters = parseFilters(req.query);
-    const isAllMonths = !/^\d{4}-\d{2}-\d{2}$/.test(filters.month);
-    const refMonth = isAllMonths ? null : filters.month;
+    // Mês: um só = foto do mês; vários = período (agrega como "Todos", restrito aos meses escolhidos)
+    const refMonth = filters.month || null;
+    const corteSerie = filters.monthRef || null; // séries históricas vão até o mês mais recente escolhido
 
     // Carteira mensal (1 linha por fazenda × mês × consultor), já resolvida pelo ETL,
     // e visitas técnicas válidas (1 linha por atendimento) — buscadas em paralelo
@@ -44,10 +45,10 @@ module.exports = comAuth(async (req, res) => {
         })).values()]
       : null;
 
-    const carteiraMes = refMonth ? carteiraTodos.filter(r => String(r.mes_referencia).slice(0, 10) === refMonth) : carteiraTodos;
+    const carteiraMes = carteiraTodos.filter(r => filters.noPeriodo(r.mes_referencia));
     const carteiraFiltrada = carteiraMes.filter(r => rowMatchesFilters({ ...r, status: r.status_visita }, filters));
 
-    const visitasMes = refMonth ? visitasTodas.filter(v => String(v.mes_referencia).slice(0, 10) === refMonth) : visitasTodas;
+    const visitasMes = visitasTodas.filter(v => filters.noPeriodo(v.mes_referencia));
     const visitasFiltradas = visitasMes.filter(v => rowMatchesFilters({ ...v, status: v.status_produtor }, filters));
 
     // ── KPIs do mês selecionado ────────────────────────────────────────────
@@ -68,7 +69,7 @@ module.exports = comAuth(async (req, res) => {
     // ── Séries históricas (todos os meses da carteira) ─────────────────────
     const mesesUnicos = [...new Set(carteiraTodos.map(r => String(r.mes_referencia).slice(0, 10)))].sort();
     const carteiraFiltradaHistorica = carteiraTodos.filter(r => rowMatchesFilters({ ...r, status: r.status_visita }, { ...filters, month: '' }));
-    const referencias = mesesUnicos.filter(m => !refMonth || m <= refMonth);
+    const referencias = mesesUnicos.filter(m => !corteSerie || m <= corteSerie);
 
     const porMes = new Map();
     carteiraFiltradaHistorica.forEach(r => {
@@ -183,6 +184,7 @@ module.exports = comAuth(async (req, res) => {
     return res.status(200).json({
       timestamp: new Date().toISOString(),
       refMonth,
+      meses: filters.months,
       visitasMonth: refMonth,
       consistencyMonth: refMonth,
       dataProvenance,

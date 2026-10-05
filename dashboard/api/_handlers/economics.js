@@ -18,7 +18,7 @@ const {
   fetchWithCache,
   monthLabel,
   formatDate,
-  parseList, obterEscopo } = require('../_shared');
+  parseList, obterEscopo, shiftMonthMinus1 } = require('../_shared');
 const { comAuth } = require('../_auth');
 
 module.exports = comAuth(async (req, res) => {
@@ -46,7 +46,10 @@ module.exports = comAuth(async (req, res) => {
     const filterStatus = (req.query.status || '').trim().toUpperCase();
     const filterConsultant = listaMaiuscula(req.query.consultant);
     const filterProducer = listaMaiuscula(req.query.producer);
-    const filterMonth = (req.query.month || '').trim();
+    // Regra das telas 3 a 6: o mês selecionado M exibe os dados de M-1 (ex.: Setembro/2026 → Agosto/2026)
+    // Mês é multi-seleção (month=A|B): a tela é uma foto do mês, então vale o mais recente escolhido
+    const mesSelecionado = parseList(req.query.month).map(m => m.slice(0, 10)).filter(m => /^\d{4}-\d{2}-\d{2}$/.test(m)).sort().pop() || '';
+    const filterMonth = mesSelecionado ? shiftMonthMinus1(mesSelecionado) : '';
 
     // Mapeamento de cadastro de vínculos
     const vinculoMap = new Map();
@@ -348,6 +351,7 @@ module.exports = comAuth(async (req, res) => {
       // Amostra dos KPIs: fazendas consistentes (usadas) de todas as fazendas com dados no recorte
       n_fazendas_consistentes: new Set(econComDados.map(r => r.codigo_lr)).size,
       mes_referencia_label: mesEfetivo ? monthLabel(mesEfetivo.substring(0, 7)) : null,
+      mes_selecionado_label: mesSelecionado ? monthLabel(mesSelecionado.substring(0, 7)) : null,
       n_fazendas_total: new Set(econTabela.map(r => r.codigo_lr)).size,
       fazendas_mb_positiva: mbPositivas.length,
       perc_mb_positiva_base: totalFazendas > 0 ? Number(((mbPositivas.length / totalFazendas) * 100).toFixed(1)) : 0,

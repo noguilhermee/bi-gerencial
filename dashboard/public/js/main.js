@@ -327,7 +327,8 @@ aoCarregar(() => {
       status: '',
       consultant: selectedValues('filterConsultant'),
       producer: selectedValues('filterProducer'),
-      month: el('filterMonth')?.value || ''
+      // Mês também é multi-seleção: lista vazia = "Todos"
+      month: selectedValues('filterMonth')
     };
   }
 
@@ -421,7 +422,7 @@ aoCarregar(() => {
     const rowRegions = [].concat(row.regiao ?? row.regioes ?? []).filter(Boolean);
     const regionMatch = !filter.region.length || rowRegions.some((r) => filter.region.includes(r));
     const rowMonth = String(row.mes_referencia || row.data_referencia || '').slice(0, 10);
-    const monthMatch = ignoreMonth || !filter.month || !rowMonth || dimensionMatches(rowMonth, filter.month);
+    const monthMatch = ignoreMonth || !filter.month.length || !rowMonth || dimensionMatches(rowMonth, filter.month);
 
     const rowAgro = row.agroindustria || row.agroindustrias || 'NAO INFORMADA';
 
@@ -1667,7 +1668,7 @@ aoCarregar(() => {
   function populateMonthSelect(values) {
     const select = el('filterMonth');
     if (!select) return;
-    const current = select.value;
+    const current = [...select.selectedOptions].map((opt) => opt.value);
     const now = new Date();
     const currentCalendarMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`;
     const maxAllowedMonth = currentCalendarMonth;
@@ -1679,14 +1680,13 @@ aoCarregar(() => {
         : parsed.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' }).replace(/^./, (letter) => letter.toUpperCase());
       return `<option value="${escapeHtml(value)}">${escapeHtml(label)}</option>`;
     }).join('');
-    select.innerHTML = `<option value="">Todos</option>${options}`;
+    select.innerHTML = options;
     if (state.hasUserChangedMonth) {
-      if (unique.includes(current) || current === '') select.value = current;
-    } else {
+      // Mantém os meses escolhidos que continuam disponíveis (nenhum = "Todos")
+      marcarMeses(current.filter((m) => unique.includes(m)));
+    } else if (unique.length > 0) {
       // Padrão ao carregar o dashboard: selecionar o mês atual (ou o mês mais recente disponível <= mês atual), não TODOS
-      if (unique.length > 0) {
-        select.value = unique.includes(currentCalendarMonth) ? currentCalendarMonth : unique[0];
-      }
+      marcarMeses([unique.includes(currentCalendarMonth) ? currentCalendarMonth : unique[0]]);
     }
     syncCustomSelectDisplay('filterMonth');
   }
@@ -1703,11 +1703,11 @@ aoCarregar(() => {
     const curStat = current.status;
     const curCons = current.consultant.map((c) => c.toLowerCase());
     const curProd = current.producer.map((p) => p.toLowerCase());
-    const curMonth = current.month ? String(current.month).slice(0, 7) : '';
+    const curMonths = new Set(current.month.map((m) => String(m).slice(0, 7)));
 
     function matchesActiveExcept(row, fieldKey) {
       if (!ehCadeiaLeite(row.projeto || row.agroindustria)) return false;
-      if (fieldKey !== 'month' && curMonth && row.mes_referencia && String(row.mes_referencia).slice(0, 7) !== curMonth) return false;
+      if (fieldKey !== 'month' && curMonths.size && row.mes_referencia && !curMonths.has(String(row.mes_referencia).slice(0, 7))) return false;
       if (fieldKey !== 'industry' && curInd.length && !curInd.includes(row.agroindustria)) return false;
       if (fieldKey !== 'region' && curReg.length && !curReg.includes(row.regiao)) return false;
       if (fieldKey !== 'project' && curProj.length && !curProj.includes(row.projeto)) return false;
@@ -1725,7 +1725,7 @@ aoCarregar(() => {
       if (!Array.isArray(relacoes) || !relacoes.length) return null;
       const permitidos = new Set();
       relacoes.forEach(([mes, agro, regiao, consultor]) => {
-        if (curMonth && mes !== curMonth) return;
+        if (curMonths.size && !curMonths.has(mes)) return;
         if (fieldKey !== 'industry' && curInd.length && !curInd.includes(agro)) return;
         if (fieldKey !== 'region' && curReg.length && !curReg.includes(regiao)) return;
         if (fieldKey !== 'consultant' && curCons.length && !curCons.includes(String(consultor).toLowerCase())) return;
@@ -2093,16 +2093,26 @@ aoCarregar(() => {
     if (el('lastUpdateDate')) el('lastUpdateDate').textContent = `${now.toLocaleDateString('pt-BR')} ${now.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}`;
   }
 
-  async function fetchMonthMasterData() {
-    let selectedMonth = el('filterMonth')?.value || '';
-    if (!selectedMonth && !state.hasUserChangedMonth) {
-      const now = new Date();
-      selectedMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`;
-      const select = el('filterMonth');
-      if (select) select.value = selectedMonth;
-    }
+  /** Marca no filtro Mês exatamente os meses da lista (vazia = nenhum marcado = "Todos"). */
+  function marcarMeses(lista) {
+    const select = el('filterMonth');
+    if (!select) return;
+    const marcados = new Set(lista || []);
+    [...select.options].forEach((opt) => { opt.selected = marcados.has(opt.value); });
+    syncCustomSelectDisplay('filterMonth');
+  }
 
-    const query = selectedMonth ? `?month=${encodeURIComponent(selectedMonth)}` : '';
+  async function fetchMonthMasterData() {
+    let selectedMonths = selectedValues('filterMonth');
+    if (!selectedMonths.length && !state.hasUserChangedMonth) {
+      const now = new Date();
+      selectedMonths = [`${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`];
+      marcarMeses(selectedMonths);
+    }
+    const selectedMonth = selectedMonths[selectedMonths.length - 1] || '';
+
+    // Vários meses viajam em um único parâmetro, separados por "|" (ex.: month=2026-08-01|2026-09-01)
+    const query = selectedMonths.length ? `?month=${encodeURIComponent(selectedMonths.join('|'))}` : '';
     // Econômico já sai junto (sem await): se loadAllData pedir a mesma query, reaproveita.
     state.masterQuery = query;
     state.masterEconomicsRequest = getJson(`/api/economics${query}`);
@@ -2113,9 +2123,8 @@ aoCarregar(() => {
     if (selectedMonth && !state.hasUserChangedMonth && !(overview?.dim_fazendas || []).length) {
       const anterior = (overview?.filterOptions?.meses || []).filter((m) => m < selectedMonth).sort().pop();
       if (anterior) {
-        const select = el('filterMonth');
         populateMonthSelect(overview.filterOptions.meses);
-        if (select) select.value = anterior;
+        marcarMeses([anterior]);
         return fetchMonthMasterData();
       }
     }
@@ -2215,7 +2224,7 @@ aoCarregar(() => {
 
       const filter = currentFilter();
       const params = new URLSearchParams();
-      if (filter.month) params.set('month', filter.month);
+      if (filter.month.length) params.set('month', filter.month.join('|'));
       // Multi-seleção viaja em um único parâmetro, valores separados por "|" (ex.: consultant=Ana|Bruno)
       if (filter.industry.length) params.set('industry', filter.industry.join('|'));
       if (filter.region.length) params.set('region', filter.region.join('|'));
@@ -2823,8 +2832,13 @@ aoCarregar(() => {
   }
 
   function getActiveReferenceMonthDisplay(isElabore = false) {
-    const select = el('filterMonth');
-    let monthValue = (select && select.value) ? select.value : (state.overview?.refMonth || state.visits?.refMonth || '2026-08-01');
+    const escolhidos = selectedValues('filterMonth').sort();
+    // Vários meses: indicadores de fluxo somam o período; os do Elabore usam o mais recente (M-1), como a API
+    if (escolhidos.length > 1 && !isElabore) {
+      const curto = (m) => new Date(`${m}T12:00:00`).toLocaleDateString('pt-BR', { month: 'short', year: '2-digit' }).replace('.', '').replace(/^./, (c) => c.toUpperCase());
+      return `${escolhidos.length} meses (${escolhidos.map(curto).join(', ')})`;
+    }
+    let monthValue = escolhidos.length ? escolhidos[escolhidos.length - 1] : (state.overview?.refMonth || state.visits?.refMonth || '2026-08-01');
 
     if (isElabore && monthValue) {
       const shifted = shiftMonthMinus1(monthValue);

@@ -217,12 +217,25 @@ function parseList(value) {
  * Extrai e normaliza os filtros comuns compartilhados por todos os endpoints.
  * industry/region/project/consultant/producer são listas (multi-seleção; lista vazia = sem filtro).
  * consultantKeys/producerKeys guardam as versões minúsculas em Set, para o match por linha ser O(1).
+ *
+ * Mês também é multi-seleção (month=2026-08-01|2026-09-01):
+ *  • months   = meses escolhidos (AAAA-MM-DD, ordem crescente); vazio = "Todos".
+ *  • month    = o mês quando há exatamente UM escolhido; com vários (ou nenhum) fica '' — as telas de fluxo
+ *               (visitas, carteira, movimentação) tratam vários meses como período, igual a "Todos" restrito a eles.
+ *  • monthRef = o mês mais recente escolhido: base das telas que são uma foto do mês (consistência, econômico,
+ *               produção, território), onde somar meses empilharia estoques (L/dia, fazendas ativas).
+ *  • noPeriodo(valor) = a data (mes_referencia) cai num dos meses escolhidos (sempre true sem seleção).
  */
 function parseFilters(query) {
   const consultant = parseList(query?.consultant);
   const producer = parseList(query?.producer);
+  const months = [...new Set(parseList(query?.month).map(m => m.slice(0, 10)).filter(m => /^\d{4}-\d{2}-\d{2}$/.test(m)))].sort();
+  const mesesSet = new Set(months);
   return {
-    month: String(query?.month || '').slice(0, 10),
+    month: months.length === 1 ? months[0] : '',
+    months,
+    monthRef: months.length ? months[months.length - 1] : '',
+    noPeriodo: valor => !mesesSet.size || mesesSet.has(String(valor || '').slice(0, 10)),
     industry: parseList(query?.industry),
     region: parseList(query?.region),
     project: parseList(query?.project),

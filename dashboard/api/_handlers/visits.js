@@ -7,8 +7,9 @@ module.exports = comAuth(async (req, res) => {
     const supabase = getSupabaseClient();
     const escopo = await obterEscopo(req, supabase);
     const filters = parseFilters(req.query);
-    const isAllMonths = !/^\d{4}-\d{2}-\d{2}$/.test(filters.month);
-    const refMonth = isAllMonths ? null : filters.month;
+    // Mês: um só = foto do mês; vários = período (agrega como "Todos", restrito aos meses escolhidos)
+    const refMonth = filters.month || null;
+    const corteSerie = filters.monthRef || null; // séries históricas vão até o mês mais recente escolhido
 
     const [carteiraTodosBruta, visitasTodasBruta] = await Promise.all([
       fetchWithCache('CARTEIRA_MENSAL_ALL', () =>
@@ -18,11 +19,11 @@ module.exports = comAuth(async (req, res) => {
     ]);
     const carteiraTodos = escopo.carteira(carteiraTodosBruta);
     const visitasTodas = escopo.fatos(visitasTodasBruta);
-    const carteiraMes = refMonth ? carteiraTodos.filter(r => String(r.mes_referencia).slice(0, 10) === refMonth) : carteiraTodos;
+    const carteiraMes = carteiraTodos.filter(r => filters.noPeriodo(r.mes_referencia));
     const carteiraFiltrada = carteiraMes.filter(r => rowMatchesFilters({ ...r, status: r.status_visita }, filters));
 
     const visitasFiltradas = visitasTodas
-      .filter(v => !refMonth || String(v.mes_referencia).slice(0, 10) === refMonth)
+      .filter(v => filters.noPeriodo(v.mes_referencia))
       .filter(v => rowMatchesFilters({ ...v, status: v.status_produtor }, filters));
     const visitasPorConsultor = new Map();
     visitasFiltradas.forEach(v => visitasPorConsultor.set(v.nome_consultor, (visitasPorConsultor.get(v.nome_consultor) || 0) + 1));
@@ -67,6 +68,7 @@ module.exports = comAuth(async (req, res) => {
     return res.status(200).json({
       timestamp: new Date().toISOString(),
       refMonth,
+      meses: filters.months,
       kpis: {
         perc_cobertura_geral: totalAtivos > 0 ? ((visitadosUnicos / totalAtivos) * 100).toFixed(1) : '0.0',
         total_visitas: totalVisitas,

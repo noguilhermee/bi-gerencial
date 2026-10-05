@@ -55,7 +55,7 @@ module.exports = comAuth(async (req, res) => {
     const ultimosMeses = [...new Set([...carteiraTodos, ...consistenciaTodos].map(c => String(c.mes_referencia).slice(0, 10)))].filter(Boolean).sort();
     const ultimoMesDisponivel = ultimosMeses.length > 0 ? ultimosMeses[ultimosMeses.length - 1] : null;
     // Regra da tela 3: o mês selecionado M exibe os dados de M-1 (ex.: Setembro/2026 → Agosto/2026)
-    const mesSelecionado = /^\d{4}-\d{2}-\d{2}$/.test(filters.month) ? filters.month : null;
+    const mesSelecionado = filters.monthRef || null; // vários meses: foto do mais recente escolhido
     const refMonth = mesSelecionado ? shiftMonthMinus1(mesSelecionado) : ultimoMesDisponivel;
     const doMes = r => !refMonth || String(r.mes_referencia).slice(0, 10) === refMonth;
 
@@ -157,7 +157,8 @@ module.exports = comAuth(async (req, res) => {
     return res.status(200).json({
       timestamp: new Date().toISOString(),
       refMonth,
-      mesFiltro: filters.month,
+      mesFiltro: filters.monthRef,
+      meses: filters.months,
       mesCompetencia: refMonth,
       mesSelecionado,
       mesDados: refMonth,
