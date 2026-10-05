@@ -42,6 +42,7 @@ module.exports = comAuth(async (req, res) => {
     const listaMaiuscula = valor => new Set(parseList(valor).map(v => v.toUpperCase()));
     const filterAgro = listaMaiuscula(req.query.industry);
     const filterRegion = listaMaiuscula(req.query.region);
+    const filterRegional = listaMaiuscula(req.query.regional);
     const filterProject = listaMaiuscula(req.query.project);
     const filterStatus = (req.query.status || '').trim().toUpperCase();
     const filterConsultant = listaMaiuscula(req.query.consultant);
@@ -70,6 +71,7 @@ module.exports = comAuth(async (req, res) => {
         codigo_lr: cod,
         agroindustria: agro,
         regiao: reg,
+        regional: String(row.regional || '').trim() || 'NAO INFORMADA',
         projeto: String(row.projeto || vinculo.projeto || '').trim(),
         consultor: String(row.nome_consultor || vinculo.consultor_campo || '').trim(),
         produtor: String(row.nome_produtor || vinculo.nome_produtor || '').trim(),
@@ -84,13 +86,14 @@ module.exports = comAuth(async (req, res) => {
     // Escopo do perfil logado, antes de qualquer filtro vindo da tela
     econList = escopo.fatos(econList);
 
-    // Aplicação dos filtros de dimensão (agro/região/projeto/status/consultor/produtor).
+    // Aplicação dos filtros de dimensão (agro/região/regional/projeto/status/consultor/produtor).
     // O filtro de mês é aplicado separadamente logo abaixo: ele deve valer para os KPIs
     // pontuais (foto do mês selecionado), mas NUNCA para séries históricas (evolução mensal),
     // senão o gráfico de tendência fica com um único ponto — mesmo padrão de overview.js
     // (carteiraTodos vs. carteiraMes).
     if (filterAgro.size) econList = econList.filter(r => filterAgro.has(r.agroindustria.toUpperCase()));
     if (filterRegion.size) econList = econList.filter(r => filterRegion.has(r.regiao.toUpperCase()));
+    if (filterRegional.size) econList = econList.filter(r => filterRegional.has(r.regional.toUpperCase()));
     if (filterProject.size) econList = econList.filter(r => filterProject.has(r.projeto.toUpperCase()));
     if (filterStatus) econList = econList.filter(r => r.status.toUpperCase() === filterStatus);
     if (filterConsultant.size) econList = econList.filter(r => filterConsultant.has(r.consultor.toUpperCase()));
@@ -232,6 +235,7 @@ module.exports = comAuth(async (req, res) => {
         nome_fazenda: r.nome_fazenda || '—',
         agroindustria: r.agroindustria || '—',
         regiao: r.regiao || '—',
+        regional: r.regional || '—',
         consultor: r.consultor || '—',
         status: r.status || '—',
         cidade: r.cidade || '',
@@ -278,6 +282,7 @@ module.exports = comAuth(async (req, res) => {
         nome_fazenda: r.nome_fazenda || '—',
         agroindustria: r.agroindustria || '—',
         regiao: r.regiao || '—',
+        regional: r.regional || '—',
         consultor: r.consultor || '—',
         mes_referencia: r.mes_referencia,
         mes_label: monthLabel(String(r.mes_referencia || '').substring(0, 7)),

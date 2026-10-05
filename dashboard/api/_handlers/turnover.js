@@ -46,6 +46,7 @@ module.exports = comAuth(async (req, res) => {
       grupo: m.consultor,
       agroindustria: m.agroindustria,
       regiao: m.regiao,
+      regional: m.regional,
       projeto: m.projeto,
       status: m.tipo === 'SAIDA' ? 'INATIVO' : 'ATIVO',
       mes_referencia: `${String(m.data_movimentacao).slice(0, 7)}-01`,

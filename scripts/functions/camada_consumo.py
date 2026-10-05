@@ -411,12 +411,15 @@ class Contexto:
         # Fazenda LR###### segue a carteira do SmartQuestion (a dim do Procampo só cobre os meses que ele não lista).
         self.pro_cfg = f.cfg_procampo
         # Fazendas LR###### que a base do Procampo (Piracanjuba) lista: a agroindústria é a Piracanjuba em todo o
-        # histórico, mesmo nos meses em que o SmartQuestion as listava como Nestlé/Alvoar. Região = regional da base.
+        # histórico, mesmo nos meses em que o SmartQuestion as listava como Nestlé/Alvoar. Regional = regional da base.
         self.pro_lr: dict[str, str] = {}
+        self.uf_procampo: dict[str, str] = {}   # LOCAL.UF da base do Procampo (fallback da região = UF)
         if not f.pro_fazendas.empty:
             siglas = (f.cfg_procampo or {}).get("regioes_por_sigla", {})
             for r in f.pro_fazendas.to_dict("records"):
                 cod = rn.limpar_codigo_lr(r.get("codigo_lr"))
+                if rn.sigla_uf(r.get("uf")):
+                    self.uf_procampo[cod] = rn.sigla_uf(r.get("uf"))
                 if rn.eh_fazenda_smartquestion(cod):
                     self.pro_lr[cod] = siglas.get(str(r.get("regional") or "").strip().upper(), rn.REGIAO_NAO_INFORMADA)
         self.agro_pro = rn.mapear_agroindustria((f.cfg_procampo or {}).get("agroindustria_bi", "Piracanjuba"))
@@ -508,24 +511,18 @@ class Contexto:
 
     def uf_de(self, codigo_lr: str, mes=None) -> str | None:
         """Sigla da UF da fazenda: carteira do mês (estado do SmartQuestion/Procampo) > Elabore > vínculo >
-        LISTA_GERAL mais recente."""
+        LISTA_GERAL mais recente > base do Procampo."""
         faz = self.fazenda(codigo_lr, mes)
         return (rn.sigla_uf(faz.get("estado")) or self.uf_elabore.get(codigo_lr)
                 or rn.sigla_uf(self.vinculo_qualquer.get(codigo_lr, {}).get("estado_produtor"))
-                or self.uf_lista_geral.get(codigo_lr))
-
-    def usa_regional(self, agroindustria) -> bool:
-        """True quando a região da agroindústria é a regional de tab_dim_regiao (Piracanjuba), e não a UF."""
-        return rn.chave(agroindustria) in rn.AGROINDUSTRIAS_REGIAO_POR_REGIONAL
+                or self.uf_lista_geral.get(codigo_lr) or self.uf_procampo.get(codigo_lr))
 
     def regiao_de(self, codigo_lr: str, agroindustria: str, projeto, mes=None) -> str:
-        """Região da fazenda exibida no filtro do BI.
+        """Região da fazenda (filtro "Região" do BI) = UF da fazenda, para todas as agroindústrias.
 
-        Regra geral: região = UF da fazenda (ex.: LR09765, regional ALAGOAS/SERGIPE, região SE). Exceção: as
-        agroindústrias de rn.AGROINDUSTRIAS_REGIAO_POR_REGIONAL usam a regional (ver regional_de).
-        Sem UF conhecida vira NÃO INFORMADA e entra no relatório de divergências."""
-        if self.usa_regional(agroindustria):
-            return self.regional_de(codigo_lr, agroindustria, projeto, mes)
+        Ex.: LR09765 tem regional ALAGOAS/SERGIPE e região SE; fazenda Piracanjuba da regional CCS tem região MG,
+        SP etc. A regional fica em regional_de. Sem UF conhecida vira NÃO INFORMADA e entra no relatório de
+        divergências."""
         uf = self.uf_de(codigo_lr, mes)
         if uf:
             return uf
@@ -1594,20 +1591,21 @@ def sincronizar_dim_consultor(supabase, dim: pd.DataFrame, nomes: list[str]) -> 
 
 
 def construir_consultor_atuacao(ctx: Contexto, r: dict, ids_consultor: dict[str, int]) -> tuple[pd.DataFrame, int]:
-    """Ponte consultor × agroindústria × região × mês, a partir das fatos já resolvidas.
+    """Ponte consultor × agroindústria × região (UF) × regional × mês, a partir das fatos já resolvidas.
 
-    É o relacionamento que os filtros do dashboard usam: um consultor só aparece para as agroindústrias e regiões
-    em que realmente atua. Devolve (ponte, linhas ignoradas por consultor/agroindústria fora da dimensão)."""
+    É o relacionamento que os filtros do dashboard usam: um consultor só aparece para as agroindústrias, regiões e
+    regionais em que realmente atua. Devolve (ponte, linhas ignoradas por consultor/agroindústria fora da dimensão)."""
     acumulado: dict[tuple, dict] = {}
 
     def somar(df, coluna_consultor, campo, coluna_mes=None, distinto=None):
         if df is None or df.empty:
             return
         base = df.assign(_mes=_mes(df[coluna_mes]) if coluna_mes else df["mes_referencia"])
-        grupos = base.groupby(["_mes", coluna_consultor, "agroindustria", "regiao"], dropna=True)
+        base["regional"] = base["regional"].fillna(rn.REGIAO_NAO_INFORMADA)
+        grupos = base.groupby(["_mes", coluna_consultor, "agroindustria", "regiao", "regional"], dropna=True)
         contagem = grupos[distinto].nunique() if distinto else grupos.size()
-        for (mes, consultor, agro, regiao), qtd in contagem.items():
-            linha = acumulado.setdefault((mes, consultor, agro, regiao),
+        for (mes, consultor, agro, regiao, regional), qtd in contagem.items():
+            linha = acumulado.setdefault((mes, consultor, agro, regiao, regional),
                                          {"qtd_fazendas": 0, "qtd_visitas": 0, "qtd_movimentacoes": 0})
             linha[campo] = int(qtd)
 
@@ -1621,7 +1619,7 @@ def construir_consultor_atuacao(ctx: Contexto, r: dict, ids_consultor: dict[str,
     piso = carteira["mes_referencia"].min() if carteira is not None and not carteira.empty else pd.NaT
     linhas: dict[str, dict] = {}
     ignoradas = 0
-    for (mes, consultor, agro, regiao), q in acumulado.items():
+    for (mes, consultor, agro, regiao, regional), q in acumulado.items():
         if pd.isna(mes) or not consultor or consultor == rn.NAO_ATRIBUIDO or (pd.notna(piso) and mes < piso):
             continue
         id_consultor = ids_consultor.get(rn.chave(consultor))
@@ -1629,9 +1627,9 @@ def construir_consultor_atuacao(ctx: Contexto, r: dict, ids_consultor: dict[str,
         if id_consultor is None or dim_agro is None:
             ignoradas += 1
             continue
-        # Regional (Piracanjuba) tem id em tab_dim_regiao; UF não: a própria sigla entra na chave
-        id_regiao = ctx.regiao_ids.get((rn.chave(agro), rn.chave(regiao)))
-        id_composto = f"{mes:%Y-%m-%d}|{id_consultor}|{dim_agro['id']}|{id_regiao or rn.chave(regiao) or 0}"
+        # id_regiao = id da regional em tab_dim_regiao (0 na chave quando NÃO INFORMADA); a UF entra pela sigla
+        id_regiao = ctx.regiao_ids.get((rn.chave(agro), rn.chave(regional)))
+        id_composto = f"{mes:%Y-%m-%d}|{id_consultor}|{dim_agro['id']}|{rn.chave(regiao) or 0}|{id_regiao or 0}"
         atual = linhas.get(id_composto)
         if atual:   # duas grafias do mesmo consultor (mesma chave) somam na mesma linha
             for campo in q:
@@ -1640,7 +1638,8 @@ def construir_consultor_atuacao(ctx: Contexto, r: dict, ids_consultor: dict[str,
         linhas[id_composto] = {
             "id_composto": id_composto, "mes_referencia": mes, "id_consultor": id_consultor,
             "id_agroindustria": int(dim_agro["id"]), "id_regiao": id_regiao,
-            "consultor": consultor, "agroindustria": dim_agro.get("nome_bi") or agro, "regiao": regiao, **q,
+            "consultor": consultor, "agroindustria": dim_agro.get("nome_bi") or agro, "regiao": regiao,
+            "regional": regional, **q,
         }
     return pd.DataFrame(list(linhas.values())), ignoradas
 
@@ -1682,23 +1681,23 @@ def alinhar_fato_economico(supabase, ctx: Contexto, gravar: bool) -> int:
 
 
 def pares_fora_da_dimensao(ctx: Contexto, r: dict) -> pd.DataFrame:
-    """Pares agroindústria × região gravados nas fatos que não fecham com a regra de região (esperado: nenhum).
+    """Valores gravados nas fatos que não fecham com as regras (esperado: nenhum).
 
-    Agroindústria com regional: a região precisa existir em tab_dim_regiao. Demais: a região precisa ser uma UF.
+    Região precisa ser uma UF; regional precisa existir em tab_dim_regiao para a agroindústria.
     'NÃO INFORMADA' é sempre aceita."""
     achados = []
+    nao_informada = rn.chave(rn.REGIAO_NAO_INFORMADA)
     for fato in ("carteira", "visitas", "movimentacao", "consistencia", "producao", "safra"):
         df = r.get(fato)
         if df is None or df.empty:
             continue
-        pares = df[["agroindustria", "regiao"]].drop_duplicates()
-        for agro, regiao in pares.itertuples(index=False):
-            if rn.chave(regiao) == rn.chave(rn.REGIAO_NAO_INFORMADA):
-                continue
-            ok = ctx.regiao.valida(agro, regiao) if ctx.usa_regional(agro) else rn.sigla_uf(regiao) == regiao
-            if not ok:
-                achados.append({"fato": fato, "agroindustria": agro, "regiao": regiao})
-    return pd.DataFrame(achados, columns=["fato", "agroindustria", "regiao"])
+        trios = df.reindex(columns=["agroindustria", "regiao", "regional"]).drop_duplicates()
+        for agro, regiao, regional in trios.itertuples(index=False):
+            regiao_ok = rn.chave(regiao) == nao_informada or rn.sigla_uf(regiao) == regiao
+            regional_ok = rn.chave(regional) in ("", nao_informada) or ctx.regiao.valida(agro, regional)
+            if not (regiao_ok and regional_ok):
+                achados.append({"fato": fato, "agroindustria": agro, "regiao": regiao, "regional": regional})
+    return pd.DataFrame(achados, columns=["fato", "agroindustria", "regiao", "regional"])
 
 
 def exportar_divergencias(ctx: Contexto, raiz: Path) -> Path | None:
@@ -1825,7 +1824,7 @@ def executar_camada_consumo(raiz: Path | None = None, gravar: bool = True) -> di
 
     ctx = r["ctx"]
     fora = pares_fora_da_dimensao(ctx, r)
-    print(f"   🔗 pares agroindústria×região fora de tab_dim_regiao nas fatos: {len(fora)} (esperado: 0)")
+    print(f"   🔗 região fora de UF ou regional fora de tab_dim_regiao nas fatos: {len(fora)} (esperado: 0)")
     if not fora.empty:
         print(fora.to_string(index=False))
 

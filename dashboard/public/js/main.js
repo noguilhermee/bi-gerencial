@@ -60,7 +60,7 @@ aoCarregar(() => {
       evolucaoMensal: { labels: [], fazendasAtivas: [], fazendasVisitadas: [], percCobertura: [] },
       evolucaoVisitas: { labels: [], values: [], variacoes: [] },
       rankingProdutores: { labels: [], values: [] },
-      filterOptions: { agroindustrias: [], regioes: [], projetos: projectOptions.map((p) => p.value), status: ['ATIVO', 'INATIVO'], meses: [] },
+      filterOptions: { agroindustrias: [], regioes: [], regionais: [], projetos: projectOptions.map((p) => p.value), status: ['ATIVO', 'INATIVO'], meses: [] },
       tabelas: { movimentacao: [], sem_visita: [], visitados: [] }
     },
     visits: {
@@ -295,7 +295,7 @@ aoCarregar(() => {
     charts.renderQuality('chartDataQualityAnnual', data.distribuicaoDonutAnual || emptyState.consistency.distribuicaoDonutAnual);
   }
 
-  // Filtros multi-seleção (agroindústria, região, projeto, consultor, produtor): lista vazia = "Todos".
+  // Filtros multi-seleção (agroindústria, região, regional, projeto, consultor, produtor): lista vazia = "Todos".
   // O <select multiple> é o armazenamento; a UI é o popup com checkboxes (setupCustomSelectDropdowns).
   function allOptionsSelected(select) {
     return select.options.length > 1 && [...select.options].every((opt) => opt.selected);
@@ -323,6 +323,7 @@ aoCarregar(() => {
     return {
       industry: selectedValues('filterIndustry'),
       region: selectedValues('filterRegion'),
+      regional: selectedValues('filterRegional'),
       project: selectedValues('filterProject'),
       status: '',
       consultant: selectedValues('filterConsultant'),
@@ -421,6 +422,8 @@ aoCarregar(() => {
     // Agroindústria e região já chegam canônicas do ETL (tab_dim_*): comparação exata, sem reinterpretar
     const rowRegions = [].concat(row.regiao ?? row.regioes ?? []).filter(Boolean);
     const regionMatch = !filter.region.length || rowRegions.some((r) => filter.region.includes(r));
+    const rowRegionais = [].concat(row.regional ?? row.regionais ?? []).filter(Boolean);
+    const regionalMatch = !(filter.regional || []).length || rowRegionais.some((r) => filter.regional.includes(r));
     const rowMonth = String(row.mes_referencia || row.data_referencia || '').slice(0, 10);
     const monthMatch = ignoreMonth || !filter.month.length || !rowMonth || dimensionMatches(rowMonth, filter.month);
 
@@ -430,6 +433,7 @@ aoCarregar(() => {
       producerMatch &&
       dimensionMatches(rowAgro, filter.industry) &&
       regionMatch &&
+      regionalMatch &&
       dimensionMatches(row.projeto || row.projetos, filter.project) &&
       (!filter.status || normalizeStatus(row.status) === normalizeStatus(filter.status)) &&
       monthMatch;
@@ -1563,6 +1567,7 @@ aoCarregar(() => {
       // Valores canônicos gravados pelo ETL (tab_dim_agroindustria / tab_dim_regiao): nada é reinterpretado aqui
       const agro = String(r.agroindustria || 'NAO INFORMADA').trim();
       const reg = String(r.regiao || '').trim() === 'NAO INFORMADA' ? '' : String(r.regiao || '').trim();
+      const regl = String(r.regional || '').trim() === 'NAO INFORMADA' ? '' : String(r.regional || '').trim();
       const proj = String(r.projeto || '').trim();
       const stat = normalizeStatus(r.status || defaultStatus);
       const mes = String(r.mes_referencia || r.data_referencia || '').slice(0, 10);
@@ -1570,12 +1575,13 @@ aoCarregar(() => {
       if (produtor.includes('_CONSULTOR') || produtor === 'CONTA DE SUPERVISÃO') return;
 
       if (consultores.length === 0) {
-        const key = `${agro}|${reg}|${proj}|${stat}||${produtor}|${codigoLr}|${mes}`;
+        const key = `${agro}|${reg}|${regl}|${proj}|${stat}||${produtor}|${codigoLr}|${mes}`;
         if (!seen.has(key)) {
           seen.add(key);
           rows.push({
             agroindustria: agro || '',
             regiao: reg || '',
+            regional: regl || '',
             projeto: proj || '',
             status: stat || 'ATIVO',
             consultor: '',
@@ -1588,12 +1594,13 @@ aoCarregar(() => {
         consultores.forEach((consult) => {
           const cleanConsult = String(consult || '').trim();
           if (!cleanConsult) return;
-          const key = `${agro}|${reg}|${proj}|${stat}|${cleanConsult}|${produtor}|${codigoLr}|${mes}`;
+          const key = `${agro}|${reg}|${regl}|${proj}|${stat}|${cleanConsult}|${produtor}|${codigoLr}|${mes}`;
           if (!seen.has(key)) {
             seen.add(key);
             rows.push({
               agroindustria: agro || '',
               regiao: reg || '',
+              regional: regl || '',
               projeto: proj || '',
               status: stat || 'ATIVO',
               consultor: cleanConsult || '',
@@ -1617,17 +1624,21 @@ aoCarregar(() => {
       const agros = tc.agroindustrias && tc.agroindustrias.length ? tc.agroindustrias : ['NAO INFORMADA'];
       const projs = tc.projetos && tc.projetos.length ? tc.projetos : [tc.projeto];
       const regs = tc.regioes && tc.regioes.length ? tc.regioes : [tc.regiao];
+      const regls = tc.regionais && tc.regionais.length ? tc.regionais : [tc.regional];
       agros.forEach((agro) => {
         projs.forEach((proj) => {
           regs.forEach((reg) => {
-            addRow({
-              consultor: consult,
-              agroindustria: agro,
-              projeto: proj,
-              regiao: reg,
-              status: 'ATIVO',
-              mes_referencia: tc.mes_referencia
-            }, 'ATIVO');
+            regls.forEach((regl) => {
+              addRow({
+                consultor: consult,
+                agroindustria: agro,
+                projeto: proj,
+                regiao: reg,
+                regional: regl,
+                status: 'ATIVO',
+                mes_referencia: tc.mes_referencia
+              }, 'ATIVO');
+            });
           });
         });
       });
@@ -1699,6 +1710,7 @@ aoCarregar(() => {
     // Multi-seleção: cada filtro é uma lista (vazia = sem restrição); a linha passa se bate com QUALQUER valor da lista
     const curInd = current.industry;
     const curReg = current.region;
+    const curRegl = current.regional;
     const curProj = current.project;
     const curStat = current.status;
     const curCons = current.consultant.map((c) => c.toLowerCase());
@@ -1710,6 +1722,7 @@ aoCarregar(() => {
       if (fieldKey !== 'month' && curMonths.size && row.mes_referencia && !curMonths.has(String(row.mes_referencia).slice(0, 7))) return false;
       if (fieldKey !== 'industry' && curInd.length && !curInd.includes(row.agroindustria)) return false;
       if (fieldKey !== 'region' && curReg.length && !curReg.includes(row.regiao)) return false;
+      if (fieldKey !== 'regional' && curRegl.length && !curRegl.includes(row.regional)) return false;
       if (fieldKey !== 'project' && curProj.length && !curProj.includes(row.projeto)) return false;
       if (fieldKey !== 'status' && curStat && row.status !== curStat) return false;
       if (fieldKey !== 'consultant' && curCons.length && !curCons.includes((row.consultor || '').toLowerCase())) return false;
@@ -1717,19 +1730,24 @@ aoCarregar(() => {
       return true;
     }
 
-    // Relacionamento oficial (tab_dim_consultor_atuacao, gravada pelo ETL): [mês AAAA-MM, agroindústria, região, consultor].
-    // Agroindústria, região e consultor só se oferecem entre si quando existe essa relação; sem a ponte publicada,
+    // Relacionamento oficial (tab_dim_consultor_atuacao, gravada pelo ETL): [mês AAAA-MM, agroindústria, região, consultor, regional].
+    // Agroindústria, região, regional e consultor só se oferecem entre si quando existe essa relação; sem a ponte publicada,
     // valem apenas as opções derivadas das linhas.
     const relacoes = (state.overview || state.masterOverview)?.filterOptions?.relacoes;
     function opcoesRelacionadas(fieldKey) {
       if (!Array.isArray(relacoes) || !relacoes.length) return null;
       const permitidos = new Set();
-      relacoes.forEach(([mes, agro, regiao, consultor]) => {
+      // Ponte publicada antes da coluna regional (sem a 5ª posição): o filtro de regional não se restringe por ela
+      const temRegional = relacoes.some((r) => r[4]);
+      if (fieldKey === 'regional' && !temRegional) return null;
+      relacoes.forEach(([mes, agro, regiao, consultor, regional]) => {
         if (curMonths.size && !curMonths.has(mes)) return;
         if (fieldKey !== 'industry' && curInd.length && !curInd.includes(agro)) return;
         if (fieldKey !== 'region' && curReg.length && !curReg.includes(regiao)) return;
+        if (temRegional && fieldKey !== 'regional' && curRegl.length && !curRegl.includes(regional)) return;
         if (fieldKey !== 'consultant' && curCons.length && !curCons.includes(String(consultor).toLowerCase())) return;
-        permitidos.add(String(fieldKey === 'industry' ? agro : fieldKey === 'region' ? regiao : consultor).toLowerCase());
+        const valor = { industry: agro, region: regiao, regional, consultant: consultor }[fieldKey];
+        permitidos.add(String(valor).toLowerCase());
       });
       return permitidos;
     }
@@ -1757,6 +1775,13 @@ aoCarregar(() => {
       const validRows = rows.filter((r) => matchesActiveExcept(r, 'region'));
       const available = restringirPelaRelacao([...new Set(validRows.map((r) => r.regiao).filter(Boolean))], 'region');
       fillMultiSelect('filterRegion', ordenar(available).map(simples));
+    }
+
+    // 2b. Regional (agrupamento definido pela agroindústria: ALAGOAS/SERGIPE, CCS - CENTRO SUL...)
+    if (el('filterRegional')) {
+      const validRows = rows.filter((r) => matchesActiveExcept(r, 'regional'));
+      const available = restringirPelaRelacao([...new Set(validRows.map((r) => r.regional).filter(Boolean))], 'regional');
+      fillMultiSelect('filterRegional', ordenar(available).map(simples));
     }
 
     // 3. Projeto
@@ -2230,6 +2255,7 @@ aoCarregar(() => {
       // Multi-seleção viaja em um único parâmetro, valores separados por "|" (ex.: consultant=Ana|Bruno)
       if (filter.industry.length) params.set('industry', filter.industry.join('|'));
       if (filter.region.length) params.set('region', filter.region.join('|'));
+      if (filter.regional.length) params.set('regional', filter.regional.join('|'));
       if (filter.project.length) params.set('project', filter.project.join('|'));
       if (filter.consultant.length) params.set('consultant', filter.consultant.join('|'));
       if (filter.status) params.set('status', filter.status);
@@ -2655,7 +2681,7 @@ aoCarregar(() => {
   });
 
   // Eventos de filtros com suporte a filtragem cruzada multidirecional estilo Power BI
-  ['filterIndustry', 'filterRegion', 'filterProject', 'filterConsultant', 'filterProducer']
+  ['filterIndustry', 'filterRegion', 'filterRegional', 'filterProject', 'filterConsultant', 'filterProducer']
     .forEach((id) => el(id)?.addEventListener('change', handleFilterSelectionChange));
   el('filterMonth')?.addEventListener('change', async () => {
     state.hasUserChangedMonth = true;

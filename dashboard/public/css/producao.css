@@ -159,6 +159,11 @@
 .leaflet-tooltip.map-tip { color: var(--ink); border: 1px solid var(--line); border-radius: 6px; background: var(--surface); box-shadow: var(--shadow-soft); font-weight: 700; }
 .leaflet-tooltip.map-tip::before { display: none; }
 
+/* Sigla da UF no centro do estado (malha IBGE); escondida no zoom do Brasil inteiro */
+.leaflet-tooltip.uf-rotulo { padding: 0; border: 0; background: transparent; box-shadow: none; color: var(--green-700); font-size: 10px; font-weight: 700; letter-spacing: .04em; opacity: .55 !important; pointer-events: none; }
+.leaflet-tooltip.uf-rotulo::before { display: none; }
+#mapaTerritorio.sem-rotulo-uf .uf-rotulo { display: none; }
+
 @media (max-width: 1024px) {
   .grid-two--prod-main, .grid-territory { display: flex !important; flex-direction: column !important; gap: 22px !important; }
   .grid-two--prod-main > .panel-card:last-child { align-self: stretch; }
@@ -221,23 +226,53 @@
 .safra-toolbar .safra-filtro--info:hover { border-color: var(--line); background: var(--surface); }
 .safra-toolbar-nota { flex: 1 1 0; min-width: 0; color: var(--muted); font-size: 11.5px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .safra-toolbar-espaco { flex: 0 0 0; }
+/* Botão "Gerar PDF": pílula da mesma altura dos chips, ícone em círculo e legenda curta; gira enquanto monta o relatório */
 .safra-btn-pdf {
+  position: relative;
+  height: 40px;
   display: inline-flex;
   align-items: center;
-  gap: 7px;
-  padding: 8px 16px;
+  gap: 9px;
+  padding: 0 18px 0 5px;
   color: #fff;
   border: 0;
   border-radius: 999px;
-  background: var(--green-700);
-  box-shadow: var(--shadow-soft);
-  font-size: 12.5px;
-  font-weight: 800;
+  background: linear-gradient(135deg, var(--green-600, #0f7a55), var(--green-800, #014945));
+  box-shadow: 0 4px 12px rgba(1, 73, 69, 0.22);
+  font-family: inherit;
   cursor: pointer;
+  transition: transform 150ms ease, box-shadow 150ms ease, filter 150ms ease;
 }
-.safra-btn-pdf:hover { background: var(--green-800); }
-.safra-btn-pdf .material-symbols-rounded { font-size: 18px; }
-.safra-cab-print { display: none; }
+.safra-btn-pdf:hover { transform: translateY(-1px); box-shadow: 0 7px 16px rgba(1, 73, 69, 0.28); filter: brightness(1.06); }
+.safra-btn-pdf:active { transform: translateY(0); box-shadow: 0 2px 6px rgba(1, 73, 69, 0.22); }
+.safra-btn-pdf:focus-visible { outline: 3px solid rgba(15, 122, 85, 0.35); outline-offset: 2px; }
+.safra-btn-pdf-ico {
+  width: 30px;
+  height: 30px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.18);
+  font-size: 18px;
+}
+.safra-btn-pdf-txt { display: flex; flex-direction: column; align-items: flex-start; line-height: 1.1; }
+.safra-btn-pdf-txt b { font-size: 12.5px; font-weight: 800; }
+.safra-btn-pdf-txt small { font-size: 10px; font-weight: 600; opacity: 0.8; }
+.safra-btn-pdf-giro { display: none; }
+.safra-btn-pdf.gerando { cursor: progress; filter: saturate(0.7); transform: none; }
+.safra-btn-pdf.gerando .safra-btn-pdf-ico { color: transparent; }
+.safra-btn-pdf.gerando .safra-btn-pdf-giro {
+  display: block;
+  position: absolute;
+  left: 12px;
+  width: 16px;
+  height: 16px;
+  border: 2px solid rgba(255, 255, 255, 0.35);
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation: safra-giro 700ms linear infinite;
+}
+@keyframes safra-giro { to { transform: rotate(360deg); } }
 .grid-safra {
   flex: 1;
   min-height: 0;
@@ -362,39 +397,100 @@
 .safra-comp-total { min-width: 92px; color: var(--ink-strong); font-size: 18px; font-weight: 800; text-align: right; white-space: nowrap; }
 .safra-comp-nota { margin: 0; color: var(--muted); font-size: 11px; }
 
-/* Gerar PDF da tela 7: só o slide 7, em A4 paisagem */
-@page { size: A4 landscape; margin: 8mm; }
-@media print {
-  body.imprimindo-safra { display: block; height: auto; min-height: 0; overflow: visible; background: #fff; }
-  html:has(body.imprimindo-safra) { height: auto; overflow: visible; }
-  body.imprimindo-safra * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
-  body.imprimindo-safra .progress-bar,
-  body.imprimindo-safra .app-header,
-  body.imprimindo-safra .app-footer,
-  body.imprimindo-safra .loading-overlay,
-  body.imprimindo-safra .no-print,
-  body.imprimindo-safra .btn-panel-fs,
-  body.imprimindo-safra .kpi-info-btn,
-  body.imprimindo-safra .slide:not(#slide7) { display: none !important; }
-  body.imprimindo-safra .carousel-viewport { overflow: visible; height: auto; }
-  body.imprimindo-safra .carousel-track { width: 100%; height: auto; display: block; transform: none !important; }
-  body.imprimindo-safra #slide7 { width: 100%; min-width: 0; height: 186mm; padding: 0; display: flex; overflow: visible; }
-  body.imprimindo-safra .safra-cab-print {
-    display: flex;
-    justify-content: space-between;
-    align-items: flex-end;
-    gap: 12px;
-    padding-bottom: 6px;
-    color: var(--ink-strong);
-    border-bottom: 2px solid var(--green-700);
-    font-size: 11px;
-  }
-  body.imprimindo-safra .safra-cab-print strong { display: block; font-size: 16px; font-weight: 800; }
-  body.imprimindo-safra .safra-cab-print span { color: var(--muted); font-weight: 600; }
-  body.imprimindo-safra .safra-toolbar .safra-filtro .select-display-value { background-image: none; padding-right: 0; }
-  body.imprimindo-safra .custom-select-popup { display: none !important; }
-  body.imprimindo-safra .panel-card { break-inside: avoid; box-shadow: none; }
+/* ── Gerar PDF da tela 7: relatório próprio (js/safra-relatorio.js) em A4 paisagem ──────────────────────
+   Na tela o relatório não aparece; na impressão só ele é impresso. Cores fixas (claras) mesmo no tema escuro. */
+@page {
+  size: A4 landscape;
+  margin: 9mm 10mm 11mm;
+  @bottom-left { content: "Labor Rural · Safra de Forrageiras"; color: #7a8b87; font: 600 7.5pt "Open Sans", Arial, sans-serif; }
+  @bottom-right { content: "Página " counter(page) " de " counter(pages); color: #7a8b87; font: 600 7.5pt "Open Sans", Arial, sans-serif; }
 }
+#safraRelatorio { display: none; }
+@media print {
+  html:has(body.imprimindo-relatorio) { height: auto !important; overflow: visible !important; background: #fff !important; }
+  body.imprimindo-relatorio { display: block !important; height: auto !important; min-height: 0 !important; overflow: visible !important; background: #fff !important; }
+  body.imprimindo-relatorio > *:not(#safraRelatorio) { display: none !important; }
+  body.imprimindo-relatorio #safraRelatorio { display: block; }
+}
+.rel { color: #16302c; font-family: "Open Sans", Arial, sans-serif; font-size: 9pt; line-height: 1.35; }
+.rel * { box-sizing: border-box; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+.rel-pagina { break-after: page; }
+.rel-pagina:last-child { break-after: auto; }
+.rel h3 { margin: 0; color: #014945; font-size: 10.5pt; font-weight: 800; }
+.rel-sub { margin: 1px 0 6px; color: #5d6f6b; font-size: 7.8pt; }
+
+/* Cabeçalho de cada página */
+.rel-cab { display: flex; align-items: center; gap: 12px; padding-bottom: 7px; margin-bottom: 8px; border-bottom: 2.5px solid #0f7a55; }
+.rel-logo { height: 13mm; width: auto; }
+.rel-cab-texto { flex: 1; min-width: 0; padding-left: 12px; border-left: 1px solid #dfe7e4; }
+.rel-cab-texto h1 { margin: 0; color: #014945; font-size: 17pt; font-weight: 800; letter-spacing: -0.01em; line-height: 1.1; }
+.rel-cab-texto p { margin: 2px 0 0; color: #5d6f6b; font-size: 8.5pt; font-weight: 600; }
+.rel-cab-meta { display: flex; flex-direction: column; align-items: flex-end; gap: 2px; color: #5d6f6b; font-size: 7.5pt; font-weight: 600; text-align: right; }
+
+/* Filtros aplicados */
+.rel-chips { display: flex; flex-wrap: wrap; gap: 5px; margin-bottom: 8px; }
+.rel-chips span { display: inline-flex; align-items: baseline; gap: 5px; padding: 3px 9px; border: 1px solid #cfe2da; border-radius: 999px; background: #f2f8f5; font-size: 8pt; font-weight: 700; }
+.rel-chips b { color: #0f7a55; font-size: 6.8pt; font-weight: 800; letter-spacing: 0.04em; text-transform: uppercase; }
+.rel-chips .rel-chip-largo { flex: 1 1 260px; font-weight: 600; }
+
+/* Indicadores-chave */
+.rel-kpis { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 6px; margin-bottom: 9px; }
+.rel-kpi { display: flex; flex-direction: column; gap: 1px; padding: 7px 10px; border: 1px solid #dfe7e4; border-left: 4px solid #4f93d6; border-radius: 6px; background: #fff; }
+.rel-kpi.verde { border-left-color: #0f7a55; background: #f2f8f5; }
+.rel-kpi span { color: #5d6f6b; font-size: 6.8pt; font-weight: 800; letter-spacing: 0.04em; text-transform: uppercase; }
+.rel-kpi strong { color: #014945; font-size: 15pt; font-weight: 800; line-height: 1.15; white-space: nowrap; }
+.rel-kpi strong em { color: #5d6f6b; font-size: 8pt; font-style: normal; font-weight: 700; }
+.rel-kpi small { color: #5d6f6b; font-size: 7pt; }
+
+/* Cartões de gráfico */
+.rel-grade3 { display: grid; grid-template-columns: 1.15fr 1fr 1fr; gap: 8px; margin-bottom: 9px; }
+.rel-grade2 { display: grid; grid-template-columns: 1.6fr 1fr; gap: 8px; margin-bottom: 9px; }
+.rel-card { min-width: 0; overflow: hidden; padding: 8px 10px; border: 1px solid #dfe7e4; border-radius: 7px; break-inside: avoid; }
+.rel-graf { display: block; width: 100%; height: auto; }
+.rel-sistema { display: grid; grid-template-columns: 33mm minmax(0, 1fr); align-items: center; gap: 6px; }
+.rel-donut { width: 33mm; height: 33mm; }
+.rel-sistema .rel-tab { font-size: 7.4pt; }
+.rel-sistema .rel-tab td:first-child { white-space: nowrap; }
+.rel-dot { display: inline-block; width: 8px; height: 8px; margin-right: 5px; border-radius: 2px; vertical-align: 0; }
+.rel-leg { display: flex; flex-wrap: wrap; justify-content: center; gap: 3px 12px; margin-top: 4px; color: #16302c; font-size: 7.5pt; font-weight: 600; }
+.rel-leg span { display: inline-flex; align-items: center; gap: 5px; }
+.rel-leg i { width: 9px; height: 9px; border-radius: 2px; }
+.rel-cob { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 8px; padding-top: 10px; }
+.rel-cob-num { display: flex; align-items: center; gap: 8px; }
+.rel-cob-num + .rel-cob-num { padding-left: 10px; border-left: 1px solid #dfe7e4; }
+.rel-cob-num strong { font-size: 22pt; font-weight: 800; line-height: 1; letter-spacing: -0.03em; }
+.rel-cob-num strong.verde { color: #0f7a55; }
+.rel-cob-num strong.azul { color: #4f93d6; }
+.rel-cob-num span { font-size: 7.4pt; font-weight: 700; line-height: 1.2; }
+.rel-cob-num small { display: block; margin-top: 2px; color: #5d6f6b; font-size: 7pt; font-weight: 500; }
+.rel-barra { grid-column: 1 / -1; height: 14px; display: flex; overflow: hidden; border-radius: 4px; }
+.rel-barra i { display: block; height: 100%; }
+.rel-nota { grid-column: 1 / -1; margin: 0; color: #5d6f6b; font-size: 7.2pt; }
+
+/* Tabelas */
+.rel-bloco { margin-bottom: 9px; break-inside: avoid; }
+.rel-bloco h3 { margin-bottom: 5px; }
+.rel-tab { width: 100%; border-collapse: collapse; font-size: 8pt; font-variant-numeric: tabular-nums; }
+.rel-tab th { padding: 5px 7px; color: #fff; background: #014945; font-size: 7.2pt; font-weight: 800; text-align: left; white-space: nowrap; }
+.rel-tab th:first-child { border-top-left-radius: 5px; }
+.rel-tab th:last-child { border-top-right-radius: 5px; }
+.rel-tab td { padding: 4px 7px; border-bottom: 1px solid #e6edea; }
+.rel-tab tbody tr:nth-child(even) td { background: #f6f9f8; }
+.rel-tab .n { text-align: right; white-space: nowrap; }
+.rel-tab td small { display: block; color: #7a8b87; font-size: 6.6pt; }
+.rel-tab tfoot td { border-top: 1.5px solid #014945; border-bottom: 0; background: #eef5f2; font-weight: 800; }
+.rel-tab-compacta th { color: #5d6f6b; background: transparent; border-bottom: 1.5px solid #014945; }
+.rel-tab-compacta th, .rel-tab-compacta td { padding: 4px 4px; }
+.rel-tab-lista { font-size: 7.4pt; }
+.rel-tab-lista thead { display: table-header-group; } /* repete o cabeçalho em cada página */
+.rel-tab-lista tr { break-inside: avoid; }
+.rel-tab-lista td { padding: 3px 6px; }
+.rel-tab .vazio { padding: 14px; color: #5d6f6b; text-align: center; }
+
+/* Notas */
+.rel-notas { padding: 7px 10px; border-radius: 6px; background: #f6f9f8; break-inside: avoid; }
+.rel-notas h4 { margin: 0 0 3px; color: #014945; font-size: 8pt; font-weight: 800; }
+.rel-notas ul { margin: 0; padding-left: 14px; color: #3d504c; font-size: 7.3pt; }
 
 /* Tela 7: conteúdo gráfico dos painéis some em tela cheia, dando lugar à tabela de detalhe por fazenda (mesmo padrão das telas 3–5). */
 .panel-card.is-fullscreen .safra-vista-grafico {

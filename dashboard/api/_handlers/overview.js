@@ -22,25 +22,27 @@ module.exports = comAuth(async (req, res) => {
     const carteiraTodos = escopo.carteira(carteiraTodosBruta);
     const visitasTodas = escopo.fatos(visitasTodasBruta);
 
-    // Relacionamento oficial dos filtros (consultor × agroindústria × região × mês), gravado pelo ETL em
+    // Relacionamento oficial dos filtros (consultor × agroindústria × região × regional × mês), gravado pelo ETL em
     // tab_dim_consultor_atuacao. Falha (ex.: migration ainda não aplicada) não é cacheada e não derruba a rota:
     // o front segue só com as opções derivadas das linhas.
     const atuacao = await fetchWithCache('DIM_CONSULTOR_ATUACAO', () =>
-      fetchAll(() => supabase.from('tab_dim_consultor_atuacao').select('mes_referencia,agroindustria,regiao,consultor'), undefined, 'id_composto')
+      fetchAll(() => supabase.from('tab_dim_consultor_atuacao').select('mes_referencia,agroindustria,regiao,consultor,regional'), undefined, 'id_composto')
     ).catch((error) => {
       console.warn('tab_dim_consultor_atuacao indisponível:', error.message);
       return null;
     });
-    // Perfis restritos só enxergam combinações de agroindústria, região e consultor presentes na sua carteira
+    // Perfis restritos só enxergam combinações de agroindústria, região, regional e consultor presentes na sua carteira
     const noEscopo = escopo.admin ? () => true : (() => {
       const agros = new Set(carteiraTodos.map(r => r.agroindustria));
       const regioes = new Set(carteiraTodos.map(r => r.regiao));
+      const regionais = new Set(carteiraTodos.map(r => r.regional));
       const consultores = new Set(carteiraTodos.map(r => r.consultor));
-      return a => agros.has(a.agroindustria) && regioes.has(a.regiao) && consultores.has(a.consultor);
+      return a => agros.has(a.agroindustria) && regioes.has(a.regiao) && regionais.has(a.regional) && consultores.has(a.consultor);
     })();
     const relacoes = atuacao
       ? [...new Map(atuacao.filter(noEscopo).map(a => {
-          const linha = [String(a.mes_referencia).slice(0, 7), a.agroindustria, a.regiao, a.consultor];
+          // [mês, agroindústria, região (UF), consultor, regional]: a regional vai no fim para não deslocar as posições antigas
+          const linha = [String(a.mes_referencia).slice(0, 7), a.agroindustria, a.regiao, a.consultor, a.regional || null];
           return [linha.join('\u0001'), linha];
         })).values()]
       : null;
@@ -120,6 +122,7 @@ module.exports = comAuth(async (req, res) => {
       propriedade: r.nome_propriedade,
       agroindustria: r.agroindustria,
       regiao: r.regiao,
+      regional: r.regional,
       projeto: r.projeto,
       status: r.status_visita,
       status_class: r.status_visita_classe,
@@ -140,6 +143,7 @@ module.exports = comAuth(async (req, res) => {
         propriedade: v.nome_propriedade,
         agroindustria: v.agroindustria,
         regiao: v.regiao,
+        regional: v.regional,
         projeto: v.projeto,
         status: v.status_produtor,
         mes_referencia: v.mes_referencia,
@@ -177,6 +181,7 @@ module.exports = comAuth(async (req, res) => {
         projeto: r.projeto,
         agroindustria: r.agroindustria,
         regiao: r.regiao,
+        regional: r.regional,
         mes_referencia: r.mes_referencia,
         status: 'ATIVO'
       }));
@@ -205,6 +210,7 @@ module.exports = comAuth(async (req, res) => {
       filterOptions: {
         agroindustrias: [...new Set(carteiraTodos.map(r => r.agroindustria))].filter(Boolean).sort((a, b) => a.localeCompare(b, 'pt-BR')),
         regioes: [...new Set(carteiraTodos.map(r => r.regiao))].filter(Boolean).sort((a, b) => a.localeCompare(b, 'pt-BR')),
+        regionais: [...new Set(carteiraTodos.map(r => r.regional))].filter(Boolean).sort((a, b) => a.localeCompare(b, 'pt-BR')),
         projetos: [...new Set(carteiraTodos.map(r => r.projeto))].filter(Boolean).sort(),
         consultores: [...new Set(carteiraTodos.map(r => r.consultor))].filter(Boolean).sort(),
         status: ['ATIVO', 'INATIVO'],

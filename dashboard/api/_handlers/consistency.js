@@ -7,7 +7,7 @@ const SEM_DADOS = 'SEM DADOS';
 function daCarteira(r) {
   return {
     codigo_lr: r.codigo_lr, nome_produtor: r.nome_produtor, propriedade: r.nome_propriedade, consultor: r.consultor, projeto: r.projeto,
-    agroindustria: r.agroindustria, regiao: r.regiao, mes_referencia: r.mes_referencia, status: 'ATIVO',
+    agroindustria: r.agroindustria, regiao: r.regiao, regional: r.regional, mes_referencia: r.mes_referencia, status: 'ATIVO',
     consistencia_mensal: r.consistencia_mensal, consistencia_anual: r.consistencia_anual,
     detalhamento_mensal: r.detalhamento_mensal, detalhamento_anual: r.detalhamento_anual,
     meses_sequenciais: r.meses_sequenciais, em_carencia: r.em_carencia, excecao: r.excecao, sem_lancamento_elabore: r.sem_lancamento_elabore,
@@ -19,7 +19,7 @@ function daCarteira(r) {
 function foraDaCarteira(c) {
   return {
     codigo_lr: c.codigo_lr, nome_produtor: c.nome_produtor, consultor: c.nome_consultor, projeto: c.projeto,
-    agroindustria: c.agroindustria, regiao: c.regiao, mes_referencia: c.mes_referencia, status: 'INATIVO',
+    agroindustria: c.agroindustria, regiao: c.regiao, regional: c.regional, mes_referencia: c.mes_referencia, status: 'INATIVO',
     consistencia_mensal: c.consistencia_mensal, consistencia_anual: c.consistencia_anual,
     detalhamento_mensal: c.detalhamento_inconsistencia, detalhamento_anual: c.detalhamento_anual,
     meses_sequenciais: c.meses_sequenciais, em_carencia: Boolean(c.data_carencia_fim && new Date(c.data_carencia_fim) > new Date()),
@@ -118,6 +118,7 @@ module.exports = comAuth(async (req, res) => {
       consultor: r.consultor,
       agroindustria: r.agroindustria,
       regiao: r.regiao,
+      regional: r.regional,
       projeto: r.projeto,
       status: r.status,
       mes_referencia: r.mes_referencia,
@@ -140,6 +141,7 @@ module.exports = comAuth(async (req, res) => {
         consultor: r.consultor,
         agroindustria: r.agroindustria,
         regiao: r.regiao,
+        regional: r.regional,
         projeto: r.projeto,
         mes_referencia: r.mes_referencia,
         possui_dados: temDado,

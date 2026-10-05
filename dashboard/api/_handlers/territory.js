@@ -117,6 +117,7 @@ module.exports = comAuth(async (req, res) => {
           cidade: l.cidade || null,
           estado: l.estado || null,
           regiao,
+          regional: f.regional || null,
           agroindustria: f.agroindustria,
           projeto: f.projeto,
           consultores: [...f.consultores],

@@ -87,7 +87,7 @@ function getSupabaseClient() {
 const COLUNAS = {
   carteira: [
     'id_composto', 'mes_referencia', 'codigo_lr', 'consultor', 'consultores_grupo', 'nome_produtor',
-    'nome_propriedade', 'projeto', 'agroindustria', 'regiao', 'data_associacao', 'visitado_mes',
+    'nome_propriedade', 'projeto', 'agroindustria', 'regiao', 'regional', 'data_associacao', 'visitado_mes',
     'data_ultima_visita', 'data_visita_mes_anterior', 'dias_sem_visita', 'status_visita',
     'status_visita_classe', 'consistencia_mensal', 'detalhamento_mensal', 'consistencia_anual',
     'detalhamento_anual', 'meses_sequenciais', 'excecao', 'sem_lancamento_elabore', 'em_carencia', 'cadastro_elabore',
@@ -95,22 +95,22 @@ const COLUNAS = {
   ].join(','),
   visitas: [
     'id_atendimento', 'codigo_lr', 'nome_consultor', 'profissao_consultor', 'mes_referencia',
-    'nome_produtor', 'nome_propriedade', 'projeto', 'agroindustria', 'regiao', 'status_produtor',
+    'nome_produtor', 'nome_propriedade', 'projeto', 'agroindustria', 'regiao', 'regional', 'status_produtor',
     'data_visita', 'tipo_visita', 'valor_pago_produtor', 'valor_pago_agroindustria',
     'cadastro_elabore', 'dados_elabore_pct', 'dados_elabore_status', 'blocos_elabore'
   ].join(','),
   movimentacao: [
     'id_composto', 'codigo_lr', 'data_movimentacao', 'data_solicitacao', 'nome_produtor', 'numero_atendimento',
-    'consultor', 'tipo', 'motivo', 'projeto', 'agroindustria', 'regiao'
+    'consultor', 'tipo', 'motivo', 'projeto', 'agroindustria', 'regiao', 'regional'
   ].join(','),
   consistencia: [
-    'id_composto', 'codigo_lr', 'nome_consultor', 'projeto', 'agroindustria', 'regiao', 'mes_referencia',
+    'id_composto', 'codigo_lr', 'nome_consultor', 'projeto', 'agroindustria', 'regiao', 'regional', 'mes_referencia',
     'na_carteira', 'data_carencia_fim', 'consistencia_mensal', 'consistencia_anual',
     'detalhamento_inconsistencia', 'detalhamento_anual', 'meses_sequenciais', 'excecao', 'sem_lancamento_elabore',
     'cadastro_elabore', 'dados_elabore_pct', 'dados_elabore_status', 'blocos_elabore'
   ].join(','),
   economico: [
-    'id_composto', 'codigo_lr', 'nome_produtor', 'nome_consultor', 'projeto', 'agroindustria', 'regiao',
+    'id_composto', 'codigo_lr', 'nome_produtor', 'nome_consultor', 'projeto', 'agroindustria', 'regiao', 'regional',
     'mes_referencia', 'data_associacao', 'possui_dados_economicos', 'volume_leite_mes',
     'volume_diario_litros', 'vacas_lactacao', 'produtividade_l_vl_dia', 'receita_bruta_atividade',
     'preco_medio_litro', 'coe_total_reais', 'coe_por_litro', 'margem_bruta_total',
@@ -119,13 +119,13 @@ const COLUNAS = {
   ].join(','),
   producao: [
     'id_composto', 'codigo_lr', 'mes_referencia', 'nome_produtor', 'nome_propriedade', 'nome_consultor',
-    'projeto', 'agroindustria', 'regiao', 'status_produtor', 'producao_l_dia', 'vacas_lactacao',
+    'projeto', 'agroindustria', 'regiao', 'regional', 'status_produtor', 'producao_l_dia', 'vacas_lactacao',
     'produtividade_l_vaca_dia', 'ccs', 'cpp', 'gordura', 'proteina', 'producao_suspeita', 'producao_imputada',
     'ccs_acima_limite', 'cpp_acima_limite', 'qualidade_descartada'
   ].join(','),
   safra: [
     'id_composto', 'bloco', 'codigo_lr', 'nome_produtor', 'nome_propriedade', 'consultor', 'projeto', 'agroindustria',
-    'regiao', 'safra', 'cultura', 'ciclo', 'produto', 'sistema', 'fonte', 'area_plantada_ha', 'area_com_cobertura_ha',
+    'regiao', 'regional', 'safra', 'cultura', 'ciclo', 'produto', 'sistema', 'fonte', 'area_plantada_ha', 'area_com_cobertura_ha',
     'n_producoes', 'producoes_inconsistentes', 'area_colhida_ha', 'toneladas', 'custo_total', 'custo_pre_plantio',
     'custo_plantio', 'custo_tratos', 'custo_colheita', 'custo_etapa_nao_informada',
     'custo_total_defl', 'custo_pre_plantio_defl', 'custo_plantio_defl', 'custo_tratos_defl', 'custo_colheita_defl',
@@ -215,7 +215,7 @@ function parseList(value) {
 
 /**
  * Extrai e normaliza os filtros comuns compartilhados por todos os endpoints.
- * industry/region/project/consultant/producer são listas (multi-seleção; lista vazia = sem filtro).
+ * industry/region/regional/project/consultant/producer são listas (multi-seleção; lista vazia = sem filtro).
  * consultantKeys/producerKeys guardam as versões minúsculas em Set, para o match por linha ser O(1).
  *
  * Mês também é multi-seleção (month=2026-08-01|2026-09-01):
@@ -238,6 +238,7 @@ function parseFilters(query) {
     noPeriodo: valor => !mesesSet.size || mesesSet.has(String(valor || '').slice(0, 10)),
     industry: parseList(query?.industry),
     region: parseList(query?.region),
+    regional: parseList(query?.regional),
     project: parseList(query?.project),
     consultant,
     producer,
@@ -247,10 +248,11 @@ function parseFilters(query) {
   };
 }
 
-/** Aplica os filtros comuns a uma linha já resolvida pelo ETL (campos: agroindustria, regiao, projeto, consultor/nome_consultor, nome_produtor/codigo_lr, status_*). */
+/** Aplica os filtros comuns a uma linha já resolvida pelo ETL (campos: agroindustria, regiao, regional, projeto, consultor/nome_consultor, nome_produtor/codigo_lr, status_*). */
 function rowMatchesFilters(row, filters) {
   if (filters.industry.length && !filters.industry.includes(row.agroindustria)) return false;
   if (filters.region.length && !filters.region.includes(row.regiao)) return false;
+  if (filters.regional.length && !filters.regional.includes(row.regional)) return false;
   if (filters.project.length && !filters.project.includes(String(row.projeto || ''))) return false;
   if (filters.consultantKeys.size) {
     const consultor = String(row.consultor || row.nome_consultor || '').toLowerCase();

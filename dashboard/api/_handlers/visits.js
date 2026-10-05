@@ -34,7 +34,7 @@ module.exports = comAuth(async (req, res) => {
       if (!consultoresMap.has(c)) {
         consultoresMap.set(c, {
           consultor: c, totalFarms: new Set(), visitedFarms: new Set(),
-          industries: new Set(), projects: new Set(), regions: new Set()
+          industries: new Set(), projects: new Set(), regions: new Set(), regionals: new Set()
         });
       }
       const item = consultoresMap.get(c);
@@ -43,6 +43,7 @@ module.exports = comAuth(async (req, res) => {
       if (r.projeto) item.projects.add(r.projeto);
       if (r.agroindustria) item.industries.add(r.agroindustria);
       if (r.regiao && r.regiao !== 'NAO INFORMADA') item.regions.add(r.regiao);
+      if (r.regional && r.regional !== 'NAO INFORMADA') item.regionals.add(r.regional);
     });
 
     const consultoresList = [...consultoresMap.values()].map(c => {
@@ -55,6 +56,7 @@ module.exports = comAuth(async (req, res) => {
         perc_cobertura: Number(((c.visitedFarms.size / total) * 100).toFixed(1)),
         agroindustrias: [...c.industries],
         regioes: [...c.regions],
+        regionais: [...c.regionals],
         projetos: [...c.projects],
         status: 'ATIVO',
         mes_referencia: refMonth

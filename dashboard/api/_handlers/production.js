@@ -73,6 +73,7 @@ function infoFazenda(linha) {
     propriedade: linha.nome_propriedade,
     agroindustria: linha.agroindustria,
     regiao: linha.regiao,
+    regional: linha.regional,
     consultor: linha.nome_consultor
   };
 }

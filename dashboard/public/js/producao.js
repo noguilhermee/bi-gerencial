@@ -42,6 +42,7 @@
     mapa: null,
     contorno: null,
     contornoLayer: null,
+    estadosLayer: null,         // divisa dos estados (malha IBGE)
     grupos: new Map(),          // pontos (localização) por região
     gruposBolha: new Map(),     // bolhas de produção por região (abaixo dos pontos)
     mostrarBolhas: true,
@@ -338,8 +339,25 @@
   }
 
   // ── Mapa ───────────────────────────────────────────────────────────────────────────────────────────
+  // Fundo do mapa: estados (malha do IBGE, /data/brasil_uf.json) preenchidos com divisa fina; contorno do país por cima
+  function estiloEstados() {
+    return { color: cssVar('--green-300', '#8be4d2'), weight: 0.7, fillColor: cssVar('--green-100', '#eaf6f3'), fillOpacity: 1, interactive: false };
+  }
+
   function estiloContorno() {
-    return { color: cssVar('--green-300', '#8be4d2'), weight: 1.2, fillColor: cssVar('--green-100', '#eaf6f3'), fillOpacity: 1, interactive: false };
+    return { color: cssVar('--green-300', '#8be4d2'), weight: 1.4, fill: false, interactive: false };
+  }
+
+  function fundoParaTras() {
+    est.contornoLayer?.bringToBack();
+    est.estadosLayer?.bringToBack();
+  }
+
+  // Sigla da UF no centro do estado, só a partir do zoom 5 (no Brasil inteiro as siglas do Nordeste se sobrepõem)
+  const ZOOM_ROTULO_UF = 5;
+  function atualizarRotulosUf() {
+    if (!est.mapa) return;
+    est.mapa.getContainer().classList.toggle('sem-rotulo-uf', est.mapa.getZoom() < ZOOM_ROTULO_UF);
   }
 
   function limparMapa() {
@@ -359,11 +377,21 @@
     if (!alvo || typeof L === 'undefined') return null;
     est.mapa = L.map(alvo, { scrollWheelZoom: false, attributionControl: false, zoomSnap: 0.25, minZoom: 3, maxZoom: 13, preferCanvas: true });
     est.mapa.setView([-15.5, -50], 4);
+    fetch('/data/brasil_uf.json').then((r) => r.json()).then((geo) => {
+      est.estadosLayer = L.geoJSON(geo, {
+        style: estiloEstados,
+        onEachFeature: (f, camada) => camada.bindTooltip(f.properties.uf,
+          { permanent: true, direction: 'center', className: 'uf-rotulo', interactive: false })
+      }).addTo(est.mapa);
+      fundoParaTras();
+      atualizarRotulosUf();
+    }).catch(() => { /* o mapa funciona sem a divisa dos estados */ });
     fetch('/data/brasil.json').then((r) => r.json()).then((geo) => {
       est.contorno = geo;
       est.contornoLayer = L.geoJSON(geo, { style: estiloContorno }).addTo(est.mapa);
-      est.contornoLayer.bringToBack();
+      fundoParaTras();
     }).catch(() => { /* o mapa funciona sem o contorno */ });
+    est.mapa.on('zoomend', atualizarRotulosUf);
     // zoom por rolagem só com o mouse sobre o mapa (evita brigar com a rolagem da página no celular)
     alvo.addEventListener('mouseenter', () => { if (window.innerWidth > 1024) est.mapa.scrollWheelZoom.enable(); });
     alvo.addEventListener('mouseleave', () => est.mapa.scrollWheelZoom.disable());
@@ -438,6 +466,7 @@
       <div class="fc-lista">
         <div class="fc-item"><span>Agroindústria</span><b>${escapeHtml(p.agroindustria)}</b></div>
         <div class="fc-item"><span>Região</span><b>${escapeHtml(p.regiao)}</b></div>
+        ${p.regional && p.regional !== 'NAO INFORMADA' ? `<div class="fc-item"><span>Regional</span><b>${escapeHtml(p.regional)}</b></div>` : ''}
         <div class="fc-item"><span>Consultor(a)</span><b>${p.consultores.length ? p.consultores.map(escapeHtml).join('<br>') : '—'}</b></div>
         <div class="fc-item"><span>Projeto</span><b>${escapeHtml(p.projeto)}</b></div>
         <div class="fc-item"><span>Código</span><b>${escapeHtml(p.codigo_lr)}</b></div>
@@ -456,7 +485,7 @@
     est.grupos.forEach((g) => g.remove());
     if (est.mostrarBolhas) est.gruposBolha.forEach((g, regiao) => { if (!est.ocultas.has(regiao)) g.addTo(mapa); });
     est.grupos.forEach((g, regiao) => { if (!est.ocultas.has(regiao)) g.addTo(mapa); });
-    est.contornoLayer?.bringToBack();
+    fundoParaTras();
     if (est.selecionado) est.selecionado.bringToFront();
   }
 
@@ -872,7 +901,7 @@
 
   /** Gerar PDF da tela 7: imprime só o slide 7 em A4 paisagem (destino "Salvar como PDF"). */
   function textoFiltrosGlobais() {
-    const rotulos = [['filterIndustry', 'Agroindústria'], ['filterRegion', 'Região'], ['filterProject', 'Projeto'], ['filterConsultant', 'Consultor'], ['filterProducer', 'Produtor']];
+    const rotulos = [['filterIndustry', 'Agroindústria'], ['filterRegion', 'Região'], ['filterRegional', 'Regional'], ['filterProject', 'Projeto'], ['filterConsultant', 'Consultor'], ['filterProducer', 'Produtor']];
     const partes = rotulos.map(([id, rotulo]) => {
       const sel = el(id);
       const escolhidos = sel ? [...sel.selectedOptions].map((o) => o.textContent.trim()).filter(Boolean) : [];
@@ -881,31 +910,23 @@
     return partes.length ? partes.join(' · ') : 'Todas as agroindústrias, regiões e consultores';
   }
 
-  function gerarPdfSafra() {
-    const sel = est.safraSel || {};
-    const tituloOriginal = document.title;
-    const hoje = new Date().toLocaleDateString('pt-BR');
-    if (el('safraCabFiltros')) el('safraCabFiltros').textContent = `Safra ${(sel.safra || []).join(', ')} · ${(sel.cultura || []).map(titulo).join(', ')} · ${(sel.produto || []).map(titulo).join(', ')} · ${textoFiltrosGlobais()}`;
-    if (el('safraCabData')) el('safraCabData').textContent = `Gerado em ${hoje}`;
-    const nomeArquivo = ['Safra_Forrageiras', (sel.safra || []).join('_').replace(/\//g, '-'), (sel.produto || []).map(titulo).join('_')].filter(Boolean).join('_').replace(/[^\w-]+/g, '_');
-    const restaurar = () => {
-      document.body.classList.remove('imprimindo-safra');
-      document.title = tituloOriginal;
-      redesenharSafra();
-      window.removeEventListener('afterprint', restaurar);
-    };
-    window.addEventListener('afterprint', restaurar);
-    document.title = nomeArquivo;
-    document.body.classList.add('imprimindo-safra');
-    // Os gráficos precisam ser redimensionados para a página de impressão antes de abrir o diálogo
-    requestAnimationFrame(() => {
-      redesenharSafra();
-      setTimeout(() => window.print(), 250);
-    });
-  }
-
-  function redesenharSafra() {
-    GRAFICOS_SAFRA.forEach((id) => { if (est.charts[id]) est.charts[id].resize(); });
+  /** Gerar PDF: monta o relatório de impressão (safra-relatorio.js) com os dados já exibidos na tela. */
+  async function gerarPdfSafra() {
+    const btn = el('safraBtnPdf');
+    if (!window.LRSafraRelatorio || !est.safra || !est.safra.porSistema || (btn && btn.disabled)) return;
+    if (btn) { btn.disabled = true; btn.classList.add('gerando'); }
+    try {
+      await window.LRSafraRelatorio.gerar({
+        dados: est.safra,
+        selecao: est.safraSel || {},
+        filtros: textoFiltrosGlobais(),
+        cores: { sistema: SISTEMA_COR, rotulo: SISTEMA_ROTULO, etapas: ETAPAS_CUSTO }
+      });
+    } catch (erro) {
+      console.error('Falha ao gerar o PDF da safra:', erro);
+    } finally {
+      if (btn) { btn.disabled = false; btn.classList.remove('gerando'); }
+    }
   }
 
   // ── Interações e tema ─────────────────────────────────────────────────────────────────────────────
@@ -945,6 +966,7 @@
       if (est.safra && est.safra.porSistema) renderGraficosSafra(est.safra);
       if (est.terr && est.terr.regioes) renderBarrasRegiao(est.terr);
       est.contornoLayer?.setStyle(estiloContorno());
+      est.estadosLayer?.setStyle(estiloEstados());
     }).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
   }
 
