@@ -350,6 +350,8 @@ class Contexto:
             agro = rn.mapear_agroindustria(r["agroindustry_name"])
             if rn.chave(agro) in self.agro_dim and rn.chave(agro) != rn.chave(rn.AGRO_NAO_INFORMADA):
                 self.agro_elabore[r["codigo_lr"]] = self.agro_dim[rn.chave(agro)].get("nome_bi") or agro
+        # UF da fazenda segundo o Elabore (qualquer status): fallback da região quando a carteira não traz o estado
+        self.uf_elabore = {r["codigo_lr"]: rn.sigla_uf(r.get("uf")) for r in props.to_dict("records") if rn.sigla_uf(r.get("uf"))}
         codigos_consistencia = set(f.raw_consistencia_mensal["codigo_lr"].map(rn.limpar_codigo_lr))
         self.cadastrados_elabore = set(props["codigo_lr"]) | codigos_consistencia
 
@@ -496,12 +498,31 @@ class Contexto:
                     return dim.get("nome_bi") or dim.get("nome_agroindustria")
         return None
 
-    def regiao_de(self, codigo_lr: str, agroindustria: str, projeto, mes=None) -> str:
-        """Região canônica da fazenda, sempre uma região que a agroindústria possui em tab_dim_regiao.
-
-        Candidatas, em ordem: Elabore e cadastro da fazenda. Região de outra agroindústria, ou que não está no
-        cadastro, vira NÃO INFORMADA e entra no relatório de divergências, em vez de aparecer solta nos filtros."""
+    def uf_de(self, codigo_lr: str, mes=None) -> str | None:
+        """Sigla da UF da fazenda: carteira do mês (estado do SmartQuestion/Procampo) > Elabore > vínculo."""
         faz = self.fazenda(codigo_lr, mes)
+        return (rn.sigla_uf(faz.get("estado")) or self.uf_elabore.get(codigo_lr)
+                or rn.sigla_uf(self.vinculo_qualquer.get(codigo_lr, {}).get("estado_produtor")))
+
+    def usa_regional(self, agroindustria) -> bool:
+        """True quando a região da agroindústria é a regional de tab_dim_regiao (Piracanjuba), e não a UF."""
+        return rn.chave(agroindustria) in rn.AGROINDUSTRIAS_REGIAO_POR_REGIONAL
+
+    def regiao_de(self, codigo_lr: str, agroindustria: str, projeto, mes=None) -> str:
+        """Região da fazenda exibida no filtro do BI.
+
+        Regra geral: região = UF da fazenda (ex.: LR09765, regional ALAGOAS/SERGIPE, região SE). Exceção: as
+        agroindústrias de rn.AGROINDUSTRIAS_REGIAO_POR_REGIONAL usam a regional canônica de tab_dim_regiao.
+        Sem UF conhecida, ou com regional que não é da agroindústria, vira NÃO INFORMADA e entra no relatório
+        de divergências, em vez de aparecer solta nos filtros."""
+        faz = self.fazenda(codigo_lr, mes)
+        if not self.usa_regional(agroindustria):
+            uf = self.uf_de(codigo_lr, mes)
+            if uf:
+                return uf
+            self._divergencia("UF_NAO_INFORMADA", codigo_lr, agroindustria, None,
+                              estado_cadastro=_texto(faz.get("estado")))
+            return rn.REGIAO_NAO_INFORMADA
         candidatas = []
         if codigo_lr in self.pro_lr:
             candidatas.append(self.pro_lr[codigo_lr])   # regional da base do Procampo vem primeiro
@@ -1582,8 +1603,9 @@ def construir_consultor_atuacao(ctx: Contexto, r: dict, ids_consultor: dict[str,
         if id_consultor is None or dim_agro is None:
             ignoradas += 1
             continue
+        # Regional (Piracanjuba) tem id em tab_dim_regiao; UF não: a própria sigla entra na chave
         id_regiao = ctx.regiao_ids.get((rn.chave(agro), rn.chave(regiao)))
-        id_composto = f"{mes:%Y-%m-%d}|{id_consultor}|{dim_agro['id']}|{id_regiao or 0}"
+        id_composto = f"{mes:%Y-%m-%d}|{id_consultor}|{dim_agro['id']}|{id_regiao or rn.chave(regiao) or 0}"
         atual = linhas.get(id_composto)
         if atual:   # duas grafias do mesmo consultor (mesma chave) somam na mesma linha
             for campo in q:
@@ -1631,9 +1653,10 @@ def alinhar_fato_economico(supabase, ctx: Contexto, gravar: bool) -> int:
 
 
 def pares_fora_da_dimensao(ctx: Contexto, r: dict) -> pd.DataFrame:
-    """Pares agroindústria × região gravados nas fatos que não existem em tab_dim_regiao (esperado: nenhum).
+    """Pares agroindústria × região gravados nas fatos que não fecham com a regra de região (esperado: nenhum).
 
-    'NÃO INFORMADA' é o único valor de região aceito fora da dimensão."""
+    Agroindústria com regional: a região precisa existir em tab_dim_regiao. Demais: a região precisa ser uma UF.
+    'NÃO INFORMADA' é sempre aceita."""
     achados = []
     for fato in ("carteira", "visitas", "movimentacao", "consistencia", "producao", "safra"):
         df = r.get(fato)
@@ -1643,7 +1666,8 @@ def pares_fora_da_dimensao(ctx: Contexto, r: dict) -> pd.DataFrame:
         for agro, regiao in pares.itertuples(index=False):
             if rn.chave(regiao) == rn.chave(rn.REGIAO_NAO_INFORMADA):
                 continue
-            if not ctx.regiao.valida(agro, regiao):
+            ok = ctx.regiao.valida(agro, regiao) if ctx.usa_regional(agro) else rn.sigla_uf(regiao) == regiao
+            if not ok:
                 achados.append({"fato": fato, "agroindustria": agro, "regiao": regiao})
     return pd.DataFrame(achados, columns=["fato", "agroindustria", "regiao"])
 

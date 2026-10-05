@@ -273,6 +273,22 @@ aoCarregar(() => {
     updateValue('kpiDataAnnual', percent(kpi.perc_anual));
     updateValue('kpiDataDivergent', number(divergences));
     updateValue('kpiDataBase', number(base));
+
+    // Subtítulos: a API devolve os dados de M-1 para o mês selecionado M
+    const mesLongo = (value) => {
+      const parsed = value ? new Date(`${String(value).slice(0, 10)}T12:00:00`) : null;
+      return parsed && !Number.isNaN(parsed.getTime())
+        ? parsed.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' }).replace(/^./, (c) => c.toUpperCase())
+        : '';
+    };
+    const mesSelecionado = mesLongo(data.mesSelecionado);
+    const mesDados = mesLongo(data.mesDados || data.refMonth);
+    const refTexto = mesDados
+      ? `dados de ${mesDados}${mesSelecionado ? ` (mês anterior a ${mesSelecionado})` : ''}`
+      : 'dados do mês anterior ao selecionado';
+    if (el('consistencyHistorySub')) el('consistencyHistorySub').textContent = `% de registros consistentes · ${mesDados ? `até ${refTexto.replace('dados de ', '')}` : refTexto}`;
+    if (el('dataQualitySub')) el('dataQualitySub').textContent = `Registros aptos, incompletos e divergentes · ${refTexto}`;
+
     const consistencyData = sliceTimeSeries(data.evolucaoConsistencia || emptyState.consistency.evolucaoConsistencia, state.chartHorizons.consistency);
     charts.renderConsistencyHistory('chartConsistencyHistory', consistencyData);
     charts.renderQuality('chartDataQualityMonthly', data.distribuicaoDonut || emptyState.consistency.distribuicaoDonut);
@@ -1994,7 +2010,7 @@ aoCarregar(() => {
 
   function exportInconsistenciesToCsv() {
     const filter = currentFilter();
-    let inconsistencies = (state.consistency?.tabelaInconsistentes || []).filter((row) => matches(row, filter));
+    let inconsistencies = (state.consistency?.tabelaInconsistentes || []).filter((row) => matches(row, filter, true));
     if (!inconsistencies.length) {
       alert('Nenhum dado disponível para exportação com os filtros atuais.');
       return;
@@ -2791,7 +2807,7 @@ aoCarregar(() => {
       if (!btn) return;
       const idx = Number(btn.dataset.idx);
       const filter = getFilterState();
-      let inconsistencies = (state.consistency?.tabelaInconsistentes || []).filter((row) => matches(row, filter));
+      let inconsistencies = (state.consistency?.tabelaInconsistentes || []).filter((row) => matches(row, filter, true));
       inconsistencies = sortRows(inconsistencies, tableSort.tbodyInconsistencies, (row, key) => key === 'produtor' ? (row.produtor || row.codigo_lr) : row[key]);
       const selectedItem = inconsistencies[idx];
       if (selectedItem) openDetailsModal(selectedItem);

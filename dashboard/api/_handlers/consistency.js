@@ -1,4 +1,4 @@
-const { COLUNAS, getSupabaseClient, fetchAll, fetchWithCache, monthLabel, formatDate, parseFilters, rowMatchesFilters, obterEscopo } = require('../_shared');
+const { COLUNAS, getSupabaseClient, fetchAll, fetchWithCache, monthLabel, formatDate, parseFilters, rowMatchesFilters, obterEscopo, shiftMonthMinus1 } = require('../_shared');
 const { comAuth } = require('../_auth');
 
 const SEM_DADOS = 'SEM DADOS';
@@ -54,7 +54,9 @@ module.exports = comAuth(async (req, res) => {
 
     const ultimosMeses = [...new Set([...carteiraTodos, ...consistenciaTodos].map(c => String(c.mes_referencia).slice(0, 10)))].filter(Boolean).sort();
     const ultimoMesDisponivel = ultimosMeses.length > 0 ? ultimosMeses[ultimosMeses.length - 1] : null;
-    const refMonth = /^\d{4}-\d{2}-\d{2}$/.test(filters.month) ? filters.month : ultimoMesDisponivel;
+    // Regra da tela 3: o mês selecionado M exibe os dados de M-1 (ex.: Setembro/2026 → Agosto/2026)
+    const mesSelecionado = /^\d{4}-\d{2}-\d{2}$/.test(filters.month) ? filters.month : null;
+    const refMonth = mesSelecionado ? shiftMonthMinus1(mesSelecionado) : ultimoMesDisponivel;
     const doMes = r => !refMonth || String(r.mes_referencia).slice(0, 10) === refMonth;
 
     // Base do mês: 1 linha por fazenda (a carteira tem 1 linha por consultor)
@@ -157,6 +159,8 @@ module.exports = comAuth(async (req, res) => {
       refMonth,
       mesFiltro: filters.month,
       mesCompetencia: refMonth,
+      mesSelecionado,
+      mesDados: refMonth,
       kpis: {
         perc_consistente: percMensalRef,
         perc_anual: percAnualRef,

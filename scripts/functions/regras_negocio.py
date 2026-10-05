@@ -212,6 +212,10 @@ _WHITELIST_NORMALIZADA = {chave(t) for t in WHITELIST_TIPOS_VISITA_LEITE}
 AGRO_NAO_INFORMADA = "NÃO INFORMADA"
 REGIAO_NAO_INFORMADA = "NÃO INFORMADA"
 
+# Região (filtro do BI) = UF da fazenda. Regional = agrupamento definido pela agroindústria (ex.: ALAGOAS/SERGIPE),
+# guardado em tab_dim_regiao. Só as agroindústrias abaixo usam a regional como região (Piracanjuba: CCO, CCS...).
+AGROINDUSTRIAS_REGIAO_POR_REGIONAL = {"PIRACANJUBA"}
+
 
 def mapear_agroindustria(projeto_ou_agro) -> str:
     """Nome canônico da agroindústria exibido no dashboard (= tab_dim_agroindustria.nome_bi)."""
