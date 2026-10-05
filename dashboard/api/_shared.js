@@ -11,16 +11,23 @@
 
 // Cache em memória no processo Node.js
 const memoryCache = new Map();
-const DEFAULT_TTL_MS = 5 * 60 * 1000; // 5 minutos
+const DEFAULT_TTL_MS = 30 * 60 * 1000; // 30 minutos: os fatos só mudam quando o ETL roda
+// Passado o TTL o dado velho ainda é servido (e atualizado em segundo plano) até este limite; depois disso é descartado.
+const STALE_MS = 6 * 60 * 60 * 1000;
 
 function getCached(key) {
   const item = memoryCache.get(key);
   if (!item) return null;
-  if (Date.now() > item.expiresAt) {
+  if (Date.now() > item.expiresAt + STALE_MS) {
     memoryCache.delete(key);
     return null;
   }
   return item.data;
+}
+
+function isFresh(key) {
+  const item = memoryCache.get(key);
+  return Boolean(item) && Date.now() <= item.expiresAt;
 }
 
 function setCached(key, data, ttlMs = DEFAULT_TTL_MS) {
@@ -31,7 +38,7 @@ function setCached(key, data, ttlMs = DEFAULT_TTL_MS) {
   if (memoryCache.size > 200) {
     const now = Date.now();
     for (const [k, v] of memoryCache.entries()) {
-      if (now > v.expiresAt) memoryCache.delete(k);
+      if (now > v.expiresAt + STALE_MS) memoryCache.delete(k);
     }
   }
 }
@@ -43,16 +50,23 @@ const emAndamento = new Map();
 
 async function fetchWithCache(cacheKey, fetcherFn, ttlMs = DEFAULT_TTL_MS) {
   const cached = getCached(cacheKey);
-  if (cached !== null) return cached;
+  const iniciarLeitura = () => {
+    const leitura = fetcherFn()
+      .then(result => {
+        setCached(cacheKey, result, ttlMs);
+        return result;
+      })
+      .finally(() => emAndamento.delete(cacheKey));
+    emAndamento.set(cacheKey, leitura);
+    return leitura;
+  };
+  if (cached !== null) {
+    // Vencido: responde com o dado anterior e atualiza em segundo plano (falha não derruba; tenta de novo na próxima)
+    if (!isFresh(cacheKey) && !emAndamento.has(cacheKey)) iniciarLeitura().catch((error) => console.warn(`Atualização de ${cacheKey} falhou:`, error.message));
+    return cached;
+  }
   if (emAndamento.has(cacheKey)) return emAndamento.get(cacheKey);
-  const leitura = fetcherFn()
-    .then(result => {
-      setCached(cacheKey, result, ttlMs);
-      return result;
-    })
-    .finally(() => emAndamento.delete(cacheKey));
-  emAndamento.set(cacheKey, leitura);
-  return leitura;
+  return iniciarLeitura();
 }
 
 function getSupabaseClient() {

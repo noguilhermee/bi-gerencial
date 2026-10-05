@@ -161,6 +161,12 @@ aoCarregar(() => {
     }
   }
 
+  // Overview, visitas, movimentação e consistência numa só chamada (a API lê cada tabela uma vez)
+  async function getGerencial(query) {
+    const dados = await getJson(`/api/master${query}`);
+    return { overview: dados?.overview ?? null, visits: dados?.visits ?? null, turnover: dados?.turnover ?? null, consistency: dados?.consistency ?? null };
+  }
+
   function renderOverview(data) {
     if (!data) return;
     const kpi = data.kpis || {};
@@ -2084,12 +2090,7 @@ aoCarregar(() => {
     // Econômico já sai junto (sem await): se loadAllData pedir a mesma query, reaproveita.
     state.masterQuery = query;
     state.masterEconomicsRequest = getJson(`/api/economics${query}`);
-    const [overview, visits, turnover, consistency] = await Promise.all([
-      getJson(`/api/overview${query}`),
-      getJson(`/api/visits${query}`),
-      getJson(`/api/turnover${query}`),
-      getJson(`/api/consistency${query}`)
-    ]);
+    const { overview, visits, turnover, consistency } = await getGerencial(query);
 
     // Mês padrão (calendário) ainda sem carteira publicada: usa o mês mais recente com dados e busca de novo,
     // senão a base dos filtros fica vazia e nenhuma opção aparece.
@@ -2214,12 +2215,7 @@ aoCarregar(() => {
       const economicsRequest = reuseMaster ? state.masterEconomicsRequest : getJson(`/api/economics${query}`);
       const [overview, visits, turnover, consistency] = reuseMaster
         ? [state.masterOverview, state.masterVisits, state.masterTurnover, state.masterConsistency]
-        : await Promise.all([
-          getJson(`/api/overview${query}`),
-          getJson(`/api/visits${query}`),
-          getJson(`/api/turnover${query}`),
-          getJson(`/api/consistency${query}`)
-        ]);
+        : await getGerencial(query).then(({ overview, visits, turnover, consistency }) => [overview, visits, turnover, consistency]);
       if (loadId !== loadSequence) return; // um filtro mais novo já está carregando
       state.overview = overview;
       state.visits = visits;

@@ -11,6 +11,7 @@
     { "source": "/api/config", "destination": "/api/sessao?rota=config" },
     { "source": "/api/me", "destination": "/api/sessao?rota=me" },
     { "source": "/api/health", "destination": "/api/sessao?rota=health" },
+    { "source": "/api/master", "destination": "/api/gerencial?rota=master" },
     { "source": "/api/overview", "destination": "/api/gerencial?rota=overview" },
     { "source": "/api/visits", "destination": "/api/gerencial?rota=visits" },
     { "source": "/api/turnover", "destination": "/api/gerencial?rota=turnover" },

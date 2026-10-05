@@ -22,7 +22,7 @@ loadLocalEnvironment();
 // Mesmo mapeamento dos rewrites do vercel.json: rota pública -> roteador + ?rota=
 const ROTEADORES = {
   sessao: ['config', 'me', 'health'],
-  gerencial: ['overview', 'visits', 'turnover', 'consistency', 'economics'],
+  gerencial: ['overview', 'visits', 'turnover', 'consistency', 'economics', 'master'],
   producao: ['production', 'territory', 'safra']
 };
 const roteadorDa = (nome) => Object.keys(ROTEADORES).find((r) => ROTEADORES[r].includes(nome));

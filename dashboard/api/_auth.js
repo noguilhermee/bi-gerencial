@@ -55,7 +55,8 @@ function comAuth(handler, { admin = false } = {}) {
     try {
       res.setHeader('Content-Type', 'application/json');
       res.setHeader('Cache-Control', 'private, no-store');
-      const resultado = await autenticar(req);
+      // req.perfil só existe aqui se outro handler do servidor (rota master) já validou o token; o cliente não consegue defini-lo.
+      const resultado = req.perfil ? { perfil: req.perfil } : await autenticar(req);
       if (!resultado.perfil) return res.status(resultado.status).json({ error: resultado.erro });
       if (admin && !podeGerenciarUsuarios(resultado.perfil)) return res.status(403).json({ error: 'Apenas o administrador principal gerencia usuários' });
       req.perfil = resultado.perfil;
