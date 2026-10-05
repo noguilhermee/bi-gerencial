@@ -152,7 +152,7 @@ aoCarregar(() => {
     try {
       const token = await window.LRAuth.getToken();
       const response = await fetch(url, { headers: { Accept: 'application/json', Authorization: `Bearer ${token}` } });
-      if (response.status === 401) { window.LRAuth.irParaLogin(); return null; }
+      if (response.status === 401) { window.LRAuth.logout(); return null; }
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
       return await response.json();
     } catch (error) {

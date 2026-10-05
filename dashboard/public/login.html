@@ -51,7 +51,11 @@
   </main>
   <footer class="copy">© Labor Rural | 2026</footer>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="./js/auth.js?v=20261001-1"></script>
+  <script src="./js/auth.js?v=20261005-1"></script>
+  <script>
+    // Enquanto o usuário digita, o servidor já carrega as tabelas no cache (a resposta é vazia; não expõe dado)
+    fetch('/api/aquecer', { cache: 'no-store', keepalive: true }).catch(() => {});
+  </script>
   <script>
     (async () => {
       const msg = document.getElementById('msg');
@@ -88,7 +92,7 @@
         return;
       }
 
-      if ((await client.auth.getSession()).data.session) { location.replace('/'); return; }
+      if (await LRAuth.sessaoValida()) { location.replace('/'); return; }
 
       document.getElementById('loginForm').addEventListener('submit', async (e) => {
         e.preventDefault();

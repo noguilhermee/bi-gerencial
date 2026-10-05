@@ -1,5 +1,5 @@
 // Roteador único (a Vercel Hobby limita 12 funções): despacha para api/_handlers/<rota>.js via ?rota=, definido nos rewrites do vercel.json.
-const ROTAS = ['config', 'me', 'health'];
+const ROTAS = ['config', 'me', 'health', 'aquecer'];
 
 module.exports = async (req, res) => {
   const rota = String((req.query && req.query.rota) || '');

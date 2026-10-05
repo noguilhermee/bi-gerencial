@@ -952,7 +952,7 @@
   <div class="panel-fullscreen-backdrop" id="panelFsBackdrop" hidden></div>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="./js/auth.js?v=20261001-2"></script>
+  <script src="./js/auth.js?v=20261005-1"></script>
   <script>
     // Só depois de /api/me confirmar login E perfil cadastrado o dashboard é exibido e seus scripts são baixados.
     // Sem sessão válida, exigirLogin() redireciona para /login e esta cadeia nunca continua.
@@ -978,7 +978,7 @@
         for (const src of scripts) await carregar(src);
       }).catch((erro) => {
         console.error('Acesso não validado.', erro);
-        LRAuth.irParaLogin();
+        LRAuth.logout();
       });
     })();
   </script>

@@ -34,7 +34,7 @@
     const token = await getToken();
     if (!token) { irParaLogin(); return new Promise(() => {}); }
     const resposta = await fetch('/api/me', { headers: { Authorization: `Bearer ${token}` } });
-    if (resposta.status === 401) { irParaLogin(); return new Promise(() => {}); }
+    if (resposta.status === 401) { await logout(); return new Promise(() => {}); }
     if (resposta.status === 403) {
       await logout('Seu usuário não tem permissão de acesso. Fale com a Labor Rural.');
       return new Promise(() => {});
@@ -49,5 +49,17 @@
     irParaLogin();
   }
 
-  window.LRAuth = { client, getToken, exigirLogin, logout, irParaLogin };
+  // Sessão guardada no navegador que o servidor aceita. Se não aceitar, limpa (senão login e dashboard se redirecionam sem parar).
+  async function sessaoValida() {
+    const token = await getToken();
+    if (!token) return false;
+    try {
+      const resposta = await fetch('/api/me', { headers: { Authorization: `Bearer ${token}` } });
+      if (resposta.ok) return true;
+    } catch (_) { /* servidor indisponível: trata como sem sessão */ }
+    try { await (await client()).auth.signOut(); } catch (_) { /* já inválida */ }
+    return false;
+  }
+
+  window.LRAuth = { client, getToken, exigirLogin, logout, irParaLogin, sessaoValida };
 })();

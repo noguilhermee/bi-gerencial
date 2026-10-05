@@ -9,6 +9,7 @@
   },
   "rewrites": [
     { "source": "/api/config", "destination": "/api/sessao?rota=config" },
+    { "source": "/api/aquecer", "destination": "/api/sessao?rota=aquecer" },
     { "source": "/api/me", "destination": "/api/sessao?rota=me" },
     { "source": "/api/health", "destination": "/api/sessao?rota=health" },
     { "source": "/api/master", "destination": "/api/gerencial?rota=master" },
