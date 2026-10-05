@@ -526,7 +526,7 @@
   ];
   const titulo = (v) => { const t = String(v ?? '').toLowerCase(); return t ? t.charAt(0).toUpperCase() + t.slice(1) : '—'; };
   const pct = (v) => (v === null || v === undefined ? '—' : `${num(v)}%`);
-  const GRAFICOS_SAFRA = ['chartSafraSistema', 'chartSafraProdutividade', 'chartSafraCustoHa', 'chartSafraCustoT'];
+  const GRAFICOS_SAFRA = ['chartSafraSistema', 'chartSafraCobHist', 'chartSafraProdutividade', 'chartSafraCustoHa', 'chartSafraCustoT'];
 
   function limparSafra(mensagem) {
     if (el('safraNFazendas')) el('safraNFazendas').textContent = '–';
@@ -534,6 +534,7 @@
     ['safraSistemaSub', 'safraCoberturaSub', 'safraProdSub', 'safraCustoSub', 'safraDonutTotal', 'safraCobPctCom', 'safraCobPctSem'].forEach((id) => { if (el(id)) el(id).textContent = '—'; });
     ['safraSistemaLegenda', 'safraConservacionista', 'safraCobDestaque', 'safraCobHaCom', 'safraCobHaSem'].forEach((id) => { if (el(id)) el(id).innerHTML = ''; });
     ['safraCobBarraCom', 'safraCobBarraSem'].forEach((id) => { if (el(id)) el(id).style.width = '0'; });
+    renderHistoricoCobertura([]);
     if (el('safraRodape')) el('safraRodape').innerHTML = '';
     const aviso = el('safraAviso');
     if (aviso) { aviso.textContent = mensagem; aviso.hidden = false; }
@@ -690,6 +691,7 @@
     const rotuloFatia = (p, f) => (!p ? '' : p >= 22 ? `${p}% (${fazLabel(f)})` : `${p}%`);
     if (barraCom) { barraCom.style.width = `${cob.pctCom || 0}%`; barraCom.textContent = rotuloFatia(cob.pctCom, cob.fazendasCom); }
     if (barraSem) { barraSem.style.width = `${cob.pctSem || 0}%`; barraSem.textContent = rotuloFatia(cob.pctSem, fazSem); }
+    renderHistoricoCobertura(cob.historico || [], fazLabel);
 
     // 3) Produtividade por sistema (t/ha)
     if (el('safraProdSub')) el('safraProdSub').textContent = `${produto} · toneladas colhidas por hectare · ${fazLabel(porSis.reduce((a, r) => a + (r.fazendas || 0), 0))}`;
@@ -710,6 +712,72 @@
 
     // 4) Custos: R$/ha e R$/t lado a lado (ou composição por etapa)
     aplicarVistaCusto();
+  }
+
+  /** Cobertura do solo com mais de uma safra: colunas 100 % empilhadas (com × sem cobertura), uma por safra.
+   * Com uma safra só, o painel mantém os percentuais grandes e a barra. */
+  function renderHistoricoCobertura(historico, fazLabel) {
+    const multiplas = historico.length > 1;
+    if (el('safraCobResumo')) el('safraCobResumo').hidden = multiplas;
+    if (el('safraCobBarra')) el('safraCobBarra').hidden = multiplas;
+    if (el('safraCobHist')) el('safraCobHist').hidden = !multiplas;
+    if (!multiplas) { destruirGrafico('chartSafraCobHist'); return; }
+    if (el('safraCoberturaSub')) el('safraCoberturaSub').textContent = `Área com plantas de cobertura após a colheita · histórico de ${historico.length} safras`;
+    const eixo = cssVar('--muted', '#65707c');
+    // Rótulo branco centralizado no segmento (só quando cabe)
+    const rotulosSegmento = {
+      id: 'lrSegmentos',
+      afterDatasetsDraw(chart) {
+        const ctx = chart.ctx;
+        ctx.save();
+        ctx.font = '800 12px "Open Sans", Arial, sans-serif';
+        ctx.fillStyle = '#ffffff';
+        ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        chart.data.datasets.forEach((ds, di) => {
+          const meta = chart.getDatasetMeta(di);
+          if (meta.hidden) return;
+          meta.data.forEach((barra, i) => {
+            const v = ds.data[i];
+            if (!v || Math.abs(barra.base - barra.y) < 18) return;
+            ctx.fillText(`${v}%`, barra.x, (barra.y + barra.base) / 2);
+          });
+        });
+        ctx.restore();
+      }
+    };
+    criarGrafico('chartSafraCobHist', {
+      type: 'bar',
+      plugins: [rotulosSegmento, eixoXDuasLinhas(11)],
+      data: {
+        labels: historico.map((h) => [h.safra, `${fazLabel(h.fazendas)} · ${num(h.areaTotal)} ha`]),
+        datasets: [
+          { label: 'Com cobertura', data: historico.map((h) => h.pctCom), backgroundColor: '#0f7a55', borderRadius: { bottomLeft: 4, bottomRight: 4 }, borderSkipped: false, maxBarThickness: 84, stack: 'cob' },
+          { label: 'Sem cobertura', data: historico.map((h) => h.pctSem), backgroundColor: '#4f93d6', borderRadius: { topLeft: 4, topRight: 4 }, borderSkipped: false, maxBarThickness: 84, stack: 'cob' }
+        ]
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            ...tooltipBase(),
+            callbacks: {
+              title: (itens) => `Safra ${historico[itens[0].dataIndex].safra}`,
+              label: (c) => {
+                const h = historico[c.dataIndex];
+                return c.datasetIndex === 0
+                  ? ` Com cobertura: ${pct(h.pctCom)} · ${num(h.areaCom, 1)} ha · ${fazLabel(h.fazendasCom)}`
+                  : ` Sem cobertura: ${pct(h.pctSem)} · ${num(h.areaSem, 1)} ha`;
+              }
+            }
+          }
+        },
+        scales: {
+          x: { stacked: true, grid: { display: false }, border: { display: false }, ticks: { color: 'transparent', font: { size: 11 } } },
+          y: { stacked: true, display: false, beginAtZero: true, max: 100 }
+        }
+      }
+    });
   }
 
   function barrasCusto(id, campo, dados) {

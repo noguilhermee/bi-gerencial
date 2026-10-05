@@ -563,11 +563,15 @@
           </article>
           <article class="panel-card">
             <div class="panel-heading"><div><h2>Cobertura do solo</h2><p id="safraCoberturaSub">—</p></div><div class="panel-actions"><button class="btn-panel-fs" type="button" title="Tela cheia" aria-label="Expandir painel para tela cheia"><span class="material-symbols-rounded">fullscreen</span></button></div></div>
-            <div class="safra-cob safra-vista-grafico">
+            <div class="safra-cob safra-vista-grafico" id="safraCobResumo">
               <div class="safra-cob-lado safra-cob-lado--com"><strong id="safraCobPctCom">—</strong><span>Com plantas<br>de cobertura<small id="safraCobHaCom"></small></span></div>
               <div class="safra-cob-lado safra-cob-lado--sem"><strong id="safraCobPctSem">—</strong><span>Sem plantas<br>de cobertura<small id="safraCobHaSem"></small></span></div>
             </div>
             <div class="safra-barra safra-vista-grafico" id="safraCobBarra"><i class="com" id="safraCobBarraCom"></i><i class="sem" id="safraCobBarraSem"></i></div>
+            <div class="safra-cob-hist safra-vista-grafico" id="safraCobHist" hidden>
+              <div class="safra-cob-hist-legenda"><span><i class="com"></i>Com plantas de cobertura</span><span><i class="sem"></i>Sem plantas de cobertura</span></div>
+              <div class="chart-box"><canvas id="chartSafraCobHist"></canvas></div>
+            </div>
             <div class="panel-table-view">
               <div class="panel-table-view-heading"><span class="panel-table-view-title">Detalhe por fazenda e sistema de plantio</span><span class="record-count" id="countSafraCobertura">0 registros</span><button class="btn-table-export" id="btnExportSafraCobertura" type="button" title="Exportar tabela para CSV (Excel)" aria-label="Exportar para CSV"><span class="material-symbols-rounded" aria-hidden="true">download</span><span>Exportar</span></button></div>
               <div class="table-scroll"><table class="data-table" id="tableSafraCobertura">

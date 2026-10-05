@@ -7,6 +7,7 @@
 // Convenções de cálculo (soma/soma, cada área no seu próprio sistema de plantio):
 //  • Participação do sistema = Σ área plantada do sistema ÷ Σ área plantada (cultura e ciclo escolhidos).
 //  • Cobertura = Σ área que recebeu cobertura depois ÷ Σ área plantada; produtores = fazendas com alguma área coberta.
+//    Com mais de uma safra, `cobertura.historico` traz a mesma conta safra a safra.
 //  • Produtividade = Σ toneladas ÷ Σ área colhida; R$/ha = Σ custo ÷ Σ área colhida; R$/t = Σ custo ÷ Σ toneladas.
 //  • Produtor com áreas em dois sistemas conta nos dois: os "n produtores" por sistema não somam o total.
 //  • Percentuais exibidos são arredondados para somar 100 % (maior resto).
@@ -151,7 +152,26 @@ module.exports = comAuth(async (req, res) => {
       pctCom: areaTotal > 0 ? pctCom : null,
       pctSem: areaTotal > 0 ? pctSem : null,
       fazendas: fazendas(area),
-      fazendasCom: fazendas(area.filter((r) => n(r.area_com_cobertura_ha) > 0))
+      fazendasCom: fazendas(area.filter((r) => n(r.area_com_cobertura_ha) > 0)),
+      // Histórico (só com mais de uma safra): mesma regra soma/soma, uma linha por safra, da mais antiga para a mais nova
+      historico: comparaSafras
+        ? [...safrasSel].sort((a, b) => ordemSafra(a) - ordemSafra(b)).map((s) => {
+          const daVez = area.filter((r) => r.safra === s);
+          const total = soma(daVez, 'area_plantada_ha');
+          const com = soma(daVez, 'area_com_cobertura_ha');
+          const [pc, ps] = percentuais([com, Math.max(0, total - com)]);
+          return {
+            safra: s,
+            areaTotal: arred(total, 1),
+            areaCom: arred(com, 1),
+            areaSem: arred(Math.max(0, total - com), 1),
+            pctCom: total > 0 ? pc : null,
+            pctSem: total > 0 ? ps : null,
+            fazendas: fazendas(daVez),
+            fazendasCom: fazendas(daVez.filter((r) => n(r.area_com_cobertura_ha) > 0))
+          };
+        })
+        : []
     };
 
     // ── Produtividade e custo por sistema ──────────────────────────────────────────────────────────
