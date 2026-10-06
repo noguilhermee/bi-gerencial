@@ -1820,7 +1820,7 @@ aoCarregar(() => {
       let data = (overview.tabelas?.sem_visita || []).filter((row) => matches(row, filter, true));
       data = applyColumnFilters(data, 'tableSemVisita');
       return {
-        headers: ['Consultor(a)', 'ID (Código LR)', 'Produtor(a)', 'Propriedade', 'Agroindústria', 'Região', 'Projeto', 'Data Associação', 'Última Visita', 'Dias s/ Visita', 'Cadastro Elabore', 'Status'],
+        headers: ['Consultor(a)', 'ID (Código LR)', 'Produtor(a)', 'Propriedade', 'Agroindústria', 'Estado', 'Projeto', 'Data Associação', 'Última Visita', 'Dias s/ Visita', 'Cadastro Elabore', 'Status'],
         rows: data.map((r) => [
           r.consultor || '—',
           r.codigo_lr || '—',
@@ -1842,7 +1842,7 @@ aoCarregar(() => {
       let data = (overview.tabelas?.visitados || []).filter((row) => matches(row, filter, true));
       data = applyColumnFilters(data, 'tableVisitados');
       return {
-        headers: ['Consultor(a)', 'ID (Código LR)', 'Produtor(a)', 'Nº Atendimento', 'Data Visita', 'Mês Referência', 'Projeto', 'Agroindústria', 'Região', 'Dados Elabore'],
+        headers: ['Consultor(a)', 'ID (Código LR)', 'Produtor(a)', 'Nº Atendimento', 'Data Visita', 'Mês Referência', 'Projeto', 'Agroindústria', 'Estado', 'Dados Elabore'],
         rows: data.map((r) => [
           r.consultor || '—',
           r.codigo_lr || '—',
@@ -1980,7 +1980,7 @@ aoCarregar(() => {
       const kind = tableId === 'tableProdCcs' ? 'ccs' : 'cpp';
       const data = sortRows(applyColumnFilters(productionAttentionRows(kind), tableId), tableSort[PROD_TABLES[tableId].tbody], (row, key) => row[key]);
       return {
-        headers: ['ID (Código LR)', 'Produtor(a)', 'Fazenda', 'Consultor(a)', 'Região', kind === 'ccs' ? 'CCS (x1.000 céls./mL)' : 'CPP (x1.000 UFC/mL)'],
+        headers: ['ID (Código LR)', 'Produtor(a)', 'Fazenda', 'Consultor(a)', 'Estado', kind === 'ccs' ? 'CCS (x1.000 céls./mL)' : 'CPP (x1.000 UFC/mL)'],
         rows: data.map((r) => [r.codigo_lr, r.produtor, r.propriedade, r.consultor, r.regiao, r.valor])
       };
     }
@@ -1999,7 +1999,7 @@ aoCarregar(() => {
       const t = state.production?.trajetoria;
       const rotulo = (lista) => (lista && lista.length ? `${lista[0]}–${lista[lista.length - 1]}` : '');
       return {
-        headers: ['ID (Código LR)', 'Produtor(a)', 'Fazenda', 'Consultor(a)', 'Região', `Média ${rotulo(t?.janelaAnterior)} (L/dia)`, `Média ${rotulo(t?.janelaRecente)} (L/dia)`, 'Variação (%)'],
+        headers: ['ID (Código LR)', 'Produtor(a)', 'Fazenda', 'Consultor(a)', 'Estado', `Média ${rotulo(t?.janelaAnterior)} (L/dia)`, `Média ${rotulo(t?.janelaRecente)} (L/dia)`, 'Variação (%)'],
         rows: data.map((r) => [r.codigo_lr, r.produtor, r.propriedade, r.consultor, r.regiao, r.anterior, r.recente, r.variacao])
       };
     }
@@ -2048,7 +2048,7 @@ aoCarregar(() => {
       'Consultor(a)',
       'Projeto',
       'Agroindústria',
-      'Região',
+      'Estado',
       'Mês Referência',
       'Meses Consecutivos',
       'Situação Mensal',
@@ -2755,7 +2755,7 @@ aoCarregar(() => {
               <div class="field-box">${escapeHtml(item.agroindustria || item.projeto || '—')}</div>
             </div>
             <div class="detail-field">
-              <label class="field-label">Região Leiteira</label>
+              <label class="field-label">Estado</label>
               <div class="field-box">${escapeHtml(item.regiao || '—')}</div>
             </div>
             <div class="detail-field">

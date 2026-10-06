@@ -88,7 +88,16 @@ module.exports = comAuth(async (req, res) => {
       if (!atual || m > atual.mes) ultimaMedicao.set(p.codigo_lr, { mes: m, litros: Number(p.producao_l_dia) });
     });
 
-    const porRegiao = new Map();
+    // Dois agrupamentos, os dois já resolvidos pelo ETL: estado (coluna regiao = nome da UF) e região definida pela
+    // agroindústria (coluna regional). O botão "Estado | Região" do mapa escolhe qual os gráficos mostram.
+    const porEstado = new Map();
+    const porRegional = new Map();
+    const somar = (mapa, nome, medicao) => {
+      if (!mapa.has(nome)) mapa.set(nome, { regiao: nome, propriedades: 0, litros: 0, medidas: 0 });
+      const grupo = mapa.get(nome);
+      grupo.propriedades += 1;
+      if (medicao) { grupo.litros += medicao.litros; grupo.medidas += 1; }
+    };
     const pontos = [];
     const municipios = new Set();
     let litrosTotal = 0;
@@ -98,12 +107,10 @@ module.exports = comAuth(async (req, res) => {
 
     fazendas.forEach((f, codigo) => {
       const l = loc.get(codigo) || {};
-      const regiao = f.regiao || 'NAO INFORMADA';
       const medicao = ultimaMedicao.get(codigo);
-      if (!porRegiao.has(regiao)) porRegiao.set(regiao, { regiao, propriedades: 0, litros: 0, medidas: 0 });
-      const grupo = porRegiao.get(regiao);
-      grupo.propriedades += 1;
-      if (medicao) { grupo.litros += medicao.litros; grupo.medidas += 1; litrosTotal += medicao.litros; medidas += 1; }
+      somar(porEstado, f.regiao || 'NAO INFORMADA', medicao);
+      somar(porRegional, f.regional || 'NAO INFORMADA', medicao);
+      if (medicao) { litrosTotal += medicao.litros; medidas += 1; }
       if (l.cidade) municipios.add(`${l.cidade}|${l.estado || ''}`);
 
       if (temNumero(l.latitude) && temNumero(l.longitude)) {
@@ -116,8 +123,8 @@ module.exports = comAuth(async (req, res) => {
           propriedade: f.nome_propriedade,
           cidade: l.cidade || null,
           estado: l.estado || null,
-          regiao,
-          regional: f.regional || null,
+          regiao: f.regiao || 'NAO INFORMADA',
+          regional: f.regional || 'NAO INFORMADA',
           agroindustria: f.agroindustria,
           projeto: f.projeto,
           consultores: [...f.consultores],
@@ -129,8 +136,11 @@ module.exports = comAuth(async (req, res) => {
       }
     });
 
-    const regioes = [...porRegiao.values()].sort((a, b) => b.propriedades - a.propriedades)
+    const ordenar = (mapa) => [...mapa.values()].sort((a, b) => b.propriedades - a.propriedades)
       .map((g) => ({ ...g, litros: Math.round(g.litros) }));
+    const regioes = ordenar(porEstado);       // por estado (nome do item em `regiao`, como antes)
+    const regionais = ordenar(porRegional);   // por região da agroindústria
+    const contar = (lista) => lista.filter((g) => g.regiao !== 'NAO INFORMADA').length;
 
     return res.status(200).json({
       disponivel: true,
@@ -140,7 +150,8 @@ module.exports = comAuth(async (req, res) => {
       janelaMedicao: `${monthLabel(inicioJanela)} a ${monthLabel(mesRef)}`,
       kpis: {
         propriedades: fazendas.size,
-        regioes: regioes.filter((g) => g.regiao !== 'NAO INFORMADA').length,
+        regioes: contar(regioes),       // estados
+        regionais: contar(regionais),   // regiões da agroindústria
         municipios: municipios.size,
         comLocalizacao,
         aproximadas,
@@ -149,6 +160,7 @@ module.exports = comAuth(async (req, res) => {
         fazendasMedidas: medidas
       },
       regioes,
+      regionais,
       pontos
     });
   } catch (error) {

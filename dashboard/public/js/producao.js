@@ -47,6 +47,7 @@
     gruposBolha: new Map(),     // bolhas de produção por região (abaixo dos pontos)
     mostrarBolhas: true,
     ocultas: new Set(),
+    agrupamento: (() => { try { return localStorage.getItem('lr.terr.agrupamento') === 'regiao' ? 'regiao' : 'estado'; } catch (e) { return 'estado'; } })(),
     selecionado: null,
     ajustado: false
   };
@@ -272,17 +273,18 @@
     if (el('mapaLegenda')) el('mapaLegenda').innerHTML = '';
   }
 
-  function renderTerritorio(dados) {
+  function renderTerritorio(dados, opcoes = {}) {
     est.terr = dados || null;
     if (!dados) return limparTerritorio('Não foi possível carregar os dados de território agora.');
     if (dados.disponivel === false) return limparTerritorio('Dados de território ainda não disponíveis: falta criar/carregar tab_fato_producao_mensal e as colunas de coordenada de tab_dim_fazendas_ativas.');
     if (dados.semDados || !dados.kpis) return limparTerritorio('Sem propriedades ativas para os filtros selecionados.');
 
     const k = dados.kpis;
-    est.regioes = [...new Set([...(dados.regioes || []).map((r) => r.regiao), ...(dados.pontos || []).map((p) => p.regiao)])].sort((a, b) => a.localeCompare(b, 'pt-BR'));
+    definirPaleta(dados);
+    rotularAgrupamento();
     const set = (id, v, sub, txt) => { if (el(id)) el(id).textContent = v; if (el(sub) && txt) el(sub).textContent = txt; };
     set('kpiTerrPropriedades', num(k.propriedades), 'kpiTerrPropriedadesSub', `Carteira de ${dados.mesReferenciaLabel}${anteriorA(dados)}`);
-    set('kpiTerrRegioes', num(k.regioes));
+    set('kpiTerrRegioes', num(est.agrupamento === 'regiao' ? k.regionais : k.regioes));
     set('kpiTerrMunicipios', num(k.municipios));
     set('kpiTerrLitros', num(k.litrosTotal), 'kpiTerrLitrosSub', `${num(k.fazendasMedidas)} medidas · ${dados.janelaMedicao}`);
     set('kpiTerrMapa', num(k.comLocalizacao), 'kpiTerrMapaSub', k.semLocalizacao ? `${num(k.semLocalizacao)} sem localização` : 'Todas localizadas');
@@ -291,10 +293,10 @@
     if (aviso) aviso.hidden = true;
     if (el('terrLitrosSub')) el('terrLitrosSub').textContent = `Última medição · ${dados.janelaMedicao} · L/dia${anteriorA(dados)}`;
     if (el('terrPropSub')) el('terrPropSub').textContent = `Carteira ativa · nº de propriedades · ${dadosDe(dados)}`;
-    if (el('terrMapaSub')) el('terrMapaSub').textContent = `Clique em uma propriedade para ver os dados · ${dadosDe(dados)}`;
+    if (el('terrMapaSub')) el('terrMapaSub').textContent = `Cores por ${est.agrupamento === 'regiao' ? 'região' : 'estado'} · clique em uma propriedade para ver os dados · ${dadosDe(dados)}`;
 
     renderBarrasRegiao(dados);
-    renderMapa(dados);
+    renderMapa(dados, opcoes);
   }
 
   /** Top 10 regiões + "Outras" (o painel é baixo; 20 barras não cabem). */
@@ -332,8 +334,43 @@
     });
   }
 
+  // Agrupamento da tela de território, escolhido no botão "Estado | Região" do mapa:
+  //   'estado' = UF da fazenda (coluna regiao) · 'regiao' = região definida pela agroindústria (coluna regional)
+  const porRegiaoAgro = () => est.agrupamento === 'regiao';
+  const grupoDe = (p) => (porRegiaoAgro() ? p.regional : p.regiao) || 'NAO INFORMADA';
+  const gruposDe = (dados) => (porRegiaoAgro() ? dados.regionais : dados.regioes) || [];
+
+  // Cor estável por nome dentro do agrupamento atual (mesma cor nas barras e no mapa)
+  function definirPaleta(dados) {
+    est.regioes = [...new Set([...gruposDe(dados).map((r) => r.regiao), ...(dados.pontos || []).map(grupoDe)])]
+      .sort((a, b) => a.localeCompare(b, 'pt-BR'));
+  }
+
+  function rotularAgrupamento() {
+    const regiao = porRegiaoAgro();
+    const set = (id, txt) => { if (el(id)) el(id).textContent = txt; };
+    set('terrPropTitulo', regiao ? 'Propriedades ativas por região' : 'Propriedades ativas por estado');
+    set('terrLitrosTitulo', regiao ? 'Produção de leite por região' : 'Produção de leite por estado');
+    set('kpiTerrRegioesLabel', regiao ? 'Regiões' : 'Estados');
+    document.querySelectorAll('#terrAgrupamento button').forEach((b) => {
+      const ativo = b.dataset.agrupamento === est.agrupamento;
+      b.classList.toggle('active', ativo);
+      b.setAttribute('aria-pressed', String(ativo));
+    });
+  }
+
+  // Troca Estado ⇄ Região sem nova consulta: a API já devolve os dois agrupamentos
+  function mudarAgrupamento(agrupamento) {
+    if (agrupamento === est.agrupamento) return;
+    est.agrupamento = agrupamento;
+    try { localStorage.setItem('lr.terr.agrupamento', agrupamento); } catch (e) { /* preferência só desta sessão */ }
+    est.ocultas.clear();   // os nomes da legenda mudam de um agrupamento para o outro
+    if (est.terr && est.terr.kpis) renderTerritorio(est.terr, { manterVista: true });
+    else rotularAgrupamento();
+  }
+
   function renderBarrasRegiao(dados) {
-    const regioes = dados.regioes || [];
+    const regioes = gruposDe(dados);
     barrasHorizontais('chartTerrPropriedades', topComOutras(regioes, 'propriedades'), 'propriedades', 'propriedades');
     barrasHorizontais('chartTerrLitros', topComOutras(regioes, 'litros'), 'litros', 'L/dia');
   }
@@ -440,7 +477,7 @@
   }
 
   function estiloBase(p) {
-    const cor = corRegiao(p.regiao);
+    const cor = corRegiao(grupoDe(p));
     return p.aproximada
       ? { radius: 5, weight: 2, color: cor, fillColor: cor, fillOpacity: 0.05, opacity: 0.95 }
       : { radius: 4.5, weight: 0.8, color: '#ffffff', fillColor: cor, fillOpacity: 0.85, opacity: 1 };
@@ -465,8 +502,8 @@
       <div class="fc-loc">${escapeHtml(p.propriedade)}${p.cidade ? ` · ${escapeHtml(p.cidade)}${p.estado ? ` / ${escapeHtml(p.estado)}` : ''}` : ''}</div>
       <div class="fc-lista">
         <div class="fc-item"><span>Agroindústria</span><b>${escapeHtml(p.agroindustria)}</b></div>
-        <div class="fc-item"><span>Região</span><b>${escapeHtml(p.regiao)}</b></div>
-        ${p.regional && p.regional !== 'NAO INFORMADA' ? `<div class="fc-item"><span>Regional</span><b>${escapeHtml(p.regional)}</b></div>` : ''}
+        <div class="fc-item"><span>Estado</span><b>${escapeHtml(p.regiao)}</b></div>
+        ${p.regional && p.regional !== 'NAO INFORMADA' ? `<div class="fc-item"><span>Região</span><b>${escapeHtml(p.regional)}</b></div>` : ''}
         <div class="fc-item"><span>Consultor(a)</span><b>${p.consultores.length ? p.consultores.map(escapeHtml).join('<br>') : '—'}</b></div>
         <div class="fc-item"><span>Projeto</span><b>${escapeHtml(p.projeto)}</b></div>
         <div class="fc-item"><span>Código</span><b>${escapeHtml(p.codigo_lr)}</b></div>
@@ -489,7 +526,7 @@
     if (est.selecionado) est.selecionado.bringToFront();
   }
 
-  function renderMapa(dados) {
+  function renderMapa(dados, { manterVista = false } = {}) {
     const mapa = garantirMapa();
     const vazio = el('mapaVazio');
     const pontos = dados.pontos || [];
@@ -503,20 +540,20 @@
     const teto = tetoProducao(pontos);
     if (teto) {
       pontos.filter((p) => p.litros > 0).sort((a, b) => b.litros - a.litros).forEach((p) => {
-        if (!est.gruposBolha.has(p.regiao)) est.gruposBolha.set(p.regiao, L.layerGroup());
-        const cor = corRegiao(p.regiao);
+        if (!est.gruposBolha.has(grupoDe(p))) est.gruposBolha.set(grupoDe(p), L.layerGroup());
+        const cor = corRegiao(grupoDe(p));
         L.circleMarker([p.lat, p.lng], { radius: raioBolha(p.litros, teto), color: cor, weight: 1, opacity: 0.6, fillColor: cor, fillOpacity: 0.2, interactive: false })
-          .addTo(est.gruposBolha.get(p.regiao));
+          .addTo(est.gruposBolha.get(grupoDe(p)));
       });
     }
     // 2) pontos de localização por cima, clicáveis
     pontos.forEach((p) => {
-      if (!est.grupos.has(p.regiao)) est.grupos.set(p.regiao, L.layerGroup());
+      if (!est.grupos.has(grupoDe(p))) est.grupos.set(grupoDe(p), L.layerGroup());
       const m = L.circleMarker([p.lat, p.lng], { ...estiloBase(p), bubblingMouseEvents: false });
       m._p = p;
       m.bindTooltip(`${escapeHtml(p.produtor)}${p.litros ? ` · ${num(p.litros)} L/dia` : ''}`, { direction: 'top', offset: [0, -4], className: 'map-tip' });
       m.on('click', () => mostrarFicha(p, m));
-      m.addTo(est.grupos.get(p.regiao));
+      m.addTo(est.grupos.get(grupoDe(p)));
     });
     est.tetoProducao = teto;
     aplicarCamadas();
@@ -544,6 +581,7 @@
     }
 
     est.limites = L.latLngBounds(pontos.map((p) => [p.lat, p.lng])).pad(0.08);
+    if (manterVista) return;   // só trocou Estado ⇄ Região: mantém o zoom e a posição de quem está olhando
     est.ajustado = false;
     mapa.invalidateSize();
     enquadrar();
@@ -901,7 +939,7 @@
 
   /** Gerar PDF da tela 7: imprime só o slide 7 em A4 paisagem (destino "Salvar como PDF"). */
   function textoFiltrosGlobais() {
-    const rotulos = [['filterIndustry', 'Agroindústria'], ['filterRegion', 'Região'], ['filterRegional', 'Regional'], ['filterProject', 'Projeto'], ['filterConsultant', 'Consultor'], ['filterProducer', 'Produtor']];
+    const rotulos = [['filterIndustry', 'Agroindústria'], ['filterRegion', 'Estado'], ['filterRegional', 'Região'], ['filterProject', 'Projeto'], ['filterConsultant', 'Consultor'], ['filterProducer', 'Produtor']];
     const partes = rotulos.map(([id, rotulo]) => {
       const sel = el(id);
       const escolhidos = sel ? [...sel.selectedOptions].map((o) => o.textContent.trim()).filter(Boolean) : [];
@@ -932,6 +970,8 @@
   // ── Interações e tema ─────────────────────────────────────────────────────────────────────────────
   function ligarControles() {
     document.querySelectorAll('#prodIndicador button').forEach((b) => b.addEventListener('click', () => { est.indicador = b.dataset.ind; renderEvolucao(); }));
+    document.querySelectorAll('#terrAgrupamento button').forEach((b) => b.addEventListener('click', () => mudarAgrupamento(b.dataset.agrupamento)));
+    rotularAgrupamento();
     document.querySelectorAll('#prodBase button').forEach((b) => b.addEventListener('click', () => { est.periodo = Number(b.dataset.periodo); renderEvolucao(); }));
     el('safraBtnPdf')?.addEventListener('click', gerarPdfSafra);
     // O dropdown dos filtros da tela 7 vive dentro do carrossel (overflow oculto, deslocado por transform): abrir o popup faz
