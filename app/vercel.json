@@ -24,6 +24,18 @@
   ],
   "headers": [
     {
+      "source": "/(js|css)/(.*)",
+      "headers": [
+        { "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }
+      ]
+    },
+    {
+      "source": "/(img|data)/(.*)",
+      "headers": [
+        { "key": "Cache-Control", "value": "public, max-age=86400, stale-while-revalidate=604800" }
+      ]
+    },
+    {
       "source": "/api/(master|overview|visits|turnover|consistency|economics|production|territory|safra)",
       "headers": [
         { "key": "Cache-Control", "value": "private, max-age=300" },

@@ -157,8 +157,11 @@ aoCarregar(() => {
     const emCache = cacheavel ? cacheApi.get(url) : null;
     if (emCache && Date.now() < emCache.expiraEm) return structuredClone(emCache.dados);
     try {
-      const token = await window.LRAuth.getToken();
-      const response = await fetch(url, { headers: { Accept: 'application/json', Authorization: `Bearer ${token}` } });
+      // Requisição já disparada pelo index.html enquanto os scripts baixavam (só serve uma vez)
+      const antecipada = window.LRPrefetch?.get(url);
+      window.LRPrefetch?.delete(url);
+      const token = antecipada ? null : await window.LRAuth.getToken();
+      const response = await (antecipada || fetch(url, { headers: { Accept: 'application/json', Authorization: `Bearer ${token}` } }));
       if (response.status === 401) { window.LRAuth.logout(); return null; }
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
       const dados = await response.json();
@@ -311,6 +314,16 @@ aoCarregar(() => {
   // O <select multiple> é o armazenamento; a UI é o popup com checkboxes (setupCustomSelectDropdowns).
   function allOptionsSelected(select) {
     return select.options.length > 1 && [...select.options].every((opt) => opt.selected);
+  }
+
+  // Quantos filtros (além do mês) estão restringindo a análise: aparece no botão "Filtros" quando a barra fica recolhida
+  function atualizarContagemFiltros() {
+    const badge = el('filterCountBadge');
+    if (!badge) return;
+    const ativos = ['filterIndustry', 'filterRegion', 'filterRegional', 'filterProject', 'filterConsultant', 'filterProducer']
+      .filter((id) => selectedValues(id).length).length;
+    badge.textContent = ativos;
+    badge.hidden = !ativos;
   }
 
   function selectedValues(selectId) {
@@ -1682,6 +1695,7 @@ aoCarregar(() => {
     if (select.multiple) {
       displayValue.textContent = multiDisplayText(select);
       displayValue.title = [...select.selectedOptions].map((opt) => opt.text).join(', ');
+      atualizarContagemFiltros();
       return;
     }
     const selectedOpt = select.options[select.selectedIndex];
@@ -2676,9 +2690,17 @@ aoCarregar(() => {
   const mobileFilterToggle = el('mobileFilterToggle');
   const filterShell = el('filterShell');
   if (mobileFilterToggle && filterShell) {
-    mobileFilterToggle.addEventListener('click', () => {
-      const isExpanded = filterShell.classList.toggle('is-expanded');
-      mobileFilterToggle.setAttribute('aria-expanded', isExpanded ? 'true' : 'false');
+    const abrirGaveta = (aberta) => {
+      filterShell.classList.toggle('is-expanded', aberta);
+      mobileFilterToggle.setAttribute('aria-expanded', aberta ? 'true' : 'false');
+    };
+    mobileFilterToggle.addEventListener('click', () => abrirGaveta(!filterShell.classList.contains('is-expanded')));
+    // Gaveta de filtros (telas menores): fecha ao clicar fora dela ou com Esc
+    document.addEventListener('click', (e) => {
+      if (filterShell.classList.contains('is-expanded') && !filterShell.contains(e.target) && !mobileFilterToggle.contains(e.target)) abrirGaveta(false);
+    });
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && filterShell.classList.contains('is-expanded') && !document.querySelector('.custom-select-popup.open')) abrirGaveta(false);
     });
   }
 
