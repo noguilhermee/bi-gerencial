@@ -40,7 +40,7 @@ module.exports = comAuth(async (req, res) => {
 
     const tabelaMov = movimentacoesDoMes.map(m => ({
       numero_atendimento: m.numero_atendimento,
-      atendimento: m.numero_atendimento ? String(m.numero_atendimento).replace(/\.0+$/, '') : '—',
+      atendimento: m.numero_atendimento ? String(m.numero_atendimento) : '—',
       produtor: m.nome_produtor,
       consultor: m.consultor,
       grupo: m.consultor,

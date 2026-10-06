@@ -970,7 +970,43 @@ def construir_fato_movimentacao(f: Fontes, ctx: Contexto) -> pd.DataFrame:
             "regiao": ctx.regiao_de(cod, agro, projeto),
             "regional": ctx.regional_de(cod, agro, projeto),
         })
-    return pd.DataFrame(linhas + construir_movimentacao_procampo(f, ctx))
+    return _padronizar_numero_atendimento(pd.DataFrame(linhas + construir_movimentacao_procampo(f, ctx)))
+
+
+def _numero_atendimento_sintetico(id_composto: str) -> str:
+    """Número de atendimento fictício, estável entre execuções (derivado do id_composto), para
+    movimentações sem atendimento (Procampo/Piracanjuba). Começa em 9 para não colidir com os reais."""
+    h = int(hashlib.sha256(f"AT_SINTETICO_{id_composto}".encode("utf-8")).hexdigest(), 16)
+    return f"AT-9{h % 10**8:08d}"
+
+
+def _padronizar_numero_atendimento(df: pd.DataFrame) -> pd.DataFrame:
+    """numero_atendimento sempre no formato AT-<número>, como na tela de visitas.
+
+    Atendimento real numérico vira AT-<n>; vazio (Procampo) ganha número sintético; valor que não é
+    número (data usada como fallback do histórico SmartQuestion) é mantido.
+    """
+    if df.empty:
+        return df
+    df = df.copy()
+    usados: set[str] = set()
+
+    def _fmt(num, idc):
+        t = "" if num is None or (isinstance(num, float) and math.isnan(num)) else str(num).strip()
+        if t.upper().startswith("AT-"):
+            return t.upper()
+        if t.lower() in ("", "nan", "none"):
+            n = _numero_atendimento_sintetico(str(idc))
+            while n in usados:
+                n = _numero_atendimento_sintetico(n)
+            usados.add(n)
+            return n
+        if t.endswith(".0"):
+            t = t[:-2]
+        return f"AT-{t}" if t.isdigit() else t
+
+    df["numero_atendimento"] = [_fmt(n, i) for n, i in zip(df["numero_atendimento"], df["id_composto"])]
+    return df
 
 
 def construir_movimentacao_procampo(f: Fontes, ctx: Contexto) -> list[dict]:
