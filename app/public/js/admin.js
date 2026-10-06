@@ -4,7 +4,7 @@
  */
 (() => {
   const $ = (id) => document.getElementById(id);
-  const ROTULOS = { ADMIN: 'Administrador', CONSULTOR: 'Consultor', AGROINDUSTRIA: 'Agroindústria' };
+  const GRUPOS = [['ADMIN', 'Administradores'], ['AGROINDUSTRIA', 'Agroindústrias'], ['CONSULTOR', 'Consultores']];
   let usuarios = [];
   let opcoes = { consultores: [], agroindustrias: [] };
   let editando = null; // usuário em edição; null = novo
@@ -38,12 +38,22 @@
 
   function desenhar() {
     const corpo = $('corpo');
-    if (!usuarios.length) { corpo.innerHTML = '<tr><td colspan="7" class="vazio">Nenhum usuário cadastrado.</td></tr>'; return; }
-    corpo.innerHTML = usuarios.map((u) => `
+    if (!usuarios.length) { corpo.innerHTML = '<tr><td colspan="6" class="vazio">Nenhum usuário cadastrado.</td></tr>'; return; }
+    // Um bloco por perfil (ordem de GRUPOS; perfil desconhecido vai para o fim), nomes em ordem alfabética
+    const perfis = [...GRUPOS.map((g) => g[0]), ...new Set(usuarios.map((u) => u.perfil).filter((p) => !GRUPOS.some((g) => g[0] === p)))];
+    corpo.innerHTML = perfis.map((perfil) => {
+      const lista = usuarios.filter((u) => u.perfil === perfil).sort((a, b) => String(a.nome).localeCompare(String(b.nome), 'pt-BR'));
+      if (!lista.length) return '';
+      const titulo = (GRUPOS.find((g) => g[0] === perfil) || [perfil, perfil])[1];
+      return `<tr class="grupo"><th colspan="6">${escapar(titulo)} <span class="contagem">${lista.length}</span></th></tr>` + lista.map(linha).join('');
+    }).join('');
+  }
+
+  function linha(u) {
+    return `
       <tr>
         <td><strong>${escapar(u.nome)}</strong></td>
         <td>${escapar(u.email)}</td>
-        <td><span class="chip">${ROTULOS[u.perfil] || u.perfil}</span></td>
         <td>${escopoTexto(u)}</td>
         <td>${u.ultimo_acesso ? new Date(u.ultimo_acesso).toLocaleString('pt-BR') : 'Nunca'}</td>
         <td><span class="chip ${u.ativo ? '' : 'off'}">${u.ativo ? 'Ativo' : 'Inativo'}</span></td>
@@ -51,7 +61,7 @@
           <button class="btn" data-acao="editar" data-id="${u.id_usuario}">Editar</button>
           <button class="btn perigo" data-acao="excluir" data-id="${u.id_usuario}">Excluir</button>
         </td>
-      </tr>`).join('');
+      </tr>`;
   }
 
   async function carregar() {
