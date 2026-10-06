@@ -47,9 +47,9 @@ def detectar_raiz_projeto(inicio: str | Path | None = None) -> Path:
     candidatos = [atual, *atual.parents]
 
     conjuntos_esperados = [
-        ("scripts", "db"),
-        ("scripts", "dashboard"),
-        ("SCRIPTS", "DB"),
+        ("scripts", "data"),
+        ("scripts", "app"),
+        ("SCRIPTS", "DATA"),
         ("app", "data"),
     ]
 
@@ -60,7 +60,7 @@ def detectar_raiz_projeto(inicio: str | Path | None = None) -> Path:
 
     raise FileNotFoundError(
         "Não foi possível localizar a raiz do projeto. "
-        "A estrutura esperada contém as pastas scripts/ e db/. "
+        "A estrutura esperada contém as pastas scripts/ e data/. "
         f"Diretório inicial: {atual}"
     )
 

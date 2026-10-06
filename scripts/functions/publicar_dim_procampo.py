@@ -40,7 +40,7 @@ if hasattr(sys.stdout, "reconfigure"):
 
 caminho_atual = Path(__file__).resolve()
 for candidato in [caminho_atual, *caminho_atual.parents]:
-    if (candidato / "scripts").is_dir() and ((candidato / "db").is_dir() or (candidato / "dashboard").is_dir()):
+    if (candidato / "scripts").is_dir() and ((candidato / "data").is_dir() or (candidato / "app").is_dir()):
         raiz_projeto = candidato
         break
 else:
@@ -217,7 +217,7 @@ def executar_publicacao_dim_procampo(raiz: Path | None = None) -> pd.DataFrame:
     try:
         supabase.table(TABELA_DIM).select(",".join(campos_coord)).limit(1).execute()
     except Exception:
-        print(f"   ⚠️ {TABELA_DIM} ainda não tem as colunas de coordenada (rode db/input/2026_09_30_ddl_coordenadas_dim.sql); "
+        print(f"   ⚠️ {TABELA_DIM} ainda não tem as colunas de coordenada (rode data/input/2026_09_30_ddl_coordenadas_dim.sql); "
               "as coordenadas do Procampo não serão gravadas.")
         linhas = linhas.drop(columns=campos_coord)
     else:

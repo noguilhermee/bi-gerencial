@@ -9,7 +9,7 @@ As regras oficiais deste repositório ficam em `AGENTS.md`, que é a fonte únic
 - **Git**: não executar `git commit` nem `git push`. Ao concluir etapas significativas, mostrar os comandos (`git add .`, `git commit -m "..."`, `git push origin main`, `npx vercel --prod`) em bloco de código para o usuário executar — sempre que possível, encadeados em **uma única linha** (regra 6).
 - **Scripts do projeto**: não rodar pipelines, notebooks, cargas ou migrações pelo terminal. Apresentar o comando exato, explicar objetivo e impacto, e pedir que o usuário execute e devolva os logs (regra 11).
 - **Supabase**: leitura (`SELECT`), inserção (`INSERT`) e alteração de objetos existentes (`UPDATE`/`DELETE`/`ALTER`/`DROP`/`TRUNCATE`) liberadas. Criar um objeto novo (tabela, coluna, view, função, policy etc.) ainda exige perguntar antes (regra 8).
-- **Correções de dados**: sempre na origem (ETL em `scripts/`), nunca no `dashboard/api/*` ou `dashboard/public/*` (regra 12).
+- **Correções de dados**: sempre na origem (ETL em `scripts/`), nunca no `app/api/*` ou `app/public/*` (regra 12).
 - **`análise:`**: responder apenas com a análise técnica do log, sem sugestão de Git (regra 9).
 - Ao editar `AGENTS.md`, as mudanças passam a valer aqui automaticamente; não duplicar regras neste arquivo.
 
@@ -30,7 +30,7 @@ As regras oficiais deste repositório ficam em `AGENTS.md`, que é a fonte únic
 ## Como rodar localmente
 
 ```bash
-cd dashboard
+cd app
 npm install                      # instala dependências (supabase-js, pg)
 cp .env.example .env.local       # preencher com chaves reais
 node server.js                   # http://localhost:5050
@@ -42,7 +42,7 @@ O `server.js` serve arquivos estáticos de `public/` e roteia `/api/*` para os h
 
 ```
 bi-gerencial/
-├── dashboard/
+├── app/
 │   ├── api/                     # Endpoints serverless (Vercel Functions)
 │   │   ├── shared.js            # Client Supabase, cache, filtros, utilidades
 │   │   ├── overview.js          # KPIs gerais, séries históricas, tabelas
@@ -69,7 +69,7 @@ bi-gerencial/
 ├── scripts/                     # ETL Python (notebooks Jupyter)
 │   ├── functions/               # Módulos auxiliares (function.py, regras_negocio.py)
 │   └── config/                  # config.yaml, .env.example
-├── db/                          # Dados de entrada e saída (gitignored)
+├── data/                          # Dados de entrada e saída (gitignored)
 ├── .claude/agents/              # Subagentes Claude Code
 ├── AGENTS.md                    # Regras oficiais do repositório
 └── CLAUDE.md                    # Este arquivo

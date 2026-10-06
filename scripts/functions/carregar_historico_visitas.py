@@ -40,7 +40,7 @@ if hasattr(sys.stdout, "reconfigure"):
 
 caminho_atual = Path(__file__).resolve()
 for candidato in [caminho_atual, *caminho_atual.parents]:
-    if (candidato / "scripts").is_dir() and ((candidato / "db").is_dir() or (candidato / "dashboard").is_dir()):
+    if (candidato / "scripts").is_dir() and ((candidato / "data").is_dir() or (candidato / "app").is_dir()):
         raiz_projeto = candidato
         break
 else:

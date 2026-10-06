@@ -19,10 +19,10 @@ caminhos:
   elabore_forrageira: "C:/Users/Guilherme/LABOR RURAL/Analytics - Departamento Analytics/FERRAMENTAS/ELABORE/ELABORE_NOVO_SISTEMA/ANALISE_INDICADORES/lr-indicadores-elabore/data/outputs/forrageira"
   
   # Pastas internas do projeto
-  input: "db/input"
-  output: "db/output"
-  processed: "db/output/processed"
-  logs: "db/output/logs"
+  input: "data/input"
+  output: "data/output"
+  processed: "data/output/processed"
+  logs: "data/output/logs"
   assets: "scripts/assets"
   functions: "scripts/functions"
   scripts: "scripts"

@@ -15,7 +15,7 @@ if exist "C:\ProgramData\anaconda3\python.exe" (
 )
 
 set "SCRIPT_PATH=%PROJETO_DIR%\scripts\executar_pipeline.py"
-set "LOGS_DIR=%PROJETO_DIR%\db\output\logs"
+set "LOGS_DIR=%PROJETO_DIR%\data\output\logs"
 
 :: Garantir pasta de logs
 if not exist "%LOGS_DIR%" mkdir "%LOGS_DIR%"

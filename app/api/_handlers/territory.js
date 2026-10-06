@@ -60,7 +60,7 @@ module.exports = comAuth(async (req, res) => {
       dimMes = await fetchWithCache(`DIM_FAZENDAS_LOCALIZACAO_${mesRef}`, () =>
         fetchAll(() => supabase.from('tab_dim_fazendas_ativas').select(COLUNAS.dimLocalizacao).eq('mes_referencia', mesRef), undefined, 'id'));
     } catch (error) {
-      // Colunas de coordenada ainda não criadas na dim (db/input/2026_09_30_ddl_coordenadas_dim.sql pendente)
+      // Colunas de coordenada ainda não criadas na dim (data/input/2026_09_30_ddl_coordenadas_dim.sql pendente)
       console.warn('Coordenadas indisponíveis em tab_dim_fazendas_ativas:', error.message);
       return res.status(200).json({ disponivel: false, motivo: 'colunas de coordenada indisponíveis em tab_dim_fazendas_ativas' });
     }

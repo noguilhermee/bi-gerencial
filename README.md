@@ -121,14 +121,14 @@ lr-smartquestion/
 ├── .gitignore                      # Regras de exclusão Git
 ├── requirements.txt                # Dependências Python do projeto
 │
-├── dashboard/                      # 📺 Dashboard Web Vercel para TV (HTML/CSS/JS + Node Serverless)
+├── app/                      # 📺 Dashboard Web Vercel para TV (HTML/CSS/JS + Node Serverless)
 │   ├── package.json                # Dependências Node (@supabase/supabase-js)
 │   ├── vercel.json                 # Configurações de rotas e headers da Vercel
 │   ├── start_kiosk.bat             # Atalho Windows para abrir o dashboard em modo Kiosk na TV
 │   ├── public/                     # Frontend estático (HTML, CSS Dark Theme, JS Charts & Carousel)
 │   └── api/                        # Serverless Functions (overview, visits, consistency, turnover)
 │
-├── db/                             # Banco de Dados local / Arquivos
+├── data/                             # Banco de Dados local / Arquivos
 │   ├── input/                      # Relatórios brutos exportados do SmartQuestion
 │   └── output/                     # Saídas e arquivos gerados (processed, figures, html, logs)
 │
@@ -139,7 +139,7 @@ lr-smartquestion/
 
 ## 📺 Dashboard Web na Vercel (TV Kiosk)
 
-O projeto contém uma aplicação web completa na pasta `dashboard/` para projeção síncrona na sala dos consultores (TV 55" Full HD).
+O projeto contém uma aplicação web completa na pasta `app/` para projeção síncrona na sala dos consultores (TV 55" Full HD).
 
 ### 🚀 Como Fazer Deploy na Vercel
 
@@ -150,7 +150,7 @@ O projeto contém uma aplicação web completa na pasta `dashboard/` para proje�
 
 2. **Fazer o Deploy**:
    ```bash
-   cd dashboard
+   cd app
    vercel
    ```
 
@@ -166,7 +166,7 @@ O projeto contém uma aplicação web completa na pasta `dashboard/` para proje�
 
 ### 📺 Como Rodar na TV da Sala (Modo Kiosk)
 
-Dê um duplo clique no arquivo `dashboard/start_kiosk.bat` para abrir o Google Chrome em tela cheia (modo Kiosk) apontando diretamente para a URL do dashboard na Vercel.
+Dê um duplo clique no arquivo `app/start_kiosk.bat` para abrir o Google Chrome em tela cheia (modo Kiosk) apontando diretamente para a URL do dashboard na Vercel.
 
 ---
 

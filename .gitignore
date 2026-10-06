@@ -22,23 +22,23 @@ env/
 !.env.example
 
 # Banco de dados local / arquivos pesados de entrada e saída
-db/input/*
-!db/input/.gitkeep
+data/input/*
+!data/input/.gitkeep
 
-db/output/processed/*
-!db/output/processed/.gitkeep
+data/output/processed/*
+!data/output/processed/.gitkeep
 
-db/output/figures/*
-!db/output/figures/.gitkeep
+data/output/figures/*
+!data/output/figures/.gitkeep
 
-db/output/html/*
-!db/output/html/.gitkeep
+data/output/html/*
+!data/output/html/.gitkeep
 
-db/output/logs/*
-!db/output/logs/.gitkeep
+data/output/logs/*
+!data/output/logs/.gitkeep
 
-db/output/.temp_build/
-dashboard/public/data/fontes_metadados.json
+data/output/.temp_build/
+app/public/data/fontes_metadados.json
 
 # Distribuição / Pacotes
 build/

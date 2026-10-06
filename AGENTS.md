@@ -7,19 +7,19 @@ Este arquivo define o conjunto de diretrizes, regras de negócio e convenções 
 ## 📁 1. Estrutura de Pastas e Nomenclatura
 - **Regra**: Todas as pastas e subpastas do projeto devem obrigatoriamente usar nomes em **MINÚSCULAS** (lowercase).
 - **Estrutura Oficial**:
-  - `db/input/` (Bases brutas de entrada)
-  - `db/output/` (Arquivos processados, logs, figuras e relatórios compilados)
-    - `db/output/processed/`
-    - `db/output/figures/`
-    - `db/output/html/`
-    - `db/output/logs/`
+  - `data/input/` (Bases brutas de entrada)
+  - `data/output/` (Arquivos processados, logs, figuras e relatórios compilados)
+    - `data/output/processed/`
+    - `data/output/figures/`
+    - `data/output/html/`
+    - `data/output/logs/`
   - `scripts/` (Notebooks Jupyter `.ipynb`, `executar_pipeline.py`)
     - `scripts/assets/` (Logos, favicons, arquivos CSS/JS)
     - `scripts/config/` (Arquivos de configuração e ambiente: `config.yaml`, `.env.example`)
     - `scripts/functions/` (Módulos auxiliares Python: `function.py`, `__init__.py`)
-  - `dashboard/` (Aplicação Web, API serverless e interface gerencial)
-    - `dashboard/api/`
-    - `dashboard/public/`
+  - `app/` (Aplicação Web, API serverless e interface gerencial)
+    - `app/api/`
+    - `app/public/`
 
 ---
 
@@ -40,10 +40,10 @@ from IPython.display import HTML, Markdown, display
 
 caminho_atual = Path.cwd().resolve()
 for candidato in [caminho_atual, *caminho_atual.parents]:
-    if (candidato / "scripts").is_dir() and ((candidato / "db").is_dir() or (candidato / "dashboard").is_dir()):
+    if (candidato / "scripts").is_dir() and ((candidato / "data").is_dir() or (candidato / "app").is_dir()):
         raiz_projeto = candidato
         break
-    if (candidato / "SCRIPTS").is_dir() and (candidato / "DB").is_dir():
+    if (candidato / "SCRIPTS").is_dir() and (candidato / "DATA").is_dir():
         raiz_projeto = candidato
         break
 else:
@@ -121,8 +121,8 @@ CAMINHO_ARQUIVO = PASTA_SAIDA / f"{DATA_EXPORTACAO}_nome_do_arquivo.ext"
 
 ---
 
-## 📚 4. Preservação do Histórico de Saída (`db/output/`)
-- **Regra**: Nunca apagar ou sobrescrever arquivos históricos anteriores na pasta `db/output/`.
+## 📚 4. Preservação do Histórico de Saída (`data/output/`)
+- **Regra**: Nunca apagar ou sobrescrever arquivos históricos anteriores na pasta `data/output/`.
 
 ---
 
@@ -174,18 +174,18 @@ CAMINHO_ARQUIVO = PASTA_SAIDA / f"{DATA_EXPORTACAO}_nome_do_arquivo.ext"
     - `tab_fato_*`: Tabelas fato analíticas (ex: `tab_fato_visitas`, `tab_fato_carteira_mensal`, `tab_fato_consistencia`, `tab_fato_movimentacao`, `tab_fato_economico`).
     - `tab_dim_*`: Dimensões com mais de uma origem (ex: `tab_dim_fazendas_ativas`).
     - `tab_base_*`: Snapshots periódicos e bases congeladas mês a mês (ex: `tab_base_metas_mensal`).
-  - **Produção e território** (slides 5 e 6 do BI), migration `db/input/2026_09_30_ddl_producao_localizacao.sql`, gravada por `camada_consumo.py`:
+  - **Produção e território** (slides 5 e 6 do BI), migration `data/input/2026_09_30_ddl_producao_localizacao.sql`, gravada por `camada_consumo.py`:
     - `tab_fato_producao_mensal`: 1 linha por fazenda × mês (última visita do mês com medição). Traz volume, produtividade e qualidade do leite já tratados: volume suspeito é marcado/imputado (`producao_suspeita`, `producao_imputada`), qualidade fora da faixa plausível vira nula (`qualidade_descartada`) e os limites de CCS/CPP viram flags (`ccs_acima_limite`, `cpp_acima_limite`). Limites e faixas ficam em `config.yaml` (bloco `producao:`), incluindo `agroindustrias_sem_ccs_confiavel` (CCS da Danone em escala divergente).
-    - **Coordenada das fazendas**: colunas `latitude`, `longitude`, `origem_coordenada` e `coordenada_corrigida` em `tab_dim_fazendas_ativas` (migration `db/input/2026_09_30_ddl_coordenadas_dim.sql`), sem tabela própria. Alimentada pelas raws: SmartQuestion = "Latitude/Longitude (Produtor)" das planilhas `LISTA_GERAL_VISITAS*.xlsx` (módulo `coordenadas_visitas.py`, gravada por `reconciliar_movimentacao_e_ativos.py` em `sq_raw_fazendas_grupo` e na dim); Procampo = `pro_raw_fazendas` (gravada por `publicar_dim_procampo.py`). `camada_consumo.py` fecha o quadro: fonte primária (visitas/Procampo) > Elabore > posição aproximada pelo município (`origem_coordenada = MUNICIPIO`, mediana das outras fazendas da cidade). Toda coordenada passa por `regras_negocio.sanear_coordenada` (troca de lat/long, sinal perdido, zero e fora da UF). Fazendas sem coordenada válida ou com o Elabore divergindo mais de 5 km da fonte primária saem em `db/output/logs/*_localizacao_fazendas_conferencia.xlsx` para corrigir o cadastro na origem, nunca no frontend.
-  - **Dimensões cadastrais** (consultor, região, agroindústria) também ficam na camada de consumo: `tab_dim_consultor`, `tab_dim_regiao`, `tab_dim_agroindustria` (antes `sq_dim_*`, renomeadas em 2026-09-29 pelo script `db/input/2026_09_29_renomear_dims_e_coluna_sem_lancamento_elabore.sql`).
-  - **Relacionamento das dimensões (filtros do dashboard)**, migration `db/input/2026_09_29_refatorar_dims_relacionamento.sql`:
+    - **Coordenada das fazendas**: colunas `latitude`, `longitude`, `origem_coordenada` e `coordenada_corrigida` em `tab_dim_fazendas_ativas` (migration `data/input/2026_09_30_ddl_coordenadas_dim.sql`), sem tabela própria. Alimentada pelas raws: SmartQuestion = "Latitude/Longitude (Produtor)" das planilhas `LISTA_GERAL_VISITAS*.xlsx` (módulo `coordenadas_visitas.py`, gravada por `reconciliar_movimentacao_e_ativos.py` em `sq_raw_fazendas_grupo` e na dim); Procampo = `pro_raw_fazendas` (gravada por `publicar_dim_procampo.py`). `camada_consumo.py` fecha o quadro: fonte primária (visitas/Procampo) > Elabore > posição aproximada pelo município (`origem_coordenada = MUNICIPIO`, mediana das outras fazendas da cidade). Toda coordenada passa por `regras_negocio.sanear_coordenada` (troca de lat/long, sinal perdido, zero e fora da UF). Fazendas sem coordenada válida ou com o Elabore divergindo mais de 5 km da fonte primária saem em `data/output/logs/*_localizacao_fazendas_conferencia.xlsx` para corrigir o cadastro na origem, nunca no frontend.
+  - **Dimensões cadastrais** (consultor, região, agroindústria) também ficam na camada de consumo: `tab_dim_consultor`, `tab_dim_regiao`, `tab_dim_agroindustria` (antes `sq_dim_*`, renomeadas em 2026-09-29 pelo script `data/input/2026_09_29_renomear_dims_e_coluna_sem_lancamento_elabore.sql`).
+  - **Relacionamento das dimensões (filtros do dashboard)**, migration `data/input/2026_09_29_refatorar_dims_relacionamento.sql`:
     - `tab_dim_agroindustria`: `nome_bi` é o nome exato gravado nas fatos (ex.: `LATICINIOS PORTO ALEGRE (LPA)`); `exibir_no_bi = false` esconde agroindústrias inativas.
-    - **Região × Regional**: a coluna `regiao` das fatos (filtro "Região" do BI) é o **nome completo da UF da fazenda** (`regras_negocio.nome_uf`, ex.: `SERGIPE`, `MINAS GERAIS`) para todas as agroindústrias, inclusive a Piracanjuba (UF: carteira do mês > Elabore > vínculo > LISTA_GERAL > base do Procampo), ex.: LR09765 tem regional `ALAGOAS/SERGIPE` e região `SERGIPE`. A **regional** (agrupamento da agroindústria, `tab_dim_regiao`: `ALAGOAS/SERGIPE`, `CCS - CENTRO SUL`...) fica na coluna `regional` de todas as `tab_fato_*` (migration `db/input/2026_10_05_add_coluna_regional.sql`) e tem filtro próprio no dashboard. **Na tela**, `regiao` aparece como "Estado" e `regional` como "Região"; na tela de território o botão "Estado | Região" do mapa escolhe o agrupamento do mapa e dos gráficos (a API devolve `regioes` e `regionais`). Fazenda sem UF conhecida vira `NAO INFORMADA` e sai no relatório de divergências (`UF_NAO_INFORMADA`). Regras em `Contexto.regiao_de` e `Contexto.regional_de` (`camada_consumo.py`).
+    - **Região × Regional**: a coluna `regiao` das fatos (filtro "Região" do BI) é o **nome completo da UF da fazenda** (`regras_negocio.nome_uf`, ex.: `SERGIPE`, `MINAS GERAIS`) para todas as agroindústrias, inclusive a Piracanjuba (UF: carteira do mês > Elabore > vínculo > LISTA_GERAL > base do Procampo), ex.: LR09765 tem regional `ALAGOAS/SERGIPE` e região `SERGIPE`. A **regional** (agrupamento da agroindústria, `tab_dim_regiao`: `ALAGOAS/SERGIPE`, `CCS - CENTRO SUL`...) fica na coluna `regional` de todas as `tab_fato_*` (migration `data/input/2026_10_05_add_coluna_regional.sql`) e tem filtro próprio no dashboard. **Na tela**, `regiao` aparece como "Estado" e `regional` como "Região"; na tela de território o botão "Estado | Região" do mapa escolhe o agrupamento do mapa e dos gráficos (a API devolve `regioes` e `regionais`). Fazenda sem UF conhecida vira `NAO INFORMADA` e sai no relatório de divergências (`UF_NAO_INFORMADA`). Regras em `Contexto.regiao_de` e `Contexto.regional_de` (`camada_consumo.py`).
     - `tab_dim_regiao`: 1 linha por (`id_agroindustria`, regional canônica). Uma regional só é válida para as agroindústrias que a possuem aqui.
     - `tab_dim_regiao_alias`: nome bruto (SmartQuestion/Elabore/Procampo) → região canônica. Novo nome bruto entra aqui, nunca no ETL nem no frontend.
     - `tab_dim_consultor`: `chave_consultor` = nome sem acento e maiúsculo (mesma normalização de `regras_negocio.chave`); o ETL cria os consultores que não existem no Elabore (`origem = 'BI'`).
-    - `tab_dim_consultor_atuacao`: ponte consultor × agroindústria × região (UF) × regional × mês, gravada por `camada_consumo.py` (`id_regiao` = id da regional; coluna `regional` pela migration `db/input/2026_10_05_add_regional_consultor_atuacao.sql`); a API a expõe em `filterOptions.relacoes` (`[mês, agroindústria, região, consultor, regional]`) e os filtros de agroindústria, região, regional e consultor se restringem por ela.
-    - Uma região que não pertence à agroindústria da fazenda vira `NAO INFORMADA` e é listada em `db/output/logs/*_divergencias_dimensoes.xlsx` para correção na origem (cadastro), nunca no frontend (regra 12).
+    - `tab_dim_consultor_atuacao`: ponte consultor × agroindústria × região (UF) × regional × mês, gravada por `camada_consumo.py` (`id_regiao` = id da regional; coluna `regional` pela migration `data/input/2026_10_05_add_regional_consultor_atuacao.sql`); a API a expõe em `filterOptions.relacoes` (`[mês, agroindústria, região, consultor, regional]`) e os filtros de agroindústria, região, regional e consultor se restringem por ela.
+    - Uma região que não pertence à agroindústria da fazenda vira `NAO INFORMADA` e é listada em `data/output/logs/*_divergencias_dimensoes.xlsx` para correção na origem (cadastro), nunca no frontend (regra 12).
   - **Colunas**: Sempre em `snake_case` minúsculo com timestamps `data_processamento` e chaves `id_composto`.
 
 ---
@@ -201,7 +201,7 @@ CAMINHO_ARQUIVO = PASTA_SAIDA / f"{DATA_EXPORTACAO}_nome_do_arquivo.ext"
 ---
 
 ## 🛠️ 12. Proibição de Correção Paliativa no Frontend/API e Foco no ETL
-- **Regra Absoluta**: **NUNCA fazer "gambiarras", tratamentos paliativos ou manipulações artificiais de dados no front-end ou nos arquivos JS de API** (`dashboard/api/*`, `dashboard/public/*`).
+- **Regra Absoluta**: **NUNCA fazer "gambiarras", tratamentos paliativos ou manipulações artificiais de dados no front-end ou nos arquivos JS de API** (`app/api/*`, `app/public/*`).
 - **Procedimento Obrigatório**: Caso seja identificada qualquer inconsistência, divergência de contagem ou ausência de dados na interface, a correção deve ser realizada na raiz da fonte de dados (nos scripts de ETL/Python). O assistente de IA deve **obrigatoriamente estruturar um plano de implementação para ajustar a regra diretamente nos scripts de ETL** (`scripts/`), garantindo que o banco de dados (Supabase) permaneça como a única fonte da verdade e que os dados sejam reconciliados e persistidos corretamente na origem.
 
 ---
@@ -220,8 +220,8 @@ CAMINHO_ARQUIVO = PASTA_SAIDA / f"{DATA_EXPORTACAO}_nome_do_arquivo.ext"
 - **Regra**: todo valor texto gravado no Supabase é **maiúsculo e sem acento** (ex.: `LATICINIOS PORTO ALEGRE (LPA)`, `NAO INFORMADA`, `SAIDA`, `CONSISTENTE`). Pontuação e espaços são mantidos.
 - **Como é aplicada**: o cliente devolvido por `obter_cliente_supabase()` / `criar_cliente_supabase()` (`scripts/functions/function.py`) aplica `normalizar_registros()` em todo `insert`, `upsert` e `update`. **Nunca usar `supabase.create_client` direto** — scripts e notebooks criam o cliente só por essas funções.
 - **Exceção**: colunas de identificador (`id`, `id_*`, `*_id`, `idfazenda*`) ficam como vieram (hash, UUID do Elabore), conforme `eh_coluna_identificador()`. Valores não texto não são alterados.
-- **Comparações**: o Python compara texto lido do banco com `regras_negocio.chave()`; literais de valores na API/frontend (`dashboard/api/*`, `dashboard/public/js/*`) seguem o mesmo padrão (`'NAO INFORMADA'`, `'SAIDA'`, `'CONSISTENTE'`, `'SEM DADOS'`).
-- **Dados antigos**: convertidos por `db/input/2026_09_30_normalizar_texto_maiusculo_sem_acento.sql`.
+- **Comparações**: o Python compara texto lido do banco com `regras_negocio.chave()`; literais de valores na API/frontend (`app/api/*`, `app/public/js/*`) seguem o mesmo padrão (`'NAO INFORMADA'`, `'SAIDA'`, `'CONSISTENTE'`, `'SEM DADOS'`).
+- **Dados antigos**: convertidos por `data/input/2026_09_30_normalizar_texto_maiusculo_sem_acento.sql`.
 
 
 

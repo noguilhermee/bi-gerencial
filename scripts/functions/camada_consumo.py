@@ -22,7 +22,7 @@ regras de `regras_negocio` e grava tabelas prontas para leitura direta pela API:
                             consistentes (bloco CUSTO), das raws elabore_raw_sistema_cobertura/elabore_raw_custo_forrageira
 
 Região e agroindústria só saem das dimensões: uma região que não pertence à agroindústria da fazenda vira
-"NÃO INFORMADA" e é listada em db/output/logs/*_divergencias_dimensoes.xlsx para correção na origem.
+"NÃO INFORMADA" e é listada em data/output/logs/*_divergencias_dimensoes.xlsx para correção na origem.
 
 Todas as gravações são idempotentes: upsert pela chave + remoção das chaves que
 deixaram de existir. A API não aplica nenhuma regra de negócio sobre esses dados.
@@ -48,7 +48,7 @@ import pandas as pd
 
 caminho_atual = Path(__file__).resolve()
 for candidato in [caminho_atual, *caminho_atual.parents]:
-    if (candidato / "scripts").is_dir() and ((candidato / "db").is_dir() or (candidato / "dashboard").is_dir()):
+    if (candidato / "scripts").is_dir() and ((candidato / "data").is_dir() or (candidato / "app").is_dir()):
         raiz_projeto = candidato
         break
 else:
@@ -1415,10 +1415,10 @@ def publicar_coordenadas_dim(supabase, f: Fontes, localizacao: pd.DataFrame) -> 
     """Grava a coordenada resolvida nas linhas de LEITE de tab_dim_fazendas_ativas (todos os meses de cada fazenda).
 
     Reenvia a linha inteira (upsert por id) só quando a coordenada mudou: um upsert parcial falharia nas colunas NOT NULL.
-    Sem as colunas na dim (db/input/2026_09_30_ddl_coordenadas_dim.sql ainda não rodou), avisa e não faz nada."""
+    Sem as colunas na dim (data/input/2026_09_30_ddl_coordenadas_dim.sql ainda não rodou), avisa e não faz nada."""
     dim = f.dim_fazendas
     if dim.empty or not all(c in dim.columns for c in COLS_COORD_DIM):
-        print(f"   ⚠️ {TAB_DIM_FAZENDAS} sem as colunas de coordenada: rode db/input/2026_09_30_ddl_coordenadas_dim.sql e execute de novo.")
+        print(f"   ⚠️ {TAB_DIM_FAZENDAS} sem as colunas de coordenada: rode data/input/2026_09_30_ddl_coordenadas_dim.sql e execute de novo.")
         return 0
     novos = localizacao.set_index("codigo_lr")
     leite = dim[dim["tipo_ponto_atendimento"].astype(str).str.upper() == "LEITE"]
@@ -1446,7 +1446,7 @@ def exportar_localizacao(localizacao: pd.DataFrame, raiz: Path) -> Path | None:
     pendentes = localizacao[localizacao["observacao"].notna()]
     if pendentes.empty:
         return None
-    pasta = raiz / "db" / "output" / "logs"
+    pasta = raiz / "data" / "output" / "logs"
     pasta.mkdir(parents=True, exist_ok=True)
     caminho = pasta / f"{datetime.now():%Y_%m_%d_%H%M%S}_localizacao_fazendas_conferencia.xlsx"
     resumo = localizacao.groupby(["agroindustria", "origem_coordenada"], dropna=False).size().reset_index(name="fazendas")
@@ -1704,7 +1704,7 @@ def exportar_divergencias(ctx: Contexto, raiz: Path) -> Path | None:
     """Relatório das fazendas cuja região/agroindústria não fecha com as dimensões (para corrigir na origem)."""
     if not ctx.divergencias:
         return None
-    pasta = raiz / "db" / "output" / "logs"
+    pasta = raiz / "data" / "output" / "logs"
     pasta.mkdir(parents=True, exist_ok=True)
     caminho = pasta / f"{datetime.now():%Y_%m_%d_%H%M%S}_divergencias_dimensoes.xlsx"
     df = pd.DataFrame(list(ctx.divergencias.values())).sort_values(["tipo", "agroindustria", "codigo_lr"], na_position="last")
@@ -1750,7 +1750,7 @@ def construir_tudo(f: Fontes, agora: datetime | None = None, data_inicial_consis
 
 
 def exportar_auditoria(auditoria: pd.DataFrame, raiz: Path) -> Path:
-    pasta = raiz / "db" / "output" / "logs"
+    pasta = raiz / "data" / "output" / "logs"
     pasta.mkdir(parents=True, exist_ok=True)
     caminho = pasta / f"{datetime.now():%Y_%m_%d_%H%M%S}_reconciliacao_visitas_detalhada.xlsx"
     with pd.ExcelWriter(caminho, engine="openpyxl") as w:

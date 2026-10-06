@@ -52,9 +52,9 @@ def detectar_raiz(caminho_base: Path | None = None) -> Path:
     """Localiza a raiz do projeto de forma robusta."""
     caminho_atual = (caminho_base or Path.cwd()).resolve()
     for candidato in [caminho_atual, *caminho_atual.parents]:
-        if (candidato / "scripts").is_dir() and ((candidato / "db").is_dir() or (candidato / "dashboard").is_dir()):
+        if (candidato / "scripts").is_dir() and ((candidato / "data").is_dir() or (candidato / "app").is_dir()):
             return candidato
-        if (candidato / "SCRIPTS").is_dir() and (candidato / "DB").is_dir():
+        if (candidato / "SCRIPTS").is_dir() and (candidato / "DATA").is_dir():
             return candidato
     return caminho_atual
 
@@ -74,9 +74,9 @@ def obter_cliente_supabase(raiz_projeto: Path):
     """Inicializa cliente do Supabase."""
     for env_path in [
         raiz_projeto / "scripts" / "config" / ".env",
-        raiz_projeto / "dashboard" / ".env.local",
+        raiz_projeto / "app" / ".env.local",
         raiz_projeto / "SCRIPTS" / "CONFIG" / ".env",
-        raiz_projeto / "DASHBOARD" / ".env.local",
+        raiz_projeto / "APP" / ".env.local",
         raiz_projeto / ".env",
     ]:
         if env_path.is_file():
@@ -197,8 +197,8 @@ def atualizar_consistencia_mensal(
 
     dir_elabore = Path(config.get("caminhos", {}).get("elabore_mensal", ""))
     fallbacks = [
-        raiz_projeto / "DB" / "INPUT" / "TEMP",
-        raiz_projeto / "DB" / "INPUT",
+        raiz_projeto / "DATA" / "INPUT" / "TEMP",
+        raiz_projeto / "DATA" / "INPUT",
     ]
 
     arquivo_excel = localizar_arquivo_recente(dir_elabore, fallbacks, "*indicadores_mensais.xlsx")
@@ -295,7 +295,7 @@ def atualizar_consistencia_mensal(
 
 
 # coluna em elabore_raw_consistencia_anual -> coluna da planilha *_indicadores_anuais.xlsx
-# (migration db/input/2026_09_30_add_indicadores_anuais_elabore_raw.sql)
+# (migration data/input/2026_09_30_add_indicadores_anuais_elabore_raw.sql)
 COLUNAS_INDICADORES_ANUAIS = {
     "producao_anual_litros": "milk_produced_annual",
     "receita_atividade_litro_anual": "activity_revenue_liter_annual",
@@ -315,8 +315,8 @@ def atualizar_consistencia_anual(
 
     dir_elabore = Path(config.get("caminhos", {}).get("elabore_anual", ""))
     fallbacks = [
-        raiz_projeto / "DB" / "INPUT" / "TEMP",
-        raiz_projeto / "DB" / "INPUT",
+        raiz_projeto / "DATA" / "INPUT" / "TEMP",
+        raiz_projeto / "DATA" / "INPUT",
     ]
 
     arquivo_excel = localizar_arquivo_recente(dir_elabore, fallbacks, "*indicadores_anuais.xlsx")
@@ -462,7 +462,7 @@ def executar_sincronizacao_consistencia(raiz_projeto: Path | None = None, limpar
 
 
 def atualizar_metadados_fontes(raiz: Path) -> None:
-    """Regrava dashboard/public/data/fontes_metadados.json (painel de proveniência do dashboard).
+    """Regrava app/public/data/fontes_metadados.json (painel de proveniência do dashboard).
 
     Sem isso, rodar só a sincronização de consistência deixava o painel com a data e a contagem
     da carga anterior. Falha aqui não invalida a carga: só avisa."""

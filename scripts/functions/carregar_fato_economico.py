@@ -84,9 +84,9 @@ if sys.stderr and hasattr(sys.stderr, 'reconfigure'):
 def detectar_raiz(caminho_base: Path | None = None) -> Path:
     caminho_atual = (caminho_base or Path(__file__).resolve()).parent
     for candidato in [caminho_atual, *caminho_atual.parents]:
-        if (candidato / "scripts").is_dir() and ((candidato / "db").is_dir() or (candidato / "dashboard").is_dir()):
+        if (candidato / "scripts").is_dir() and ((candidato / "data").is_dir() or (candidato / "app").is_dir()):
             return candidato
-        if (candidato / "SCRIPTS").is_dir() and (candidato / "DB").is_dir():
+        if (candidato / "SCRIPTS").is_dir() and (candidato / "DATA").is_dir():
             return candidato
     return caminho_atual
 
@@ -118,9 +118,9 @@ def carregar_configuracao(raiz: Path) -> dict:
 def obter_cliente_supabase(raiz: Path):
     for env_path in [
         raiz / "scripts" / "config" / ".env",
-        raiz / "dashboard" / ".env.local",
+        raiz / "app" / ".env.local",
         raiz / "SCRIPTS" / "CONFIG" / ".env",
-        raiz / "DASHBOARD" / ".env.local",
+        raiz / "APP" / ".env.local",
         raiz / ".env",
     ]:
         if env_path.is_file():
@@ -388,10 +388,10 @@ def processar_e_carregar_fato_economico(raiz: Path | None = None) -> int:
     # 2. Localizar e ler o relatório de indicadores MENSAIS do Elabore (fonte única da fato econômica)
     dir_elabore_mensal = Path(config.get("caminhos", {}).get("elabore_mensal", ""))
     fallbacks = [
-        raiz / "db" / "input",
-        raiz / "DB" / "INPUT",
-        raiz / "db" / "input" / "temp",
-        raiz / "DB" / "INPUT" / "TEMP",
+        raiz / "data" / "input",
+        raiz / "DATA" / "INPUT",
+        raiz / "data" / "input" / "temp",
+        raiz / "DATA" / "INPUT" / "TEMP",
     ]
 
     try:

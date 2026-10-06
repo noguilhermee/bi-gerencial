@@ -19,10 +19,10 @@ if hasattr(sys.stdout, "reconfigure"):
 
 caminho_atual = Path(__file__).resolve()
 for candidato in [caminho_atual, *caminho_atual.parents]:
-    if (candidato / "scripts").is_dir() and ((candidato / "db").is_dir() or (candidato / "dashboard").is_dir()):
+    if (candidato / "scripts").is_dir() and ((candidato / "data").is_dir() or (candidato / "app").is_dir()):
         raiz_projeto = candidato
         break
-    if (candidato / "SCRIPTS").is_dir() and ((candidato / "DB").is_dir() or (candidato / "DASHBOARD").is_dir()):
+    if (candidato / "SCRIPTS").is_dir() and ((candidato / "DATA").is_dir() or (candidato / "APP").is_dir()):
         raiz_projeto = candidato
         break
 else:
@@ -303,7 +303,7 @@ def executar_reconciliacao(reindex_completo: bool = False):
     # provisório que não bate com nenhuma chave de sq_raw_vinculos nem de tab_dim_fazendas_ativas.
     # Resolvemos o codigo_lr real só pelo nome, em 3 critérios de prioridade decrescente; se
     # nenhum resolver de forma inequívoca, o cadastro NÃO entra em sq_raw_movimentacao — vai para
-    # a planilha de auditoria em db/output/logs/ e é resolvido sozinho numa execução futura,
+    # a planilha de auditoria em data/output/logs/ e é resolvido sozinho numa execução futura,
     # quando o vínculo existir.
     df_vinc_qualquer_projeto = consultar_tabela_supabase(
         "sq_raw_vinculos",
@@ -731,7 +731,7 @@ def executar_reconciliacao(reindex_completo: bool = False):
     # bateu): não entram em sq_raw_movimentacao — ficam só nesta planilha de auditoria e são
     # resolvidos sozinhos numa execução futura, assim que o vínculo do produtor existir.
     if cadastros_sem_resolucao:
-        pasta_logs = raiz_projeto / "db" / "output" / "logs"
+        pasta_logs = raiz_projeto / "data" / "output" / "logs"
         pasta_logs.mkdir(parents=True, exist_ok=True)
         caminho_auditoria = pasta_logs / f"{datetime.now(FUSO_SP).strftime('%Y_%m_%d_%H%M%S')}_cadastros_sem_codigo_lr.xlsx"
         pd.DataFrame(cadastros_sem_resolucao).to_excel(caminho_auditoria, index=False)
@@ -793,7 +793,7 @@ def executar_reconciliacao(reindex_completo: bool = False):
     print(f"\n🌱 6. Processando espelhos e base ativa mensal de fazendas...")
 
     # Coordenadas (latitude/longitude/origem_coordenada/coordenada_corrigida) são colunas novas em
-    # sq_raw_fazendas_grupo e tab_dim_fazendas_ativas (db/input/2026_09_30_ddl_coordenadas_dim.sql). Sem elas o upsert
+    # sq_raw_fazendas_grupo e tab_dim_fazendas_ativas (data/input/2026_09_30_ddl_coordenadas_dim.sql). Sem elas o upsert
     # falharia DEPOIS de a etapa 6.3 apagar o mês da dim; por isso a presença é checada antes e as colunas saem do envio.
     CAMPOS_COORD = ("latitude", "longitude", "origem_coordenada", "coordenada_corrigida")
 
@@ -802,7 +802,7 @@ def executar_reconciliacao(reindex_completo: bool = False):
             supabase.table(tabela).select(",".join(CAMPOS_COORD)).limit(1).execute()
             return True
         except Exception:
-            print(f"   ⚠️ {tabela} ainda não tem as colunas de coordenada (rode db/input/2026_09_30_ddl_coordenadas_dim.sql); "
+            print(f"   ⚠️ {tabela} ainda não tem as colunas de coordenada (rode data/input/2026_09_30_ddl_coordenadas_dim.sql); "
                   f"as coordenadas não serão gravadas nela.")
             return False
 

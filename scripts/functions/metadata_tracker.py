@@ -88,9 +88,9 @@ def obter_info_consistencia_supabase(raiz: Path) -> Dict[str, Any]:
         from dotenv import load_dotenv
         for env_path in [
             raiz / "scripts" / "config" / ".env",
-            raiz / "dashboard" / ".env.local",
+            raiz / "app" / ".env.local",
             raiz / "SCRIPTS" / "CONFIG" / ".env",
-            raiz / "DASHBOARD" / ".env.local",
+            raiz / "APP" / ".env.local",
             raiz / ".env"
         ]:
             if env_path.is_file():
@@ -159,10 +159,10 @@ def obter_info_consistencia_supabase(raiz: Path) -> Dict[str, Any]:
 def obter_metadados_planilhas(raiz_projeto: Path | str | None = None) -> Dict[str, Any]:
     caminho_base = Path(raiz_projeto or Path.cwd()).resolve()
     for candidato in [caminho_base, *caminho_base.parents]:
-        if (candidato / "scripts").is_dir() and ((candidato / "db").is_dir() or (candidato / "dashboard").is_dir()):
+        if (candidato / "scripts").is_dir() and ((candidato / "data").is_dir() or (candidato / "app").is_dir()):
             raiz = candidato
             break
-        if (candidato / "SCRIPTS").is_dir() and ((candidato / "DB").is_dir() or (candidato / "DASHBOARD").is_dir()):
+        if (candidato / "SCRIPTS").is_dir() and ((candidato / "DATA").is_dir() or (candidato / "APP").is_dir()):
             raiz = candidato
             break
     else:
@@ -238,10 +238,10 @@ def obter_metadados_planilhas(raiz_projeto: Path | str | None = None) -> Dict[st
         "arquivos": arquivos_info,
     }
     
-    # Salvar cópia em db/output/processed/fontes_metadados.json
-    pasta_saida = raiz / "db" / "output" / "processed"
-    if not pasta_saida.exists() and (raiz / "DB" / "OUTPUT" / "PROCESSED").exists():
-        pasta_saida = raiz / "DB" / "OUTPUT" / "PROCESSED"
+    # Salvar cópia em data/output/processed/fontes_metadados.json
+    pasta_saida = raiz / "data" / "output" / "processed"
+    if not pasta_saida.exists() and (raiz / "DATA" / "OUTPUT" / "PROCESSED").exists():
+        pasta_saida = raiz / "DATA" / "OUTPUT" / "PROCESSED"
     pasta_saida.mkdir(parents=True, exist_ok=True)
     caminho_json = pasta_saida / "fontes_metadados.json"
     
@@ -249,9 +249,9 @@ def obter_metadados_planilhas(raiz_projeto: Path | str | None = None) -> Dict[st
         json.dump(payload, f, ensure_ascii=False, indent=2)
         
     # Também salvar cópia no dashboard para fallback estático se necessário
-    dashboard_data_dir = raiz / "dashboard" / "public" / "data"
-    if not dashboard_data_dir.exists() and (raiz / "DASHBOARD" / "public" / "data").exists():
-        dashboard_data_dir = raiz / "DASHBOARD" / "public" / "data"
+    dashboard_data_dir = raiz / "app" / "public" / "data"
+    if not dashboard_data_dir.exists() and (raiz / "APP" / "public" / "data").exists():
+        dashboard_data_dir = raiz / "APP" / "public" / "data"
     dashboard_data_dir.mkdir(parents=True, exist_ok=True)
     with open(dashboard_data_dir / "fontes_metadados.json", "w", encoding="utf-8") as f:
         json.dump(payload, f, ensure_ascii=False, indent=2)
