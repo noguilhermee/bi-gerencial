@@ -24,7 +24,14 @@
   ],
   "headers": [
     {
-      "source": "/api/(.*)",
+      "source": "/api/(master|overview|visits|turnover|consistency|economics|production|territory|safra)",
+      "headers": [
+        { "key": "Cache-Control", "value": "private, max-age=300" },
+        { "key": "Vary", "value": "Authorization" }
+      ]
+    },
+    {
+      "source": "/api/(me|config|aquecer|health|admin-usuarios)",
       "headers": [
         { "key": "Cache-Control", "value": "private, no-store" }
       ]

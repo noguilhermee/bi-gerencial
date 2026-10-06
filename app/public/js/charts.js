@@ -119,6 +119,8 @@ class DashboardCharts {
               }
             } else if (requestedPosition === 'insideBase' && Number.isFinite(element.base)) {
               y = element.base - 11;
+            } else if (requestedPosition === 'below') {
+              y += 12;
             } else {
               y -= dataset.type === 'line' || chart.config.type === 'line' ? 11 : 8;
             }
@@ -611,7 +613,19 @@ class DashboardCharts {
     const color = this.colors();
     this.instances[id] = new Chart(ctx, {
       type: 'line',
-      plugins: [this.valueLabels((value) => this.formatValue(value, '%'), { fontSize: 11.2 })],
+      plugins: [this.valueLabels((value) => this.formatValue(value, '%'), {
+        fontSize: 11.2,
+        // Em cada mês, a série mais alta leva o rótulo acima do ponto e a mais baixa abaixo, sem sobrepor.
+        position: ({ chart, datasetIndex, dataIndex }) => {
+          const other = chart.data.datasets[1 - datasetIndex];
+          const otherHidden = chart.getDatasetMeta(1 - datasetIndex).hidden;
+          const mine = Number(chart.data.datasets[datasetIndex].data[dataIndex]);
+          const theirs = Number(other?.data?.[dataIndex]);
+          if (otherHidden || !Number.isFinite(theirs)) return 'above';
+          if (mine === theirs) return datasetIndex === 0 ? 'above' : 'below';
+          return mine > theirs ? 'above' : 'below';
+        }
+      })],
       data: {
         labels: data.labels || [],
         datasets: [

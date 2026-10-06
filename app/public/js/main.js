@@ -148,13 +148,25 @@ aoCarregar(() => {
   setTheme(root.dataset.theme, false);
   themeToggle?.addEventListener('click', () => setTheme(root.dataset.theme === 'dark' ? 'light' : 'dark'));
 
+  // Respostas da API por URL (a URL carrega os filtros), válidas por 5 min; só vive na aba, some ao recarregar/sair.
+  const TTL_CACHE_API_MS = 5 * 60 * 1000;
+  const cacheApi = new Map();
+
   async function getJson(url) {
+    const cacheavel = url.startsWith('/api/');
+    const emCache = cacheavel ? cacheApi.get(url) : null;
+    if (emCache && Date.now() < emCache.expiraEm) return structuredClone(emCache.dados);
     try {
       const token = await window.LRAuth.getToken();
       const response = await fetch(url, { headers: { Accept: 'application/json', Authorization: `Bearer ${token}` } });
       if (response.status === 401) { window.LRAuth.logout(); return null; }
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
-      return await response.json();
+      const dados = await response.json();
+      if (cacheavel && dados) {
+        if (cacheApi.size >= 100) cacheApi.delete(cacheApi.keys().next().value);
+        cacheApi.set(url, { dados: structuredClone(dados), expiraEm: Date.now() + TTL_CACHE_API_MS });
+      }
+      return dados;
     } catch (error) {
       console.error(`${url} indisponível.`, error);
       return null;

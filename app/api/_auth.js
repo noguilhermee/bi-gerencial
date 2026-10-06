@@ -49,12 +49,22 @@ async function autenticar(req) {
   return carregarPerfil(getSupabaseClient(), token);
 }
 
+const ROTAS_DADOS = new Set(['master', 'overview', 'visits', 'turnover', 'consistency', 'economics', 'production', 'territory', 'safra']);
+
 /** Envolve um handler: resposta JSON privada, sem CORS aberto, exigindo login. */
 function comAuth(handler, { admin = false } = {}) {
   return async (req, res) => {
     try {
       res.setHeader('Content-Type', 'application/json');
-      res.setHeader('Cache-Control', 'private, no-store');
+      // Rotas de dados: o navegador de cada usuário pode reaproveitar a resposta por 5 min (private = nunca CDN; Vary = nunca entre usuários).
+      // Os roteadores recebem a rota em ?rota= (rewrites do vercel.json); sem isso vale o último trecho do caminho
+      const rota = String(req.query?.rota || String(req.url || '').split('?')[0].split('/').pop());
+      if (ROTAS_DADOS.has(rota)) {
+        res.setHeader('Cache-Control', 'private, max-age=300');
+        res.setHeader('Vary', 'Authorization');
+      } else {
+        res.setHeader('Cache-Control', 'private, no-store');
+      }
       // req.perfil só existe aqui se outro handler do servidor (rota master) já validou o token; o cliente não consegue defini-lo.
       const resultado = req.perfil ? { perfil: req.perfil } : await autenticar(req);
       if (!resultado.perfil) return res.status(resultado.status).json({ error: resultado.erro });
