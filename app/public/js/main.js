@@ -204,6 +204,40 @@ aoCarregar(() => {
     renderSelectedRanking();
   }
 
+  // Tabela detalhada (todos os meses, mais recente primeiro) exibida quando o painel está expandido.
+  function coverageEvolutionRows() {
+    const serie = state.overview?.evolucaoMensal || emptyState.overview.evolucaoMensal;
+    return (serie.labels || []).map((label, idx) => {
+      const ativas = Number(serie.fazendasAtivas?.[idx]) || 0;
+      const visitadas = Number(serie.fazendasVisitadas?.[idx]) || 0;
+      const perc = Number(serie.percCobertura?.[idx]) || 0;
+      const prev = idx > 0 ? Number(serie.percCobertura?.[idx - 1]) || 0 : null;
+      return {
+        idx, mes_label: label, fazendas_ativas: ativas, fazendas_visitadas: visitadas,
+        fazendas_nao_visitadas: Math.max(0, ativas - visitadas), perc_cobertura: perc,
+        variacao_pp: prev === null ? null : Math.round((perc - prev) * 10) / 10
+      };
+    }).reverse();
+  }
+
+  function renderCoverageTable() {
+    let rows = applyColumnFilters(coverageEvolutionRows(), 'tableCoverageEvolucao');
+    updateCount('countCoverageEvolucao', rows);
+    rows = sortRows(rows, tableSort.tbodyCoverageEvolucao, (row, key) => row[key]);
+    updateTableHeadIcons('tbodyCoverageEvolucao', tableSort.tbodyCoverageEvolucao.colKey, tableSort.tbodyCoverageEvolucao.dir);
+    const page = getPaginatedSlice('tableCoverageEvolucao', rows);
+    const pp = (v) => v === null || v === undefined ? '—' : `${v > 0 ? '+' : ''}${String(v).replace('.', ',')} p.p.`;
+    if (el('tbodyCoverageEvolucao')) el('tbodyCoverageEvolucao').innerHTML = rowsOrEmpty(page, 6, (row) => `<tr>
+      <td class="col-center"><strong>${escapeHtml(row.mes_label)}</strong></td>
+      <td class="col-right font-tabular">${number(row.fazendas_ativas)}</td>
+      <td class="col-right font-tabular">${number(row.fazendas_visitadas)}</td>
+      <td class="col-right font-tabular">${number(row.fazendas_nao_visitadas)}</td>
+      <td class="col-right font-tabular">${percent(row.perc_cobertura)}</td>
+      <td class="col-right font-tabular">${pp(row.variacao_pp)}</td>
+    </tr>`);
+    renderTablePagination('paginationCoverageEvolucao', 'tableCoverageEvolucao', rows.length);
+  }
+
   function renderVisitsEvolution() {
     const series = sliceTimeSeries(state.overview?.evolucaoVisitas || emptyState.overview.evolucaoVisitas, state.chartHorizons.visits);
     charts.renderVisitsEvolution('chartVisitsEvolution', { labels: series.labels, values: series.values, variations: series.variacoes });
@@ -486,6 +520,7 @@ aoCarregar(() => {
     tbodyCadastroDetalhe: { colKey: null, dir: 'asc' },
     tbodyMbRankingDetalhe: { colKey: null, dir: 'asc' },
     tbodyCoeDetalhe: { colKey: null, dir: 'asc' },
+    tbodyCoverageEvolucao: { colKey: null, dir: 'asc' },
     tbodyRankingProdutores: { colKey: null, dir: 'asc' },
     tbodyRankingConsultores: { colKey: null, dir: 'asc' },
     tbodyProdCcs: { colKey: 'valor', dir: 'desc' },
@@ -508,6 +543,7 @@ aoCarregar(() => {
     tableCadastroDetalhe: { page: 1, pageSize: 25 },
     tableMbRankingDetalhe: { page: 1, pageSize: 25 },
     tableCoeDetalhe: { page: 1, pageSize: 25 },
+    tableCoverageEvolucao: { page: 1, pageSize: 25 },
     tableRankingProdutores: { page: 1, pageSize: 25 },
     tableRankingConsultores: { page: 1, pageSize: 25 },
     tableProdCcs: { page: 1, pageSize: 25 },
@@ -768,6 +804,7 @@ aoCarregar(() => {
       tbodyInconsistencies: ['codigo_lr', 'produtor', 'consultor', 'meses_sequenciais', 'consistencia_mensal', 'consistencia_anual', 'acao'],
       tbodyCadastroDetalhe: ['nome_fazenda', 'produtor', 'cidade_uf', 'consultor', 'data_associacao_ts', 'tempo_meses', 'categoria_cadastro', 'consistencia_mensal', 'status'],
       tbodyMbRankingDetalhe: ['posicao', 'nome_fazenda', 'produtor', 'consultor', 'mes_referencia', 'volume_diario_litros', 'preco_medio_litro', 'coe_por_litro', 'margem_bruta_por_litro', 'consistencia_mensal'],
+      tbodyCoverageEvolucao: ['idx', 'fazendas_ativas', 'fazendas_visitadas', 'fazendas_nao_visitadas', 'perc_cobertura', 'variacao_pp'],
       tbodyCoeDetalhe: ['nome_fazenda', 'produtor', 'mes_referencia', 'volume_leite_mes', 'coe_total_reais', 'coe_por_litro', 'perc_concentrado', 'perc_volumoso', 'perc_mao_de_obra', 'perc_sanidade', 'perc_outros', 'maior_item', 'consistencia_mensal'],
       tbodyRankingProdutores: ['posicao', 'codigo_lr', 'produtor', 'consultor', 'propriedade', 'total_visitas', 'perc_total_label', 'data_ultima_visita'],
       tbodyRankingConsultores: ['posicao', 'consultor', 'total_visitas', 'fazendas_visitadas', 'total_fazendas', 'perc_cobertura_label', 'visitas_por_produtor_label'],
@@ -1286,6 +1323,7 @@ aoCarregar(() => {
   window.openTrajectoryList = openTrajectoryList;
 
   function renderTables() {
+    renderCoverageTable();
     const filter = currentFilter();
     const overview = state.overview || emptyState.overview;
     const visits = state.visits || emptyState.visits;
@@ -1980,6 +2018,14 @@ aoCarregar(() => {
       };
     }
 
+    if (tableId === 'tableCoverageEvolucao') {
+      const data = applyColumnFilters(coverageEvolutionRows(), 'tableCoverageEvolucao');
+      return {
+        headers: ['Mês', 'Fazendas ativas', 'Fazendas visitadas', 'Não visitadas', '% Cobertura', 'Var. vs mês anterior (p.p.)'],
+        rows: data.map((r) => [r.mes_label, r.fazendas_ativas, r.fazendas_visitadas, r.fazendas_nao_visitadas, percent(r.perc_cobertura), r.variacao_pp === null ? '—' : String(r.variacao_pp).replace('.', ',')])
+      };
+    }
+
     if (tableId === 'tableCoeDetalhe') {
       let data = state.economics?.coe_detalhe || [];
       data = applyColumnFilters(data, 'tableCoeDetalhe');
@@ -2143,6 +2189,7 @@ aoCarregar(() => {
     el('btnExportDataProducers')?.addEventListener('click', () => exportTableToCsv('tableDataProducers', 'produtores_com_dados'));
     el('btnExportInconsistencies')?.addEventListener('click', exportInconsistenciesToCsv);
     el('btnExportCadastroDetalhe')?.addEventListener('click', () => exportTableToCsv('tableCadastroDetalhe', 'tempo_cadastro_produtores'));
+    el('btnExportCoverageEvolucao')?.addEventListener('click', () => exportTableToCsv('tableCoverageEvolucao', 'evolucao_cobertura_mensal'));
     el('btnExportCoeDetalhe')?.addEventListener('click', () => exportTableToCsv('tableCoeDetalhe', 'composicao_coe_fazendas'));
     el('btnExportMbRankingDetalhe')?.addEventListener('click', () => exportTableToCsv('tableMbRankingDetalhe', 'top10_margem_bruta'));
     el('btnExportProdCcs')?.addEventListener('click', () => exportTableToCsv('tableProdCcs', 'ccs_acima_do_limite'));

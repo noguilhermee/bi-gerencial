@@ -135,7 +135,17 @@
         </div>
 
         <div class="grid-two grid-two--visits">
-          <article class="panel-card"><div class="panel-heading panel-heading--with-controls"><div><h2>Evolução mensal da cobertura</h2><p>Fazendas ativas, visitadas e % de cobertura por mês</p></div><div class="panel-heading-actions"><div class="segmented-control chart-horizon-control" data-chart-horizon="coverage" aria-label="Período do gráfico"><button type="button" data-months="1">1M</button><button class="active" type="button" data-months="6" aria-pressed="true">6M</button><button type="button" data-months="12" aria-pressed="false">12M</button><button type="button" data-months="0">Tudo</button></div><button class="btn-panel-fs" type="button" title="Tela cheia" aria-label="Expandir painel para tela cheia"><span class="material-symbols-rounded">fullscreen</span></button></div></div><div class="chart-box"><canvas id="chartVisitsCoverage"></canvas></div></article>
+          <article class="panel-card"><div class="panel-heading panel-heading--with-controls"><div><h2>Evolução mensal da cobertura</h2><p>Fazendas ativas, visitadas e % de cobertura por mês</p></div><div class="panel-heading-actions"><div class="segmented-control chart-horizon-control chart-only-control" data-chart-horizon="coverage" aria-label="Período do gráfico"><button type="button" data-months="1">1M</button><button class="active" type="button" data-months="6" aria-pressed="true">6M</button><button type="button" data-months="12" aria-pressed="false">12M</button><button type="button" data-months="0">Tudo</button></div><button class="btn-panel-fs" type="button" title="Tela cheia" aria-label="Expandir painel para tela cheia"><span class="material-symbols-rounded">fullscreen</span></button></div></div><div class="chart-box chart-box--with-table"><canvas id="chartVisitsCoverage"></canvas></div>
+            <div class="panel-table-view">
+              <div class="panel-table-view-heading"><span class="record-count" id="countCoverageEvolucao">0 registros</span><button class="btn-table-export" id="btnExportCoverageEvolucao" type="button" title="Exportar tabela para CSV (Excel)" aria-label="Exportar para CSV"><span class="material-symbols-rounded" aria-hidden="true">download</span><span>Exportar</span></button></div>
+              <div class="table-scroll"><table class="data-table" id="tableCoverageEvolucao">
+                <colgroup><col style="width:14%"><col style="width:17%"><col style="width:17%"><col style="width:16%"><col style="width:16%"><col style="width:20%"></colgroup>
+                <thead><tr><th class="col-center">Mês</th><th class="col-right">Fazendas ativas</th><th class="col-right">Fazendas visitadas</th><th class="col-right">Não visitadas</th><th class="col-right">% Cobertura</th><th class="col-right">Var. vs mês anterior (p.p.)</th></tr><tr class="table-filter-row"><th><input type="text" class="table-col-filter" data-table="tableCoverageEvolucao" data-col="mes_label" placeholder="Filtrar..." aria-label="Filtrar Mês"></th><th><input type="text" class="table-col-filter" data-table="tableCoverageEvolucao" data-col="fazendas_ativas" placeholder="Filtrar..." aria-label="Filtrar Fazendas ativas"></th><th><input type="text" class="table-col-filter" data-table="tableCoverageEvolucao" data-col="fazendas_visitadas" placeholder="Filtrar..." aria-label="Filtrar Fazendas visitadas"></th><th><input type="text" class="table-col-filter" data-table="tableCoverageEvolucao" data-col="fazendas_nao_visitadas" placeholder="Filtrar..." aria-label="Filtrar Não visitadas"></th><th><input type="text" class="table-col-filter" data-table="tableCoverageEvolucao" data-col="perc_cobertura" placeholder="Filtrar..." aria-label="Filtrar % Cobertura"></th><th><input type="text" class="table-col-filter" data-table="tableCoverageEvolucao" data-col="variacao_pp" placeholder="Filtrar..." aria-label="Filtrar Var. vs mês anterior (p.p.)"></th></tr></thead>
+                <tbody id="tbodyCoverageEvolucao"><tr><td colspan="6" class="empty-cell">Carregando...</td></tr></tbody>
+              </table></div>
+              <div class="table-pagination" id="paginationCoverageEvolucao" data-table="tableCoverageEvolucao"></div>
+            </div>
+          </article>
           <article class="panel-card">
             <div class="panel-heading panel-heading--with-controls"><div><h2>Evolução das visitas</h2><p>Variação % em relação ao mês anterior</p></div><div class="panel-heading-actions"><div class="segmented-control chart-horizon-control chart-only-control" data-chart-horizon="visits" aria-label="Período do gráfico"><button type="button" data-months="1">1M</button><button class="active" type="button" data-months="6" aria-pressed="true">6M</button><button type="button" data-months="12" aria-pressed="false">12M</button><button type="button" data-months="0">Tudo</button></div><button class="btn-panel-fs" type="button" title="Tela cheia" aria-label="Expandir painel para tela cheia"><span class="material-symbols-rounded">fullscreen</span></button></div></div>
             <div class="chart-box chart-box--with-table"><canvas id="chartVisitsEvolution"></canvas></div>
@@ -975,7 +985,7 @@
         './js/charts.js?v=20261001-2',
         './js/producao.js?v=20261005-2',
         './js/safra-relatorio.js?v=20261005-1',
-        './js/main.js?v=20261006-2'
+        './js/main.js?v=20261006-3'
       ];
       // async = false: os scripts baixam em paralelo e executam na ordem da lista (antes baixavam um por vez)
       const carregar = (src) => new Promise((ok, falha) => {
