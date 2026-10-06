@@ -3896,3 +3896,29 @@ th.col-center .table-col-filter { text-align: center !important; }
   /* A regra ".panel-card { display:flex !important }" acima reexibia a matriz Elabore (só existe em tela cheia) depois do rodapé */
   #panelElabore:not(.is-fullscreen) { display: none !important; }
 }
+
+/* Botão "Limpar filtros": mesmo estilo do "Aplicar" dos popups (fim da barra; dentro da gaveta nas telas menores) */
+.filter-clear-btn {
+  height: 35px;
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  border: 0;
+  border-radius: 6px;
+  background: #0F6E56;
+  color: #ffffff;
+  font-family: inherit;
+  font-size: 11px;
+  font-weight: 750;
+  padding: 5px 14px;
+  cursor: pointer;
+  transition: background 120ms ease;
+}
+.filter-clear-btn[hidden] { display: none; }
+.filter-clear-btn .material-symbols-rounded { font-size: 16px; }
+.filter-clear-btn:hover { background: #0B5341; }
+.filter-clear-btn:focus-visible { outline: 2px solid #0F6E56; outline-offset: 2px; }
+@media (max-width: 1440px) {
+  .filter-shell > .filter-clear-btn { height: 44px; flex: 0 0 auto; }
+}

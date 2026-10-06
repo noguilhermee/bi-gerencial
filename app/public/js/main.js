@@ -324,6 +324,17 @@ aoCarregar(() => {
       .filter((id) => selectedValues(id).length).length;
     badge.textContent = ativos;
     badge.hidden = !ativos;
+    atualizarBotaoLimpar();
+  }
+
+  // "Limpar filtros" só aparece quando há algo fora do padrão: filtros do cabeçalho, mês escolhido ou filtros de coluna
+  function atualizarBotaoLimpar() {
+    const btn = el('clearFiltersBtn');
+    if (!btn) return;
+    const cabecalho = ['filterIndustry', 'filterRegion', 'filterRegional', 'filterProject', 'filterConsultant', 'filterProducer']
+      .some((id) => selectedValues(id).length);
+    const colunas = [...document.querySelectorAll('.table-col-filter')].some((input) => input.value);
+    btn.hidden = !(cabecalho || state.hasUserChangedMonth || colunas);
   }
 
   function selectedValues(selectId) {
@@ -1028,6 +1039,7 @@ aoCarregar(() => {
         if (!tableId || !col) return;
         if (!tableColFilters[tableId]) tableColFilters[tableId] = {};
         tableColFilters[tableId][col] = e.target.value;
+        atualizarBotaoLimpar();
         if (tablePagination[tableId]) tablePagination[tableId].page = 1;
         renderTables();
       });
@@ -2704,6 +2716,29 @@ aoCarregar(() => {
     });
   }
 
+  // Limpar filtros: zera as 6 dimensões e os filtros de coluna das tabelas; o Mês volta ao padrão (mês atual / mais recente com dados)
+  async function limparFiltros() {
+    closeAllPopups();
+    ['filterIndustry', 'filterRegion', 'filterRegional', 'filterProject', 'filterConsultant', 'filterProducer'].forEach((id) => {
+      const select = el(id);
+      if (!select) return;
+      [...select.options].forEach((opt) => { opt.selected = false; });
+      syncCustomSelectDisplay(id);
+    });
+    document.querySelectorAll('.custom-select-search-input').forEach((input) => { input.value = ''; });
+    Object.keys(tableColFilters).forEach((k) => { tableColFilters[k] = {}; });
+    document.querySelectorAll('.table-col-filter').forEach((input) => { input.value = ''; });
+    Object.keys(tablePagination).forEach((k) => { tablePagination[k].page = 1; });
+    // Sem meses marcados e sem "mês escolhido pelo usuário", fetchMonthMasterData volta ao mês padrão
+    marcarMeses([]);
+    state.hasUserChangedMonth = false;
+    state.masterRows = null;
+    showLoading('Atualizando dashboard com filtros...');
+    await loadAllData(true);
+    atualizarBotaoLimpar();
+  }
+  el('clearFiltersBtn')?.addEventListener('click', limparFiltros);
+
   let resizeTimer = null;
   window.addEventListener('resize', () => {
     clearTimeout(resizeTimer);
@@ -2719,6 +2754,7 @@ aoCarregar(() => {
     .forEach((id) => el(id)?.addEventListener('change', handleFilterSelectionChange));
   el('filterMonth')?.addEventListener('change', async () => {
     state.hasUserChangedMonth = true;
+    atualizarBotaoLimpar();
     showLoading('Atualizando dashboard com filtros...');
     state.masterRows = null;
     await fetchMonthMasterData();

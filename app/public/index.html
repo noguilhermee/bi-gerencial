@@ -34,8 +34,8 @@
   <link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <!-- Fonte de ícones recortada só com os ícones usados (a fonte completa tem ~1,2 MB). Ícone novo no HTML/JS: incluir o nome
        em icon_names, em ordem alfabética (aqui e em admin.html), senão aparece o nome em texto no lugar do ícone. -->
-  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20,500,0,0&icon_names=account_balance_wallet,agriculture,analytics,arrow_back,balance,biotech,bug_report,calendar_month,calendar_today,cancel,check_circle,close,dark_mode,database,date_range,description,download,eco,expand_more,fact_check,folder_supervised,fullscreen,fullscreen_exit,grass,groups,history,home_work,info,inventory_2,key,light_mode,location_city,location_on,location_searching,login,logout,manage_accounts,map,monitoring,notification_important,nutrition,opacity,payments,person,person_add,person_check,picture_as_pdf,pin_drop,remove,request_quote,speed,support_agent,thumb_up,trending_down,tune,verified,warning,water_drop&display=block" rel="stylesheet">
-  <link rel="stylesheet" href="./css/dashboard.css?v=20261006-3">
+  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20,500,0,0&icon_names=account_balance_wallet,agriculture,analytics,arrow_back,balance,biotech,bug_report,calendar_month,calendar_today,cancel,check_circle,close,dark_mode,database,date_range,description,download,eco,expand_more,fact_check,filter_alt_off,folder_supervised,fullscreen,fullscreen_exit,grass,groups,history,home_work,info,inventory_2,key,light_mode,location_city,location_on,location_searching,login,logout,manage_accounts,map,monitoring,notification_important,nutrition,opacity,payments,person,person_add,person_check,picture_as_pdf,pin_drop,remove,request_quote,speed,support_agent,thumb_up,trending_down,tune,verified,warning,water_drop&display=block" rel="stylesheet">
+  <link rel="stylesheet" href="./css/dashboard.css?v=20261006-5">
   <link rel="stylesheet" href="./css/producao.css?v=20261005-2">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
 </head>
@@ -79,6 +79,10 @@
           <span>Mês</span>
           <select id="filterMonth" aria-label="Mês de referência" multiple data-all-label="Todos"></select>
         </label>
+        <button class="filter-clear-btn" id="clearFiltersBtn" type="button" aria-label="Limpar todos os filtros" title="Limpar todos os filtros" hidden>
+          <span class="material-symbols-rounded" aria-hidden="true">filter_alt_off</span>
+          <span>Limpar</span>
+        </button>
       </section>
 
       <div class="header-actions">
@@ -971,7 +975,7 @@
         './js/charts.js?v=20261001-2',
         './js/producao.js?v=20261005-2',
         './js/safra-relatorio.js?v=20261005-1',
-        './js/main.js?v=20261006-1'
+        './js/main.js?v=20261006-2'
       ];
       // async = false: os scripts baixam em paralelo e executam na ordem da lista (antes baixavam um por vez)
       const carregar = (src) => new Promise((ok, falha) => {
