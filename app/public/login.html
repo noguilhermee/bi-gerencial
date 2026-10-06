@@ -7,7 +7,7 @@
   <link rel="icon" type="image/png" href="./img/lr.png">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="./css/login.css?v=20261001-3">
+  <link rel="stylesheet" href="./css/login.css?v=20261006-2">
 </head>
 <body>
   <div class="brand">
@@ -26,10 +26,20 @@
     <h1>Seja bem-vindo(a)!</h1>
     <form id="novaSenhaForm" novalidate hidden>
       <label>Nova senha * (mínimo 8 caracteres)
-        <input id="novaSenha" type="password" autocomplete="new-password" minlength="8" required>
+        <div class="pw">
+          <input id="novaSenha" type="password" autocomplete="new-password" minlength="8" required>
+          <button class="eye" type="button" data-alvo="novaSenha" aria-label="Mostrar senha">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12z"/><circle cx="12" cy="12" r="3"/></svg>
+          </button>
+        </div>
       </label>
       <label>Repita a nova senha *
-        <input id="novaSenha2" type="password" autocomplete="new-password" minlength="8" required>
+        <div class="pw">
+          <input id="novaSenha2" type="password" autocomplete="new-password" minlength="8" required>
+          <button class="eye" type="button" data-alvo="novaSenha2" aria-label="Mostrar senha">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12z"/><circle cx="12" cy="12" r="3"/></svg>
+          </button>
+        </div>
       </label>
       <button class="primary" id="salvarSenha" type="submit">SALVAR SENHA</button>
       <p class="msg" id="msgSenha" role="alert"></p>
@@ -40,7 +50,7 @@
       <label for="senha">Senha *</label>
       <div class="pw">
         <input id="senha" type="password" autocomplete="current-password" required>
-        <button class="eye" id="verSenha" type="button" aria-label="Mostrar senha">
+        <button class="eye" id="verSenha" type="button" data-alvo="senha" aria-label="Mostrar senha">
           <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12z"/><circle cx="12" cy="12" r="3"/></svg>
         </button>
       </div>
@@ -63,10 +73,11 @@
       const aviso = (texto, ok) => { msg.textContent = texto; msg.classList.toggle('ok', !!ok); };
       const client = await LRAuth.client();
 
-      document.getElementById('verSenha').addEventListener('click', () => {
-        const s = document.getElementById('senha');
+      document.querySelectorAll('.eye').forEach((olho) => olho.addEventListener('click', () => {
+        const s = document.getElementById(olho.dataset.alvo);
         s.type = s.type === 'password' ? 'text' : 'password';
-      });
+        olho.setAttribute('aria-label', s.type === 'password' ? 'Mostrar senha' : 'Ocultar senha');
+      }));
       document.getElementById('ajuda').addEventListener('click', (e) => {
         e.preventDefault();
         aviso('Precisa de ajuda? Fale com o time de Analytics da Labor Rural.', true);
@@ -79,20 +90,34 @@
         document.getElementById('loginForm').hidden = true;
         const form = document.getElementById('novaSenhaForm');
         const msgSenha = document.getElementById('msgSenha');
+        const campo1 = document.getElementById('novaSenha');
+        const campo2 = document.getElementById('novaSenha2');
+        // Borda vermelha enquanto a confirmação não bate com a nova senha
+        const conferir = () => {
+          const diferente = campo2.value !== '' && campo1.value !== campo2.value;
+          campo1.classList.toggle('erro', diferente);
+          campo2.classList.toggle('erro', diferente);
+          if (!diferente && msgSenha.textContent === 'As senhas não coincidem.') msgSenha.textContent = '';
+          return !diferente;
+        };
+        campo1.addEventListener('input', conferir);
+        campo2.addEventListener('input', conferir);
         form.hidden = false;
         form.addEventListener('submit', async (e) => {
           e.preventDefault();
-          const a = document.getElementById('novaSenha').value;
+          const a = campo1.value;
           if (a.length < 8) { msgSenha.textContent = 'Use pelo menos 8 caracteres.'; return; }
-          if (a !== document.getElementById('novaSenha2').value) { msgSenha.textContent = 'As senhas não coincidem.'; return; }
+          if (a !== campo2.value) { campo1.classList.add('erro'); campo2.classList.add('erro'); msgSenha.textContent = 'As senhas não coincidem.'; return; }
           const { error } = await client.auth.updateUser({ password: a });
           if (error) { msgSenha.textContent = 'Não foi possível salvar a senha. Peça um novo link.'; return; }
-          location.replace('/');
+          // Senha salva: encerra a sessão do link e volta para o login, para entrar com a nova senha
+          await client.auth.signOut().catch(() => {});
+          history.replaceState(null, '', location.pathname);
+          form.hidden = true;
+          document.getElementById('loginForm').hidden = false;
+          aviso('Senha alterada com sucesso. Entre com a nova senha.', true);
         });
-        return;
-      }
-
-      if (await LRAuth.sessaoValida()) { location.replace('/'); return; }
+      } else if (await LRAuth.sessaoValida()) { location.replace('/'); return; }
 
       document.getElementById('loginForm').addEventListener('submit', async (e) => {
         e.preventDefault();

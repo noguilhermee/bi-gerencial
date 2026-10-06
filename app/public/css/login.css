@@ -32,6 +32,8 @@ input {
   border: 1px solid #c9d0d2; border-radius: 6px; background: #fff; color: var(--ink);
 }
 #novaSenhaForm input { margin-top: 6px; }
+#novaSenhaForm .eye { top: 7px; }
+input.erro, input.erro:focus { border-color: #c62828; outline-color: #ef9a9a; }
 input:focus { outline: 2px solid var(--green-400); border-color: var(--green-700); }
 .pw { position: relative; }
 .pw input { padding-right: 36px; }
