@@ -71,6 +71,20 @@
     $('lblAgros').hidden = perfil !== 'AGROINDUSTRIA';
   }
 
+  // Sem caracteres ambíguos (0/O, 1/l/I) para facilitar repassar a senha ao usuário.
+  function gerarSenha(tamanho = 8) {
+    const grupos = ['ABCDEFGHJKLMNPQRSTUVWXYZ', 'abcdefghijkmnpqrstuvwxyz', '23456789', '@#$%&*!?'];
+    const todos = grupos.join('');
+    const sorteio = (n) => crypto.getRandomValues(new Uint32Array(1))[0] % n;
+    const chars = grupos.map((g) => g[sorteio(g.length)]);
+    while (chars.length < tamanho) chars.push(todos[sorteio(todos.length)]);
+    for (let i = chars.length - 1; i > 0; i--) {
+      const j = sorteio(i + 1);
+      [chars[i], chars[j]] = [chars[j], chars[i]];
+    }
+    return chars.join('');
+  }
+
   function abrirFormulario(usuario) {
     editando = usuario;
     $('erro').textContent = '';
@@ -142,6 +156,10 @@
     if (!eu.gerenciaUsuarios) { location.replace('/'); return; }
     $('btnNovo').addEventListener('click', () => abrirFormulario(null));
     $('btnCancelar').addEventListener('click', () => $('dlg').close());
+    $('btnGerarSenha').addEventListener('click', () => {
+      $('fSenha').value = gerarSenha();
+      $('fSenha').select();
+    });
     $('fPerfil').addEventListener('change', atualizarCamposPerfil);
     $('form').addEventListener('submit', salvar);
     $('corpo').addEventListener('click', (e) => {

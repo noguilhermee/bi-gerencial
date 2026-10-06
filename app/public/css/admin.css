@@ -46,6 +46,9 @@ input[type=text], input[type=email], select {
   width: 100%; margin-top: 5px; padding: 9px 10px; font: inherit; font-size: 14px; border: 1px solid var(--line); border-radius: 8px; background: #fff; color: var(--ink);
 }
 input:focus, select:focus { outline: 2px solid #4fc9b0; }
+.senha-linha { display: flex; gap: 8px; align-items: flex-end; }
+.senha-linha input { flex: 1; min-width: 0; }
+.senha-linha .btn { padding: 9px 12px; }
 label.check { display: flex; align-items: center; gap: 8px; }
 .checks { display: grid; gap: 4px; max-height: 160px; overflow: auto; font-weight: 400; }
 .checks label { margin: 0; font-weight: 400; font-size: 13px; display: flex; gap: 6px; align-items: center; }
