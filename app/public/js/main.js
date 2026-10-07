@@ -355,7 +355,7 @@ aoCarregar(() => {
     const badge = el('filterCountBadge');
     if (!badge) return;
     const ativos = ['filterIndustry', 'filterRegion', 'filterRegional', 'filterProject', 'filterConsultant', 'filterProducer']
-      .filter((id) => selectedValues(id).length).length;
+      .filter((id) => !filtroTravado(id) && selectedValues(id).length).length;
     badge.textContent = ativos;
     badge.hidden = !ativos;
     atualizarBotaoLimpar();
@@ -366,7 +366,7 @@ aoCarregar(() => {
     const btn = el('clearFiltersBtn');
     if (!btn) return;
     const cabecalho = ['filterIndustry', 'filterRegion', 'filterRegional', 'filterProject', 'filterConsultant', 'filterProducer']
-      .some((id) => selectedValues(id).length);
+      .some((id) => !filtroTravado(id) && selectedValues(id).length);
     const colunas = [...document.querySelectorAll('.table-col-filter')].some((input) => input.value);
     btn.hidden = !(cabecalho || state.hasUserChangedMonth || colunas);
   }
@@ -379,14 +379,47 @@ aoCarregar(() => {
 
   // Reconstrói as opções de um filtro multi-seleção preservando o que continua disponível.
   // items: [{ value, label }]. Seleções que deixaram de existir são descartadas.
+  // Filtro travado pelo perfil: Agroindústria (login de agroindústria ou consultor) e Projeto (consultor) quando o escopo
+  // do usuário tem um único valor; a API já devolve só os dados dele, então o filtro não teria o que escolher.
+  function filtroTravado(selectId) {
+    const perfil = state.perfil?.perfil;
+    const opcoes = (state.masterOverview || state.overview)?.filterOptions; // a base dos filtros (master) chega antes do overview filtrado
+    if (!perfil || !opcoes) return false;
+    if (selectId === 'filterIndustry') {
+      if (perfil === 'AGROINDUSTRIA' && (state.perfil.agroindustrias || []).length === 1) return true;
+      return (perfil === 'AGROINDUSTRIA' || perfil === 'CONSULTOR') && (opcoes.agroindustrias || []).filter(ehCadeiaLeite).length === 1;
+    }
+    if (selectId === 'filterProject') return perfil === 'CONSULTOR' && (opcoes.projetos || []).filter(ehCadeiaLeite).length === 1;
+    return false;
+  }
+
   function fillMultiSelect(selectId, items) {
     const select = el(selectId);
     if (!select) return;
     const previous = new Set(selectedValues(selectId));
+    const travado = filtroTravado(selectId);
     select.innerHTML = items.map(({ value, label }) => (
-      `<option value="${escapeHtml(value)}"${previous.has(value) ? ' selected' : ''}>${escapeHtml(label)}</option>`
+      `<option value="${escapeHtml(value)}"${previous.has(value) || travado ? ' selected' : ''}>${escapeHtml(label)}</option>`
     )).join('');
     syncCustomSelectDisplay(selectId);
+    aplicarTravaFiltro(selectId);
+  }
+
+  function aplicarTravaFiltro(selectId) {
+    const control = el(selectId)?.closest('.filter-control');
+    if (!control) return;
+    const travado = filtroTravado(selectId);
+    control.classList.toggle('is-locked', travado);
+    control.setAttribute('aria-disabled', String(travado));
+    control.tabIndex = travado ? -1 : 0;
+    if (travado) {
+      closeAllPopups();
+      control.classList.remove('active-popup');
+      // mostra o valor do escopo em vez de "Todos" (com uma só opção, marcá-la não restringe nada)
+      const select = el(selectId);
+      [...select.options].forEach((opt) => { opt.selected = true; });
+      syncCustomSelectDisplay(selectId);
+    }
   }
 
   function currentFilter() {
@@ -764,9 +797,13 @@ aoCarregar(() => {
     });
   }
 
-  function rowsOrEmpty(rows, columns, mapper) {
+  // hiddenCols: colunas que só aparecem em tela cheia; a mensagem cobre só as visíveis e uma célula extra (oculta) cobre as demais,
+  // senão o colspan excede as colunas visíveis e cria colunas fantasmas que encolhem a tabela.
+  function rowsOrEmpty(rows, columns, mapper, hiddenCols = 0) {
     if (!rows || !rows.length) {
-      return `<tr><td colspan="${columns}" class="empty-cell">Nenhum registro para os filtros selecionados.</td></tr>`;
+      const msg = "Nenhum registro para os filtros selecionados.";
+      if (!hiddenCols) return `<tr><td colspan="${columns}" class="empty-cell">${msg}</td></tr>`;
+      return `<tr><td colspan="${columns - hiddenCols}" class="empty-cell">${msg}</td><td colspan="${hiddenCols}" class="empty-cell col-extra-fullscreen"></td></tr>`;
     }
     return rows.map(mapper).join('');
   }
@@ -1375,7 +1412,7 @@ aoCarregar(() => {
         ? '<span class="badge badge-positive">SIM</span>'
         : '<span class="badge badge-neutral">NÃO</span>';
       return `<tr class="${rowClass}"><td class="col-center"><strong>${escapeHtml(row.codigo_lr || '—')}</strong></td><td class="col-left" title="${escapeHtml(row.consultor || '—')}">${escapeHtml(row.consultor || '—')}</td><td class="col-left" title="${escapeHtml(row.produtor || '—')}">${escapeHtml(row.produtor || '—')}</td><td class="col-left col-fazenda" title="${escapeHtml(row.propriedade || row.fazenda || '—')}">${escapeHtml(row.propriedade || row.fazenda || '—')}</td><td class="col-center col-data-associacao" title="${escapeHtml(dtAssoc)}">${escapeHtml(dtAssoc)}</td><td class="col-center col-visita-mes-anterior" title="${escapeHtml(dtVisitaMesAnterior)}">${escapeHtml(dtVisitaMesAnterior)}</td><td class="col-center" title="${escapeHtml(dtUltimaVisita)}">${escapeHtml(dtUltimaVisita)}</td><td class="col-center font-tabular">${hasDays ? days : '—'}</td><td class="col-center">${cadastroBadge}</td><td class="col-center"><span class="badge ${badgeClass}" title="${escapeHtml(status)}">${escapeHtml(status)}</span></td></tr>`;
-    });
+    }, 3);
     renderTablePagination('paginationSemVisita', 'tableSemVisita', withoutVisit.length);
 
     // Tabela 2: Visitados
@@ -1413,7 +1450,7 @@ aoCarregar(() => {
         <td class="col-center">${escapeHtml(row.data_visita || '—')}</td>
         <td class="col-center">${dataBadge}</td>
       </tr>`;
-    });
+    }, 1);
     renderTablePagination('paginationVisitados', 'tableVisitados', visited.length);
 
     renderRankingTables();
@@ -1513,7 +1550,7 @@ aoCarregar(() => {
       const seqText = row.meses_sequenciais != null ? number(row.meses_sequenciais) : '—';
 
       return `<tr class="${rowClass}"><td class="col-center"><strong>${escapeHtml(row.codigo_lr || '—')}</strong></td><td class="col-left" title="${escapeHtml(prodName)}"><strong>${escapeHtml(prodName)}</strong></td><td class="col-left col-fazenda" title="${escapeHtml(row.propriedade || '—')}">${escapeHtml(row.propriedade || '—')}</td><td class="col-left" title="${escapeHtml(row.consultor || '—')}">${escapeHtml(row.consultor || '—')}</td><td class="col-center font-tabular">${seqText}</td><td class="col-center"><span class="badge ${badgeClassMensal}" title="${escapeHtml(row.consistencia_mensal || 'SEM DADOS')}">${escapeHtml(row.consistencia_mensal || 'SEM DADOS')}</span></td><td class="col-center"><span class="badge ${badgeClassAnual}" title="${escapeHtml(row.consistencia_anual || 'SEM DADOS')}">${escapeHtml(row.consistencia_anual || 'SEM DADOS')}</span></td><td class="col-center"><button class="link-button btn-view-details" type="button" onclick="window.openInconsistencyDetail('${escapeHtml(row.codigo_lr || row.produtor)}')">Ver detalhes ›</button></td></tr>`;
-    });
+    }, 1);
     renderTablePagination('paginationInconsistencies', 'tableInconsistencies', inconsistencies.length);
 
     // Registros inconsistentes aparecem nas tabelas da tela 4, mas ficam fora dos gráficos/KPIs
@@ -2702,6 +2739,7 @@ aoCarregar(() => {
           e.preventDefault();
           e.stopPropagation();
         }
+        if (control.classList.contains('is-locked') || filtroTravado(select.id)) return; // travado pelo perfil: não abre
         const isOpen = popup.classList.contains('open');
         closeAllPopups();
         if (!isOpen) {
@@ -2768,7 +2806,7 @@ aoCarregar(() => {
     closeAllPopups();
     ['filterIndustry', 'filterRegion', 'filterRegional', 'filterProject', 'filterConsultant', 'filterProducer'].forEach((id) => {
       const select = el(id);
-      if (!select) return;
+      if (!select || filtroTravado(id)) return;
       [...select.options].forEach((opt) => { opt.selected = false; });
       syncCustomSelectDisplay(id);
     });
@@ -3914,6 +3952,7 @@ aoCarregar(() => {
   });
 
   function mostrarUsuario(perfil) {
+    state.perfil = perfil;
     const rotulos = { ADMIN: 'Administrador', CONSULTOR: 'Consultor', AGROINDUSTRIA: 'Agroindústria' };
     const box = el('userBox');
     if (!box) return;

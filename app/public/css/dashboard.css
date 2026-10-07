@@ -3922,3 +3922,14 @@ th.col-center .table-col-filter { text-align: center !important; }
 @media (max-width: 1440px) {
   .filter-shell > .filter-clear-btn { height: 44px; flex: 0 0 auto; }
 }
+
+/* Célula extra da linha "Nenhum registro": só existe para cobrir as colunas que aparecem em tela cheia */
+.col-extra-fullscreen { display: none !important; }
+.panel-card.is-fullscreen .col-extra-fullscreen { display: table-cell !important; }
+
+/* Filtro travado pelo perfil (agroindústria/projeto únicos no escopo do usuário): mostra o valor, não abre */
+.filter-control.is-locked { cursor: not-allowed !important; opacity: .6 !important; }
+.filter-control.is-locked * { pointer-events: none !important; cursor: not-allowed !important; }
+.filter-control.is-locked .custom-select-popup { display: none !important; }
+/* Travado: sem seta, valor em verde */
+.filter-control.is-locked .select-display-value { background-image: none; padding-right: 0; color: var(--green-700); font-weight: 800; }
