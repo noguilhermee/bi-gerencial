@@ -1,6 +1,6 @@
 @echo off
 title BI Labor Rural - Teste Local Dashboard
-cd /d "%~dp0"
+cd /d "%~dp0app"
 
 echo ====================================================
 echo   BI LABOR RURAL - DASHBOARD COM DADOS DO SUPABASE

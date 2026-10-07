@@ -45,7 +45,16 @@
       const lista = usuarios.filter((u) => u.perfil === perfil).sort((a, b) => String(a.nome).localeCompare(String(b.nome), 'pt-BR'));
       if (!lista.length) return '';
       const titulo = (GRUPOS.find((g) => g[0] === perfil) || [perfil, perfil])[1];
-      return `<tr class="grupo"><th colspan="6">${escapar(titulo)} <span class="contagem">${lista.length}</span></th></tr>` + lista.map(linha).join('');
+      const cabecalho = (t, n, sub) => `<tr class="grupo${sub ? ' subgrupo' : ''}"><th colspan="6">${escapar(t)} <span class="contagem">${n}</span></th></tr>`;
+      if (perfil !== 'AGROINDUSTRIA') return cabecalho(titulo, lista.length) + lista.map(linha).join('');
+      // Agroindústrias: um sub-bloco por agroindústria (usuário com várias aparece em cada uma)
+      const porAgro = new Map();
+      lista.forEach((u) => {
+        const agros = (u.agroindustrias || []).length ? u.agroindustrias : ['Sem agroindústria'];
+        agros.forEach((a) => { if (!porAgro.has(a)) porAgro.set(a, []); porAgro.get(a).push(u); });
+      });
+      return cabecalho(titulo, lista.length) + [...porAgro.keys()].sort((a, b) => a.localeCompare(b, 'pt-BR'))
+        .map((a) => cabecalho(a, porAgro.get(a).length, true) + porAgro.get(a).map(linha).join('')).join('');
     }).join('');
   }
 
