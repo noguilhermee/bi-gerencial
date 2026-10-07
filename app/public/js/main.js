@@ -382,15 +382,38 @@ aoCarregar(() => {
   // Filtro travado pelo perfil: Agroindústria (login de agroindústria ou consultor) e Projeto (consultor) quando o escopo
   // do usuário tem um único valor; a API já devolve só os dados dele, então o filtro não teria o que escolher.
   function filtroTravado(selectId) {
+    return opcoesTravadas(selectId) !== null;
+  }
+
+  // Valor único do filtro quando o perfil o trava (ou null). Vem primeiro do cadastro/escopo de /api/me, disponível já no login;
+  // se o escopo não veio, cai nas opções da base dos filtros (master), que chegam junto com os dados.
+  function opcoesTravadas(selectId) {
     const perfil = state.perfil?.perfil;
-    const opcoes = (state.masterOverview || state.overview)?.filterOptions; // a base dos filtros (master) chega antes do overview filtrado
-    if (!perfil || !opcoes) return false;
-    if (selectId === 'filterIndustry') {
-      if (perfil === 'AGROINDUSTRIA' && (state.perfil.agroindustrias || []).length === 1) return true;
-      return (perfil === 'AGROINDUSTRIA' || perfil === 'CONSULTOR') && (opcoes.agroindustrias || []).filter(ehCadeiaLeite).length === 1;
+    if (!perfil || (selectId !== 'filterIndustry' && selectId !== 'filterProject')) return null;
+    if (selectId === 'filterProject' && perfil !== 'CONSULTOR') return null;
+    if (selectId === 'filterIndustry' && perfil !== 'AGROINDUSTRIA' && perfil !== 'CONSULTOR') return null;
+    const chave = selectId === 'filterIndustry' ? 'agroindustrias' : 'projetos';
+    let lista = null;
+    if (selectId === 'filterIndustry' && perfil === 'AGROINDUSTRIA' && (state.perfil.agroindustrias || []).length) lista = state.perfil.agroindustrias;
+    else if (state.perfil.escopoFiltros?.[chave]) lista = state.perfil.escopoFiltros[chave].filter(ehCadeiaLeite);
+    else {
+      const opcoes = (state.masterOverview || state.overview)?.filterOptions; // a base dos filtros (master) chega antes do overview filtrado
+      if (opcoes?.[chave]) lista = opcoes[chave].filter(ehCadeiaLeite);
     }
-    if (selectId === 'filterProject') return perfil === 'CONSULTOR' && (opcoes.projetos || []).filter(ehCadeiaLeite).length === 1;
-    return false;
+    return lista && lista.length === 1 ? lista : null;
+  }
+
+  // Já no login: monta o filtro travado com o valor do perfil, sem esperar os dados
+  function travarFiltrosDoPerfil() {
+    ['filterIndustry', 'filterProject'].forEach((id) => {
+      const unico = opcoesTravadas(id);
+      const select = el(id);
+      if (!unico || !select) return;
+      const rotulo = id === 'filterProject' ? formatProjectLabel(unico[0]) : unico[0];
+      select.innerHTML = `<option value="${escapeHtml(unico[0])}" selected>${escapeHtml(rotulo)}</option>`;
+      syncCustomSelectDisplay(id);
+      aplicarTravaFiltro(id);
+    });
   }
 
   function fillMultiSelect(selectId, items) {
@@ -3955,6 +3978,7 @@ aoCarregar(() => {
 
   function mostrarUsuario(perfil) {
     state.perfil = perfil;
+    travarFiltrosDoPerfil();
     const rotulos = { ADMIN: 'Administrador', CONSULTOR: 'Consultor', AGROINDUSTRIA: 'Agroindústria' };
     const box = el('userBox');
     if (!box) return;
