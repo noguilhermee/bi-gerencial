@@ -328,8 +328,10 @@ async function obterEscopo(req, supabase) {
   const carteiraTodos = await carregarCarteira(supabase);
   let porUsuario = escoposPorCarteira.get(carteiraTodos);
   if (!porUsuario) escoposPorCarteira.set(carteiraTodos, porUsuario = new Map());
-  if (!porUsuario.has(perfil.id_usuario)) porUsuario.set(perfil.id_usuario, montarEscopo(perfil, carteiraTodos));
-  return porUsuario.get(perfil.id_usuario);
+  // A chave inclui o cadastro de acesso: se o administrador trocar as agroindústrias/consultor do usuário, o escopo antigo não é reaproveitado
+  const chave = JSON.stringify([perfil.id_usuario, perfil.perfil, perfil.chave_consultor, perfil.agroindustrias]);
+  if (!porUsuario.has(chave)) porUsuario.set(chave, montarEscopo(perfil, carteiraTodos));
+  return porUsuario.get(chave);
 }
 
 module.exports = {

@@ -3149,6 +3149,8 @@ aoCarregar(() => {
     const summaryInspection = el('provSummaryInspection');
 
     function openModal() {
+      // A lista de planilhas de origem traz nomes e volumes de todas as agroindústrias: só o administrador vê
+      if (state.perfil?.perfil !== 'ADMIN') return;
       modalOverlay.classList.add('active');
       modalOverlay.setAttribute('aria-hidden', 'false');
       renderProvenanceData();
