@@ -47,6 +47,7 @@ try:
     )
     from functions.metadata_tracker import obter_metadados_planilhas
     from functions import regras_negocio as rn
+    from functions.carregar_status_consultor import ler_historico_status, consultores_inativos as consultores_inativos_sq
 except ImportError:
     from FUNCTIONS.function import (
         carregar_config_referencia,
@@ -55,6 +56,7 @@ except ImportError:
         consultar_tabela_supabase,
     )
     from FUNCTIONS.metadata_tracker import obter_metadados_planilhas
+    from FUNCTIONS.carregar_status_consultor import ler_historico_status, consultores_inativos as consultores_inativos_sq
     try:
         from FUNCTIONS import regras_negocio as rn
     except ImportError:
@@ -147,43 +149,19 @@ def executar_reconciliacao(reindex_completo: bool = False):
     metadados = obter_metadados_planilhas(raiz_projeto)
     print(f"   -> {metadados['total_arquivos']} arquivos rastreados com sucesso.")
 
-    # 2. Consultar Status Atual dos Consultores (Desduplicando por ultimaAtualizacao)
+    # 2. Status atual dos consultores: última alteração de cada usuário (originalOid) do histórico do
+    # SmartQuestion, com todos os nomes que ele já usou (carregar_status_consultor.py). Nomes em chave()
+    # (sem acento, maiúsculo), o mesmo formato dos grupos lidos do banco.
     print("\n👤 2. Verificando status dos consultores (BD_STATUS_USUARIO_SQ.xlsx)...")
-    arquivo_status_consultores = bd_path / "BD_STATUS_USUARIO_SQ.xlsx"
     consultores_inativos: Set[str] = set()
-    
-    if arquivo_status_consultores.exists():
-        try:
-            df_status_raw = pd.read_excel(arquivo_status_consultores, header=None)
-            h_idx = 0
-            for r in range(min(10, len(df_status_raw))):
-                vals = [str(x).strip().lower() for x in df_status_raw.iloc[r].dropna().tolist()]
-                if "nome" in vals and "ativo" in vals:
-                    h_idx = r
-                    break
-            df_status = pd.read_excel(arquivo_status_consultores, header=h_idx)
-            if "ultimaAtualizacao" in df_status.columns and "Nome" in df_status.columns:
-                df_status_sorted = df_status.sort_values(
-                    by="ultimaAtualizacao", ascending=False
-                ).drop_duplicates(subset=["Nome"], keep="first")
-                
-                consultores_inativos = set(
-                    df_status_sorted[df_status_sorted["Ativo"].astype(str).str.strip().str.lower().isin(["não", "nao", "false", "0"])]["Nome"]
-                    .astype(str)
-                    .str.strip()
-                    .str.upper()
-                )
-                print(f"   -> {len(df_status_sorted)} consultores únicos avaliados.")
-                print(f"   -> {len(consultores_inativos)} consultores inativos identificados.")
-                
-                # Checar Amanda Roriz
-                amanda_status = df_status_sorted[
-                    df_status_sorted["Nome"].str.contains("AMANDA RORIZ", case=False, na=False)
-                ]
-                if not amanda_status.empty:
-                    print(f"   -> Amanda Roriz status confirmado: {amanda_status['Ativo'].values[0]} (Data: {amanda_status['ultimaAtualizacao'].values[0]})")
-        except Exception as e:
-            print(f"   ⚠️ Aviso ao ler BD_STATUS_USUARIO_SQ.xlsx: {e}")
+    try:
+        historico_status = ler_historico_status()
+        consultores_inativos = consultores_inativos_sq(historico_status)
+        print(f"   -> {historico_status['id_usuario'].nunique()} usuários avaliados "
+              f"({len(historico_status)} alterações no histórico).")
+        print(f"   -> {len(consultores_inativos)} nomes de consultores inativos identificados.")
+    except Exception as e:
+        print(f"   ⚠️ Aviso ao ler BD_STATUS_USUARIO_SQ.xlsx (nenhum consultor será tratado como inativo): {e}")
 
     # 3. Processar Inativações Recentes para sq_raw_inativacoes_produtor
     print("\n🚫 3. Processando solicitações de inativação (sq_raw_inativacoes_produtor)...")
@@ -1523,9 +1501,9 @@ def executar_reconciliacao(reindex_completo: bool = False):
             cons_resp = extrair_consultor_individual(r.get("consultor_grupo_atendimento"), grupo_efetivo)
             consultores_do_grupo = [p.strip().upper() for p in re.sub(r"\(.*?\)", "", grupo_efetivo).split("/") if p.strip()]
             if not tem_visita_no_mes:
-                if consultores_do_grupo and all(cg in consultores_inativos for cg in consultores_do_grupo):
+                if consultores_do_grupo and all(rn.chave(cg) in consultores_inativos for cg in consultores_do_grupo):
                     continue
-                elif not consultores_do_grupo and cons_resp in consultores_inativos:
+                elif not consultores_do_grupo and rn.chave(cons_resp) in consultores_inativos:
                     continue
 
             # 0.3 Movimentação oficial (tab_fato_movimentacao) manda no recorte temporal do vínculo.
