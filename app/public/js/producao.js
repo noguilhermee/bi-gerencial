@@ -112,7 +112,7 @@
 
   const tooltipBase = () => ({
     backgroundColor: 'rgba(0, 77, 73, 0.94)', titleColor: '#fff', bodyColor: '#fff', padding: 10, cornerRadius: 7,
-    titleFont: { size: 11.2, weight: '700' }, bodyFont: { size: 11.2 }
+    titleFont: { size: LR_FS.ax, weight: '700' }, bodyFont: { size: LR_FS.ax }
   });
 
   // ── Tela 5: Produção e Qualidade ──────────────────────────────────────────────────────────────────
@@ -210,8 +210,8 @@
           }
         },
         scales: {
-          x: { grid: { display: false }, border: { display: false }, ticks: { color: eixo, font: { size: 11.2, weight: '600' } } },
-          y: { beginAtZero: cfg.zero, grid: { color: cssVar('--line-soft', '#e9edef') }, border: { display: false }, ticks: { color: eixo, font: { size: 11.2 } } }
+          x: { grid: { display: false }, border: { display: false }, ticks: { color: eixo, font: { size: LR_FS.ax, weight: '600' } } },
+          y: { beginAtZero: cfg.zero, grid: { color: cssVar('--line-soft', '#e9edef') }, border: { display: false }, ticks: { color: eixo, font: { size: LR_FS.ax } } }
         }
       }
     });
@@ -324,10 +324,10 @@
         layout: { padding: { right: 96 } },
         plugins: { legend: { display: false }, tooltip: { ...tooltipBase(), callbacks: { label: (c) => ` ${num(c.parsed.x)} ${sufixoTooltip}` } } },
         scales: {
-          x: { beginAtZero: true, grid: { color: cssVar('--line-soft', '#e9edef') }, border: { display: false }, ticks: { color: eixo, font: { size: 10.5 } } },
+          x: { beginAtZero: true, grid: { color: cssVar('--line-soft', '#e9edef') }, border: { display: false }, ticks: { color: eixo, font: { size: LR_FS.lbl } } },
           y: {
             grid: { display: false }, border: { display: false },
-            ticks: { color: eixo, font: { size: 11, weight: '600' }, autoSkip: false, callback(v) { const t = this.getLabelForValue(v); return t.length > 24 ? `${t.slice(0, 23)}…` : t; } }
+            ticks: { color: eixo, font: { size: LR_FS.lg, weight: '600' }, autoSkip: false, callback(v) { const t = this.getLabelForValue(v); return t.length > 24 ? `${t.slice(0, 23)}…` : t; } }
           }
         }
       }
@@ -778,8 +778,8 @@
         responsive: true, maintainAspectRatio: false, layout: { padding: { top: 22 } },
         plugins: { legend: { display: false }, tooltip: { ...tooltipBase(), callbacks: { label: (c) => { const r = porSis[c.dataIndex]; return ` ${num(r.tHa, 1)} t/ha · ${num(r.toneladas)} t em ${num(r.areaColhida, 1)} ha`; } } } },
         scales: {
-          x: { grid: { display: false }, border: { display: false }, ticks: { color: 'transparent', font: { size: 11 } } },
-          y: { beginAtZero: true, grid: { color: grade }, border: { display: false }, title: { display: true, text: 't/ha', color: eixo, font: { size: 10.5 } }, ticks: { color: eixo, font: { size: 10.5 } } }
+          x: { grid: { display: false }, border: { display: false }, ticks: { color: 'transparent', font: { size: LR_FS.lg } } },
+          y: { beginAtZero: true, grid: { color: grade }, border: { display: false }, title: { display: true, text: 't/ha', color: eixo, font: { size: LR_FS.lbl } }, ticks: { color: eixo, font: { size: LR_FS.lbl } } }
         }
       }
     });
@@ -847,7 +847,7 @@
           }
         },
         scales: {
-          x: { stacked: true, grid: { display: false }, border: { display: false }, ticks: { color: 'transparent', font: { size: 11 } } },
+          x: { stacked: true, grid: { display: false }, border: { display: false }, ticks: { color: 'transparent', font: { size: LR_FS.lg } } },
           y: { stacked: true, display: false, beginAtZero: true, max: 100 }
         }
       }
@@ -869,7 +869,7 @@
         responsive: true, maintainAspectRatio: false, layout: { padding: { top: 22 } },
         plugins: { legend: { display: false }, tooltip: { ...tooltipBase(), callbacks: { label: (c) => ` R$ ${num(c.parsed.y)}${campo === 'rsHa' ? '/ha' : '/t'}` } } },
         scales: {
-          x: { grid: { display: false }, border: { display: false }, ticks: { color: 'transparent', font: { size: 10.5 } } },
+          x: { grid: { display: false }, border: { display: false }, ticks: { color: 'transparent', font: { size: LR_FS.lbl } } },
           y: { display: false, beginAtZero: true }
         }
       }

@@ -496,3 +496,15 @@
 .panel-card.is-fullscreen .safra-vista-grafico {
   display: none !important;
 }
+
+/* Notebook (1025–1600px de largura): piso de fonte no mapa, na legenda e na safra */
+@media (min-width: 1025px) and (max-width: 1600px) {
+  .map-ficha .fc-prod span,
+  .map-ficha .fc-aprox,
+  .map-escala .me-titulo,
+  .safra-destaque small { font-size: 11px; }
+  .map-escala .me-item span,
+  .leaflet-tooltip.uf-rotulo,
+  .safra-btn-pdf-txt small { font-size: 10.5px; }
+  .map-escala .me-nota { font-size: 10px; }
+}

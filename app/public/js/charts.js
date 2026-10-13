@@ -1,11 +1,14 @@
 /**
  * Fábrica de gráficos do dashboard Labor Rural.
  */
+// Tamanho de fonte dos gráficos: notebook (≤1600px de largura, ex.: FHD com escala 125%) ganha ~1px para ficar legível.
+// Escolhido ao carregar a página; compartilhado com producao.js (carregado depois).
+const LR_FS = window.innerWidth <= 1600 ? { ax: 12, lbl: 11.5, lg: 12 } : { ax: 11.2, lbl: 10.5, lg: 11 };
 class DashboardCharts {
   constructor() {
     this.instances = {};
     Chart.defaults.font.family = 'Open Sans, Open Sans Fallback, Arial, sans-serif';
-    Chart.defaults.font.size = 11.2;
+    Chart.defaults.font.size = LR_FS.ax;
     Chart.defaults.animation.duration = 420;
     Chart.defaults.responsive = true;
     Chart.defaults.maintainAspectRatio = false;
@@ -43,8 +46,8 @@ class DashboardCharts {
       padding: 10,
       displayColors: true,
       cornerRadius: 7,
-      titleFont: { size: 11.2, weight: '700' },
-      bodyFont: { size: 11.2 }
+      titleFont: { size: LR_FS.ax, weight: '700' },
+      bodyFont: { size: LR_FS.ax }
     };
   }
 
@@ -199,13 +202,13 @@ class DashboardCharts {
       x: {
         grid: { display: false },
         border: { display: false },
-        ticks: { color: color.muted, font: { size: 11.2, weight: '600' }, maxRotation: 0 }
+        ticks: { color: color.muted, font: { size: LR_FS.ax, weight: '600' }, maxRotation: 0 }
       },
       y: {
         beginAtZero: true,
         grid: { color: color.grid },
         border: { display: false },
-        ticks: { color: color.muted, font: { size: 11.2 } }
+        ticks: { color: color.muted, font: { size: LR_FS.ax } }
       },
       ...extra
     };
@@ -240,7 +243,7 @@ class DashboardCharts {
           percentage: {
             position: 'right', min: 0, max: 100,
             grid: { drawOnChartArea: false }, border: { display: false },
-            ticks: { color: color.muted, font: { size: 11.2 }, callback: (value) => `${value}%` }
+            ticks: { color: color.muted, font: { size: LR_FS.ax }, callback: (value) => `${value}%` }
           }
         })
       }
@@ -390,7 +393,7 @@ class DashboardCharts {
               boxHeight: 10,
               usePointStyle: true,
               pointStyle: 'circle',
-              font: { size: 10.5, weight: '600' },
+              font: { size: LR_FS.lbl, weight: '600' },
               color: color.muted,
               padding: 10
             }
@@ -411,7 +414,7 @@ class DashboardCharts {
           x: {
             grid: { display: false },
             border: { display: false },
-            ticks: { color: color.muted, font: { size: 11.2, weight: '600' } }
+            ticks: { color: color.muted, font: { size: LR_FS.ax, weight: '600' } }
           },
           y: {
             type: 'linear',
@@ -419,7 +422,7 @@ class DashboardCharts {
             beginAtZero: true,
             grid: { color: color.grid },
             border: { display: false },
-            ticks: { color: color.muted, font: { size: 11.2 }, precision: 0 }
+            ticks: { color: color.muted, font: { size: LR_FS.ax }, precision: 0 }
           },
           y1: {
             type: 'linear',
@@ -430,7 +433,7 @@ class DashboardCharts {
             border: { display: false },
             ticks: {
               color: color.muted,
-              font: { size: 11.2 },
+              font: { size: LR_FS.ax },
               callback: (val) => `${val}%`
             }
           }
@@ -583,8 +586,8 @@ class DashboardCharts {
         layout: { padding: { right: 30 } },
         plugins: { legend: { display: false }, tooltip: this.tooltip() },
         scales: {
-          x: { beginAtZero: true, grid: { display: false }, border: { display: false }, ticks: { color: color.muted, font: { size: 11.2 }, precision: 0 } },
-          y: { grid: { display: false }, border: { display: false }, ticks: { color: color.muted, font: { size: 11.2 }, autoSkip: false } }
+          x: { beginAtZero: true, grid: { display: false }, border: { display: false }, ticks: { color: color.muted, font: { size: LR_FS.ax }, precision: 0 } },
+          y: { grid: { display: false }, border: { display: false }, ticks: { color: color.muted, font: { size: LR_FS.ax }, autoSkip: false } }
         }
       }
     });
@@ -645,7 +648,7 @@ class DashboardCharts {
             border: { display: false },
             ticks: {
               color: color.muted,
-              font: { size: 11.2 },
+              font: { size: LR_FS.ax },
               callback: (value) => value <= 100 ? `${value}%` : ''
             }
           }
@@ -758,7 +761,7 @@ class DashboardCharts {
         maintainAspectRatio: false,
         cutout: '55%',
         plugins: {
-          legend: { display: true, position: 'right', labels: { boxWidth: 12, font: { size: 11 } } },
+          legend: { display: true, position: 'right', labels: { boxWidth: 12, font: { size: LR_FS.lg } } },
           tooltip: {
             ...this.tooltip(),
             callbacks: {
@@ -943,7 +946,7 @@ class DashboardCharts {
         maintainAspectRatio: false,
         cutout: '55%',
         plugins: {
-          legend: { display: true, position: 'right', labels: { boxWidth: 12, font: { size: 11 } } },
+          legend: { display: true, position: 'right', labels: { boxWidth: 12, font: { size: LR_FS.lg } } },
           tooltip: {
             ...this.tooltip(),
             callbacks: {
