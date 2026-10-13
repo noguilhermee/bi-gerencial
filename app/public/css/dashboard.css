@@ -3820,7 +3820,7 @@ th.col-center .table-col-filter { text-align: center !important; }
     z-index: 1000;
   }
   .filter-shell.is-expanded { display: flex !important; }
-  .filter-shell { justify-content: flex-start; }
+  .filter-shell { justify-content: flex-start; max-width: none; }
   .filter-shell > .filter-control {
     height: 44px;
     min-width: 150px;
@@ -3959,4 +3959,16 @@ th.col-center .table-col-filter { text-align: center !important; }
 
   /* Menos respiro vertical nos slides: o espaço vira altura de gráfico */
   .slide { padding: 8px 16px 12px; gap: 8px; }
+}
+
+/* Notebook com altura suficiente para caber tudo sem rolar (ex.: 1536×864): a linha de gráficos de cima não passa de
+   260px de piso nem fica presa em 230px (slide 2); mesma proporção 40/60 da página 1. Abaixo de 861px de altura vale o
+   modo com rolagem e altura fixa por painel (bloco "pouca altura" acima). */
+@media (min-width: 1025px) and (max-width: 1600px) and (min-height: 861px) {
+  #slide2 .grid-two--turnover { flex: 4 1 0; max-height: none; min-height: 260px; }
+  #slide2 .grid-two--tables { flex: 6 1 0; min-height: 220px; }
+  .slide > .grid-two--visits,
+  .slide > .grid-two--turnover,
+  .slide > .grid-two--data,
+  .slide > .grid-two--prod-main { min-height: 260px; }
 }
