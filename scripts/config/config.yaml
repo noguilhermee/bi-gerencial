@@ -94,8 +94,17 @@ procampo:
   padrao_arquivo_visitas: "*_VISITAS_PIRACANJUBA_ESTEIO.xlsx"
   aba_visitas: "Sheet1"
   linha_cabecalho_visitas: 1                                # a linha 0 é o título "Relatório de visitas"
-  limite_remocao_visitas_pct: 0.10                          # a raw espelha os arquivos; aborta se mais que isso sumir (arquivo movido?)
+  # Visitas feitas FORA do app (planilha "Visitas fora do app*.xlsx", sem horário nem métricas): entram na mesma
+  # pro_raw_visitas. data_visita = a da planilha; o mês de competência é o MÊS REF. (coluna mes_referencia).
+  # Mesma matrícula+data de uma visita do app (Esteio) = duplicata, descartada.
+  pasta_visitas_fora_app: "VISITAS_FORA_APP"
+  padrao_arquivo_visitas_fora_app: "Visitas fora do app*.xlsx"
+  aba_visitas_fora_app: 0                                   # 1ª aba (hoje "Planilha1")
+  limite_remocao_visitas_pct: 0.10                         # a raw espelha os arquivos; aborta se mais que isso sumir (arquivo movido?)
   arquivo_base: "BASE_PRODUTORES_PROCAMPO_PIRACANJUBA.xlsx"   # base mestra: abas ATIVOS + ROTATIVIDADE
+  # Fonte da base mestra (SharePoint). A pipeline baixa por aqui quando está mais nova que a cópia local; credenciais
+  # TENANT_ID/CLIENT_ID/CLIENT_SECRET em scripts/config/.env. Versão anterior vai para BD_PROCAMPO/BACKUPS.
+  base_sharepoint_link: "https://laborruralserv.sharepoint.com/:x:/g/pec/IQAVbNBQqx_rS4-d6VVdIOBEAbRDqMOdOfoF3ngYVicQSeM?e=9oouil"
   aba_base_ativos: "ATIVOS"
   aba_base_rotatividade: "ROTATIVIDADE"
   prefixo_codigo_provisorio: "MAT"                          # fazenda fora do Elabore: MAT + matrícula (cadastro é do consultor)
@@ -105,7 +114,17 @@ procampo:
   # Fazenda LR###### da Piracanjuba (Regenera/Alvoar) é gerenciada pelo SmartQuestion: as visitas da planilha do
   # Procampo nessas fazendas ficam só na pro_raw_visitas e na auditoria. Mudar para true se o coordenador decidir
   # que elas contam (elas entram na tab_fato_visitas com origem_dados = PROCAMPO, ligadas ao código LR).
+  # Visita do Esteio com matrícula que não existe na base mestra (a mesma fazenda aparece com outra matrícula):
+  # tenta casar por produtor + (fazenda ou consultor). Resultado em
+  # data/output/*_procampo_visitas_matricula_fora_da_base.xlsx.
+  fallback_nome_visitas: true
+  # Casamento manual (matrícula do Esteio -> matrícula da base). Vale antes do casamento por nome.
+  aliases_matricula: {}
   contar_visitas_em_fazenda_lr: false
+  # Fazenda LR que migrou para o Procampo (DATA.INÍCIO na base): visita do Esteio a partir dessa data conta, porque o
+  # SmartQuestion não registra mais visita nela (as 33 fazendas LR da base têm 0 visita SQ depois do início).
+  # Antes do início continua valendo o SmartQuestion. Só vale com contar_visitas_em_fazenda_lr: false.
+  contar_visitas_lr_a_partir_do_inicio: true
   # O mesmo consultor tem grafias diferentes na base mestra e nas planilhas de visitas (sem acento, maiúsculas):
   # variante -> nome canônico. Sem isso ele apareceria duas vezes no BI (na carteira e nas visitas).
   # CONFIRMAR o nome canônico de cada um (escolhido o mais completo).
@@ -168,6 +187,16 @@ safra_forrageira:
   # (cobertura) ou também cultivo de 2ª/3ª safra (sucessao). "sucessao" reproduz o HTML do Semear (Danone).
   regra_cobertura: "sucessao"
 
+# 🧮 GERAÇÃO DOS INDICADORES DO ELABORE (executar_pipeline_completo.py)
+# O notebook "Elabore Indicadores" (projeto lr-indicadores-elabore) gera as planilhas lidas pela pipeline:
+# *_indicadores_mensais.xlsx, *_indicadores_anuais.xlsx e *_base_custo_forrageira.xlsx (caminhos.elabore_*).
+indicadores_elabore:
+  projeto: "C:/Users/Guilherme/LABOR RURAL/Analytics - Departamento Analytics/FERRAMENTAS/ELABORE/ELABORE_NOVO_SISTEMA/ANALISE_INDICADORES/lr-indicadores-elabore"
+  notebook: "app/Elabore Indicadores.ipynb"   # relativo ao projeto; executa com a pasta app/ como diretório de trabalho
+  timeout_celula_segundos: 3600               # limite por célula do notebook
+  timeout_total_segundos: 10800               # limite do notebook inteiro (processo é encerrado ao estourar)
+  idade_maxima_horas: 36                      # planilha usada mais velha que isso gera aviso (geração falhou ou foi pulada)
+
 # ⚙️ PARÂMETROS DE EXECUÇÃO DO PIPELINE
 execucao:
   chunk_size_upsert: 1000              # Tamanho do lote oficial para envio ao Supabase (1000 registros por lote)
@@ -177,7 +206,9 @@ execucao:
 
 # 📅 PARÂMETROS TEMPORAIS E DATAS DE CORTE
 referencia:
-  mes_referencia: "2026-08-01"            # Mês de referência oficial da análise (AAAA-MM ou AAAA-MM-DD)
+  # "auto" = último mês fechado (mês anterior ao de hoje, horário de Brasília): em out/2026 vale 2026-09-01 e a
+  # reconciliação vai até out/2026. Para reprocessar o passado, travar numa data (AAAA-MM ou AAAA-MM-DD).
+  mes_referencia: "auto"
   periodo_checagem_inicio: "2024-01-01"   # Início do período amplo de checagem
   data_inicial_analise: "2025-01-01"      # Data inicial padrão para consistência e análises gerais
   data_inicial_elabore: "2025-12-01"      # Data inicial específica do projeto Elabore

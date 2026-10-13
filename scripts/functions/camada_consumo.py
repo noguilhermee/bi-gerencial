@@ -228,8 +228,8 @@ def carregar_fontes(supabase, conexao_elabore, data_inicio_elabore: str) -> Font
                                      ordem="matricula"),
         "pro_visitas": _buscar_tudo(supabase, TAB_PRO_VISITAS,
                                     "id_composto,matricula,codigo_lr,nome_propriedade,nome_produtor,nome_consultor,tipo_visita,"
-                                    "data_visita,rascunho,producao_l_dia,vacas_lactacao,ccs_mensal,cpp_mensal,gordura_mensal,"
-                                    "proteina_mensal", ordem="id_composto"),
+                                    "data_visita,mes_referencia,rascunho,producao_l_dia,vacas_lactacao,ccs_mensal,"
+                                    "cpp_mensal,gordura_mensal,proteina_mensal", ordem="id_composto"),
         "pro_movimentacao": _buscar_tudo(supabase, TAB_PRO_MOVIMENTACAO,
                                          "id_composto,matricula,codigo_lr,aba_origem,data_inicio,data_conclusao,consultor,"
                                          "status_movimentacao,motivo_saida", ordem="id_composto"),
@@ -414,6 +414,7 @@ class Contexto:
         # histórico, mesmo nos meses em que o SmartQuestion as listava como Nestlé/Alvoar. Regional = regional da base.
         self.pro_lr: dict[str, str] = {}
         self.uf_procampo: dict[str, str] = {}   # LOCAL.UF da base do Procampo (fallback da região = UF)
+        self.inicio_procampo_lr: dict[str, pd.Timestamp] = {}   # fazenda LR -> DATA.INÍCIO no Procampo
         if not f.pro_fazendas.empty:
             siglas = (f.cfg_procampo or {}).get("regioes_por_sigla", {})
             for r in f.pro_fazendas.to_dict("records"):
@@ -422,6 +423,9 @@ class Contexto:
                     self.uf_procampo[cod] = rn.sigla_uf(r.get("uf"))
                 if rn.eh_fazenda_smartquestion(cod):
                     self.pro_lr[cod] = siglas.get(str(r.get("regional") or "").strip().upper(), rn.REGIAO_NAO_INFORMADA)
+                    inicio = pd.to_datetime(r.get("data_inicio"), errors="coerce")
+                    if not pd.isna(inicio):
+                        self.inicio_procampo_lr[cod] = inicio   # a partir daqui o Procampo (Esteio) atende a fazenda LR
         self.agro_pro = rn.mapear_agroindustria((f.cfg_procampo or {}).get("agroindustria_bi", "Piracanjuba"))
         if not f.pro_fazendas.empty:
             pf = f.pro_fazendas.copy()
@@ -698,11 +702,17 @@ def construir_visitas_procampo(f: Fontes, ctx: Contexto) -> tuple[list[dict], li
         return [], []
     cfg = ctx.pro_cfg
     contar_lr = bool(cfg.get("contar_visitas_em_fazenda_lr", False))
+    # Fazenda LR migrada para o Procampo: o SmartQuestion para de registrar visita nela e o Esteio passa a ser a fonte.
+    # Visita do Procampo na fazenda LR conta a partir da DATA.INÍCIO dela na base; antes disso vale o SmartQuestion.
+    a_partir_do_inicio = bool(cfg.get("contar_visitas_lr_a_partir_do_inicio", True))
     projeto_padrao = cfg.get("projeto_bi", "PROCAMPO")
     v = f.pro_visitas.copy()
     v["data_visita"] = _data(v["data_visita"])
     v["codigo_lr"] = v["codigo_lr"].map(lambda c: rn.limpar_codigo_lr(c) if _texto(c) else "")
-    v["mes_referencia"] = v["data_visita"].dt.to_period("M").dt.to_timestamp()
+    # Mês de competência: MÊS REF. das visitas "fora do app" (pode diferir do mês de data_visita); senão, o da data.
+    mes_da_data = v["data_visita"].dt.to_period("M").dt.to_timestamp()
+    v["mes_referencia"] = (_data(v["mes_referencia"]).dt.to_period("M").dt.to_timestamp().fillna(mes_da_data)
+                           if "mes_referencia" in v.columns else mes_da_data)
     ids = rn.ids_atendimento_procampo(v["id_composto"])
 
     linhas, auditoria = [], []
@@ -719,7 +729,8 @@ def construir_visitas_procampo(f: Fontes, ctx: Contexto) -> tuple[list[dict], li
             motivo = "DATA_VISITA_FUTURA"
         elif not cod:
             motivo = "SEM_FAZENDA_NA_BASE"
-        elif rn.eh_fazenda_smartquestion(cod) and not contar_lr:
+        elif rn.eh_fazenda_smartquestion(cod) and not contar_lr and not (
+                a_partir_do_inicio and r["data_visita"] >= ctx.inicio_procampo_lr.get(cod, pd.Timestamp.max)):
             motivo = "FAZENDA_GERENCIADA_PELO_SMARTQUESTION"
         elif rn.eh_grupo_excluido(r.get("nome_consultor")):
             motivo = "CONSULTOR_EXCLUIDO_BI"

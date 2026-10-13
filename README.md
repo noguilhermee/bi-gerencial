@@ -188,7 +188,7 @@ Dê um duplo clique no arquivo `app/start_kiosk.bat` para abrir o Google Chrome 
    Edite `scripts/config/config.yaml` para definir o mês de referência da análise:
    ```yaml
    referencia:
-     mes_referencia: "2026-08-01"
+     mes_referencia: "auto"   # último mês fechado; ou uma data fixa AAAA-MM-DD
    ```
 
 ---

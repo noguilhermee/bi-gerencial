@@ -387,6 +387,27 @@ class ConfigReferencia:
         )
 
 
+def resolver_mes_referencia(valor="auto", hoje: pd.Timestamp | None = None) -> pd.Timestamp:
+    """Mês de referência da análise (1º dia do mês).
+
+    "auto" (padrão do config.yaml) = último mês fechado: o mês anterior ao de hoje, no horário de Brasília.
+    Em 13/10/2026 devolve 2026-09-01. Uma data fixa (AAAA-MM ou AAAA-MM-DD) trava o mês, útil para reprocessar
+    o passado. Valor vazio ou inválido cai em "auto"."""
+    texto = str(valor if valor is not None else "auto").strip().lower()
+    if texto not in ("", "auto", "nan", "none"):
+        mes = pd.to_datetime(texto, errors="coerce")
+        if not pd.isna(mes):
+            return mes.to_period("M").to_timestamp()
+        warnings.warn(f"mes_referencia '{valor}' inválido no config.yaml; usando o último mês fechado.")
+    if hoje is None:
+        try:
+            from zoneinfo import ZoneInfo
+            hoje = pd.Timestamp(datetime.now(ZoneInfo("America/Sao_Paulo")).date())
+        except Exception:
+            hoje = pd.Timestamp(date.today())
+    return (hoje.to_period("M") - 1).to_timestamp()
+
+
 def carregar_config_referencia(raiz: Path | str | None = None) -> ConfigReferencia:
     """Carrega as configurações a partir de scripts/config/config.yaml."""
     raiz_path = detectar_raiz_projeto(raiz)
@@ -404,10 +425,7 @@ def carregar_config_referencia(raiz: Path | str | None = None) -> ConfigReferenc
         except Exception as e:
             warnings.warn(f"Erro ao ler {arquivo_config}: {e}. Usando defaults.")
 
-    data_str = str(dados_ref.get("mes_referencia", "2026-08-01"))
-    mes = pd.to_datetime(data_str, errors="coerce")
-    if pd.isna(mes):
-        mes = pd.Timestamp("2026-08-01")
+    mes = resolver_mes_referencia(dados_ref.get("mes_referencia", "auto"))
 
     return ConfigReferencia(
         mes_referencia=mes,

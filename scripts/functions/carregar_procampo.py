@@ -57,7 +57,7 @@ for p in [raiz_projeto, raiz_projeto / "scripts", raiz_projeto / "scripts" / "fu
 from functions.function import carregar_env, obter_cliente_supabase  # noqa: E402
 
 LOTE = 1000
-COLUNAS_DATA = {"data_visita", "data_inicio", "data_conclusao"}
+COLUNAS_DATA = {"data_visita", "data_inicio", "data_conclusao", "mes_referencia"}
 
 SQL_PROPRIEDADES_ELABORE = """
 SELECT id_property,
@@ -127,8 +127,8 @@ COLUNAS_NUMERICAS = ["producao_l_dia", "vacas_lactacao", "ccs_mensal", "cpp_mens
                      "proteina_mensal", "produtividade_l_vaca_dia"]
 COLUNAS_BOOLEANAS = ["rascunho", "foto", "assinatura"]
 COLUNAS_VISITAS_RAW = ["id_composto", "matricula", "codigo_lr", "nome_propriedade", "nome_produtor", "nome_consultor",
-                       "empresa_responsavel", "tipo_visita", "data_visita", "horario_inicio", "horario_fim",
-                       "rascunho", *COLUNAS_NUMERICAS, "secao_visitada", "atividades_executadas", "recomendacoes",
+                       "empresa_responsavel", "tipo_visita", "data_visita", "mes_referencia", "horario_inicio",
+                       "horario_fim", "rascunho", *COLUNAS_NUMERICAS, "secao_visitada", "atividades_executadas", "recomendacoes",
                        "observacoes", "foto", "assinatura", "latitude", "longitude", "arquivo_origem",
                        "data_processamento"]
 
@@ -435,14 +435,71 @@ def ler_visitas_arquivo(caminho: Path, aba: str, linha_cabecalho: int) -> pd.Dat
     df["longitude"] = pd.to_numeric(coords[1], errors="coerce")
     df = df.drop(columns=["localizacao"])
 
+    # Mês de competência = AAAA_MM do nome do arquivo (2026_10_... -> 2026-10-01), mesmo que as datas sejam do mês
+    # anterior (ciclo 21->20). Nome fora do padrão: cai no mês da data da visita.
+    achado = re.match(r"^(\d{4})_(\d{2})_", caminho.name)
+    if achado:
+        df["mes_referencia"] = pd.Timestamp(int(achado.group(1)), int(achado.group(2)), 1)
+    else:
+        df["mes_referencia"] = df["data_visita"].dt.to_period("M").dt.to_timestamp()
     df["id_composto"] = [_id_visita(m, d.strftime("%Y-%m-%d"), h, c) for m, d, h, c in
                          zip(df["matricula"], df["data_visita"], df["horario_inicio"], df["nome_consultor"])]
     df["arquivo_origem"] = caminho.name
     return df
 
 
-def montar_raw_visitas(arquivos: list[Path], aba: str, linha_cabecalho: int, mapa_codigo: dict) -> pd.DataFrame:
-    """Junta os arquivos (do mais antigo ao mais novo) e mantém 1 linha por visita: a do arquivo mais novo."""
+MAPA_VISITAS_FORA_APP = {
+    "MÊS REF.": "mes_referencia",
+    "CÓD. PROPRIEDADE": "matricula",
+    "PRODUTOR CADASTRADO": "nome_produtor",
+    "CONSULTOR": "nome_consultor",
+    "EMPRESA": "empresa_responsavel",
+    "DATA VISITA": "data_visita",
+    "TIPO DE VISITA": "tipo_visita",
+}
+
+
+def localizar_arquivos_fora_app(pasta: Path, cfg_pro: dict) -> list[Path]:
+    """Planilhas 'Visitas fora do app*.xlsx' (opcionais), do nome mais antigo ao mais novo."""
+    padrao = cfg_pro.get("padrao_arquivo_visitas_fora_app")
+    if not padrao:
+        return []
+    pasta_fora = pasta / cfg_pro.get("pasta_visitas_fora_app", "VISITAS_FORA_APP")
+    achados = list(pasta_fora.glob(padrao)) if pasta_fora.is_dir() else []
+    return sorted({a.resolve() for a in achados if not a.name.startswith("~$")}, key=lambda a: a.name)
+
+
+def ler_visitas_fora_app(caminho: Path, aba) -> pd.DataFrame:
+    """Planilha 'fora do app' -> colunas da raw. Sem horário e sem métricas; MÊS REF. vira mes_referencia."""
+    bruto = _ler_excel(caminho, aba)
+    bruto.columns = [re.sub(r"\s+", " ", str(c)).strip() for c in bruto.columns]
+    faltando = [c for c in MAPA_VISITAS_FORA_APP if c not in bruto.columns]
+    if faltando:
+        raise ValueError(f"{caminho.name}: colunas ausentes {faltando}")
+    df = bruto[list(MAPA_VISITAS_FORA_APP)].rename(columns=MAPA_VISITAS_FORA_APP)
+    for c in df.columns:
+        df[c] = df[c].map(_limpar)
+    df = df[df["matricula"].notna() | df["data_visita"].notna()].copy()
+    df["data_visita"] = _data_visita(df["data_visita"])
+    df["mes_referencia"] = _data_visita(df["mes_referencia"]).dt.to_period("M").dt.to_timestamp()
+    invalidas = int(df["data_visita"].isna().sum() + df["mes_referencia"].isna().sum())
+    if invalidas:
+        raise ValueError(f"{caminho.name}: {invalidas} datas inválidas (DATA VISITA / MÊS REF.)")
+    df["horario_inicio"] = None
+    df["id_composto"] = [_id_visita(m, d.strftime("%Y-%m-%d"), None, c) for m, d, c in
+                         zip(df["matricula"], df["data_visita"], df["nome_consultor"])]
+    df["rascunho"] = False
+    df["arquivo_origem"] = caminho.name
+    return df
+
+
+def montar_raw_visitas(arquivos: list[Path], aba: str, linha_cabecalho: int, mapa_codigo: dict,
+                       fora_app: list[Path] | None = None, aba_fora_app=0,
+                       descartadas_fora_app: list | None = None) -> pd.DataFrame:
+    """Junta os arquivos (do mais antigo ao mais novo) e mantém 1 linha por visita: a do arquivo mais novo.
+
+    As planilhas "fora do app" entram depois: visita com a mesma matrícula+data de uma visita do app é duplicata e
+    é descartada (o app vale); os descartes voltam em `descartadas_fora_app`."""
     partes = []
     for a in arquivos:
         df = ler_visitas_arquivo(a, aba, linha_cabecalho)
@@ -454,9 +511,134 @@ def montar_raw_visitas(arquivos: list[Path], aba: str, linha_cabecalho: int, map
     unicas = todas.drop_duplicates("id_composto", keep="last").copy()
     print(f"   -> {len(todas)} linhas nos {len(arquivos)} arquivos; {len(todas) - len(unicas)} repetidas "
           f"(mesma visita em mais de um arquivo, vale a do mais novo) => {len(unicas)} visitas")
+
+    if fora_app:
+        chave_app = set(unicas["matricula"].astype(str) + "|" + unicas["data_visita"].dt.strftime("%Y-%m-%d"))
+        fora = pd.concat([ler_visitas_fora_app(a, aba_fora_app) for a in fora_app], ignore_index=True)
+        fora = fora.drop_duplicates("id_composto", keep="last")
+        chave = fora["matricula"].astype(str) + "|" + fora["data_visita"].dt.strftime("%Y-%m-%d")
+        repetida = chave.isin(chave_app) | chave.duplicated(keep="last")
+        novas = fora[~repetida].copy()
+        print(f"   -> fora do app: {len(fora)} visitas em {len(fora_app)} arquivo(s); {int(repetida.sum())} já existem "
+              f"(mesma matrícula+data) e foram descartadas => {len(novas)} novas")
+        if descartadas_fora_app is not None:
+            descartadas_fora_app.extend(fora[repetida].assign(motivo="DUPLICADA_MESMA_MATRICULA_E_DATA").to_dict("records"))
+        unicas = pd.concat([unicas, novas], ignore_index=True)
+
     unicas["codigo_lr"] = unicas["matricula"].map(mapa_codigo)
     unicas["data_processamento"] = _agora()
+    for c in COLUNAS_VISITAS_RAW:
+        if c not in unicas.columns:
+            unicas[c] = None
     return unicas[COLUNAS_VISITAS_RAW].reset_index(drop=True)
+
+
+# ─── visitas de matrícula fora da base: casamento por nome ────────────────────
+
+_STOP_NOME = {"E", "DE", "DA", "DO", "DOS", "DAS", "OUTRA", "OUTRO", "OUTROS", "ESPOLIO"}
+
+
+def _tokens_nome(texto) -> frozenset:
+    """Nome em maiúsculas, sem acento/pontuação, sem conectivos ('E OUTRA', 'DE'...)."""
+    s = _sem_acento("" if texto is None or (not isinstance(texto, str) and pd.isna(texto)) else str(texto)).upper()
+    return frozenset(t for t in re.sub(r"[^A-Z0-9 ]", " ", s).split() if t not in _STOP_NOME)
+
+
+def _nomes_compativeis(a: frozenset, b: frozenset) -> bool:
+    """Mesmo nome, ou um contido no outro com pelo menos 2 palavras (ex.: 'MEIRE SUELI BONINI' em
+    'MEIRE SUELI MARTINES BONINI')."""
+    if not a or not b:
+        return False
+    return a == b or (min(len(a), len(b)) >= 2 and (a <= b or b <= a))
+
+
+def _chave_matricula(visitas: pd.DataFrame) -> pd.Series:
+    """Matrícula da visita; quando está em branco no Esteio, 'SEM_MATRICULA|produtor|fazenda' (casa por nome)."""
+    sem = visitas["matricula"].isna()
+    produtor = visitas["nome_produtor"].fillna("").astype(str)
+    fazenda = visitas["nome_propriedade"].fillna("").astype(str)
+    return visitas["matricula"].where(~sem, "SEM_MATRICULA|" + produtor + "|" + fazenda)
+
+
+def casar_visitas_por_nome(visitas: pd.DataFrame, fazendas: pd.DataFrame, aliases_consultor: dict | None = None,
+                           aliases_matricula: dict | None = None) -> tuple[dict, list[dict]]:
+    """Resolve visitas cuja matrícula não está na base mestra (o Esteio e a base às vezes divergem na matrícula da
+    mesma fazenda). Retorna ({matricula_do_arquivo: matricula_da_base}, auditoria com o critério ou o motivo).
+
+    Ordem: alias manual (procampo.aliases_matricula) > casamento por nome. Por nome só vale com (1) produtor
+    compatível E (2) fazenda igual OU consultor da visita entre os da base, e candidato único (ou único ATIVO).
+    Proteção: se a fazenda candidata já recebe visita, pela própria matrícula, no mesmo mês de competência,
+    a visita é de outra fazenda do mesmo produtor e não é casada."""
+    aliases_consultor = {_sem_acento(k).upper(): _sem_acento(v).upper() for k, v in (aliases_consultor or {}).items()}
+    na_base = set(fazendas["matricula"])
+    mapa, auditoria = {}, []
+
+    def _consultores(valor) -> list[frozenset]:
+        out = []
+        texto = "" if valor is None or (not isinstance(valor, str) and pd.isna(valor)) else str(valor)
+        for parte in re.split(r"[/;]", texto):
+            nome = _sem_acento(parte).upper().strip()
+            nome = aliases_consultor.get(nome, nome)
+            if nome:
+                out.append(_tokens_nome(nome))
+        return out
+
+    base = []
+    for r in fazendas.to_dict("records"):
+        base.append({"matricula": r["matricula"], "situacao": r.get("situacao"),
+                     "produtor": _tokens_nome(r.get("nome_produtor")), "fazenda": _tokens_nome(r.get("nome_propriedade")),
+                     "consultores": _consultores(r.get("consultor")),
+                     "rotulo": f"{r.get('nome_produtor')} / {r.get('nome_propriedade')}"})
+    visitas = visitas.assign(_chave=_chave_matricula(visitas))
+    com_base = visitas[visitas["_chave"].isin(na_base)]
+    ja_visitada = set(zip(com_base["_chave"], pd.to_datetime(com_base["mes_referencia"])))
+
+    sem = visitas[~visitas["_chave"].isin(na_base)]
+    for matricula, g in sem.groupby("_chave"):
+        linha = {"matricula_arquivo": "(em branco)" if str(matricula).startswith("SEM_MATRICULA|") else matricula,
+                 "visitas": len(g), "produtor": g["nome_produtor"].iloc[0],
+                 "fazenda": g["nome_propriedade"].iloc[0], "consultores": " / ".join(sorted(set(g["nome_consultor"].dropna()))),
+                 "ultima_visita": g["data_visita"].max()}
+        alvo = (aliases_matricula or {}).get(str(matricula))
+        if alvo:
+            if alvo in na_base:
+                mapa[matricula] = alvo
+                auditoria.append({**linha, "matricula_base": alvo, "resultado": "CASADA", "criterio": "ALIAS_MANUAL"})
+            else:
+                auditoria.append({**linha, "matricula_base": alvo, "resultado": "NAO_CASADA",
+                                  "criterio": "ALIAS_MANUAL_PARA_MATRICULA_FORA_DA_BASE"})
+            continue
+        prod = _tokens_nome(linha["produtor"])
+        faz = _tokens_nome(linha["fazenda"])
+        cons = [c for n in g["nome_consultor"].dropna().unique() for c in _consultores(n)]
+        candidatos = []
+        for b in base:
+            if not _nomes_compativeis(prod, b["produtor"]):
+                continue
+            fazenda_igual = bool(faz) and faz == b["fazenda"]
+            consultor_igual = any(_nomes_compativeis(c, bc) for c in cons for bc in b["consultores"])
+            if fazenda_igual or consultor_igual:
+                candidatos.append((b, "PRODUTOR+FAZENDA" if fazenda_igual else "PRODUTOR+CONSULTOR"))
+        if len(candidatos) > 1:
+            ativos = [c for c in candidatos if c[0]["situacao"] == "ATIVA"]
+            candidatos = ativos if len(ativos) == 1 else candidatos
+        if not candidatos:
+            auditoria.append({**linha, "matricula_base": None, "resultado": "NAO_CASADA", "criterio": "SEM_CANDIDATO"})
+            continue
+        if len(candidatos) > 1:
+            auditoria.append({**linha, "matricula_base": ", ".join(c[0]["matricula"] for c in candidatos),
+                              "resultado": "NAO_CASADA", "criterio": "AMBIGUA"})
+            continue
+        b, criterio = candidatos[0]
+        meses = set(pd.to_datetime(g["mes_referencia"]))
+        if any((b["matricula"], m) in ja_visitada for m in meses):
+            auditoria.append({**linha, "matricula_base": b["matricula"], "resultado": "NAO_CASADA",
+                              "criterio": "FAZENDA_CANDIDATA_JA_TEM_VISITA_NO_MES (outra fazenda do mesmo produtor?)"})
+            continue
+        mapa[matricula] = b["matricula"]
+        auditoria.append({**linha, "matricula_base": b["matricula"], "resultado": "CASADA", "criterio": criterio,
+                          "fazenda_base": b["rotulo"]})
+    return mapa, auditoria
 
 
 # ─── orquestração ─────────────────────────────────────────────────────────────
@@ -522,7 +704,24 @@ def executar_carga_procampo(raiz: Path | None = None) -> dict:
 
     arquivos = localizar_arquivos_visitas(pasta, cfg_pro)
     print(f"\n📥 Lendo {len(arquivos)} arquivos de visitas ({arquivos[0].name} a {arquivos[-1].name})...")
-    visitas = montar_raw_visitas(arquivos, cfg_pro["aba_visitas"], cfg_pro["linha_cabecalho_visitas"], mapa_codigo)
+    fora_app = localizar_arquivos_fora_app(pasta, cfg_pro)
+    descartadas_fora_app: list[dict] = []
+    visitas = montar_raw_visitas(arquivos, cfg_pro["aba_visitas"], cfg_pro["linha_cabecalho_visitas"], mapa_codigo,
+                                 fora_app, cfg_pro.get("aba_visitas_fora_app", 0), descartadas_fora_app)
+    # Matrícula do Esteio fora da base mestra: tenta casar por produtor + fazenda/consultor (config:
+    # procampo.fallback_nome_visitas e procampo.aliases_matricula). A matrícula do arquivo é preservada na raw.
+    casamentos: list[dict] = []
+    if cfg_pro.get("fallback_nome_visitas", True):
+        mapa_mat, casamentos = casar_visitas_por_nome(visitas, fazendas, cfg_pro.get("aliases_consultor"),
+                                                       cfg_pro.get("aliases_matricula"))
+        if mapa_mat:
+            novo = _chave_matricula(visitas).map(mapa_mat).map(mapa_codigo)
+            visitas["codigo_lr"] = visitas["codigo_lr"].fillna(novo)
+        for c in casamentos:
+            marca = "✅ casada" if c["resultado"] == "CASADA" else "⚠️ sem casamento"
+            destino = f" -> {c['matricula_base']} ({c.get('fazenda_base', '')})" if c["resultado"] == "CASADA" else ""
+            print(f"   {marca}: {c['matricula_arquivo']} {c['produtor']} / {c['fazenda']} ({c['visitas']} visitas){destino}"
+                  f" [{c['criterio']}]")
     sem_fazenda = visitas[visitas["codigo_lr"].isna()]
     codigo = visitas["codigo_lr"].fillna("")
     print(f"   -> {len(visitas)} visitas ({visitas['data_visita'].min():%Y-%m-%d} a {visitas['data_visita'].max():%Y-%m-%d}); "
@@ -532,6 +731,23 @@ def executar_carga_procampo(raiz: Path | None = None) -> dict:
           f"em fazenda fora do Elabore (código {prefixo}...): {int(codigo.str.startswith(prefixo).sum())}")
     print(f"   -> sem fazenda na base ({sem_fazenda['matricula'].nunique()} matrículas, ex.: "
           f"{sorted(sem_fazenda['matricula'].dropna().unique())[:5]}): {len(sem_fazenda)} visitas ficam na raw sem código")
+    fora_sem_fazenda = sem_fazenda[sem_fazenda["arquivo_origem"].isin({a.name for a in fora_app})]
+    if casamentos:
+        saida = raiz / "data" / "output"
+        saida.mkdir(parents=True, exist_ok=True)
+        caminho = saida / f"{datetime.now():%Y_%m_%d_%H%M%S}_procampo_visitas_matricula_fora_da_base.xlsx"
+        pd.DataFrame(casamentos).to_excel(caminho, index=False)
+        print(f"   -> matrículas fora da base: {sum(c['resultado'] == 'CASADA' for c in casamentos)} casadas por nome, "
+              f"{sum(c['resultado'] != 'CASADA' for c in casamentos)} sem casamento: {caminho.name}")
+    if descartadas_fora_app or len(fora_sem_fazenda):
+        saida = raiz / "data" / "output"
+        saida.mkdir(parents=True, exist_ok=True)
+        caminho = saida / f"{datetime.now():%Y_%m_%d_%H%M%S}_procampo_visitas_fora_do_app_nao_carregadas.xlsx"
+        with pd.ExcelWriter(caminho) as xl:
+            pd.DataFrame(descartadas_fora_app).to_excel(xl, sheet_name="duplicadas_do_app", index=False)
+            fora_sem_fazenda.to_excel(xl, sheet_name="sem_fazenda_na_base", index=False)
+        print(f"   -> fora do app: {len(descartadas_fora_app)} duplicadas e {len(fora_sem_fazenda)} sem fazenda na base "
+              f"(ficam na raw sem código): {caminho.name}")
     print(f"⬆️ Enviando para {tabelas['procampo_visitas_raw']}...")
     _enviar(supabase, tabelas["procampo_visitas_raw"], _para_json(visitas), "id_composto")
     _conferir(supabase, tabelas["procampo_visitas_raw"], "id_composto", set(visitas["id_composto"]))

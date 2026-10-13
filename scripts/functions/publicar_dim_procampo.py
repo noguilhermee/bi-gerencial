@@ -103,7 +103,8 @@ def montar_linhas(fazendas: pd.DataFrame, visitas: pd.DataFrame, meses: list[pd.
     if not visitas.empty:
         v = visitas[visitas["rascunho"].fillna(False).astype(bool) == False]  # noqa: E712
         v = v[v["codigo_lr"].notna()]
-        visitadas = set(zip(v["codigo_lr"], pd.to_datetime(v["data_visita"], errors="coerce").dt.to_period("M").dt.to_timestamp()))
+        mes = pd.to_datetime(v["mes_referencia"], errors="coerce").fillna(pd.to_datetime(v["data_visita"], errors="coerce"))
+        visitadas = set(zip(v["codigo_lr"], mes.dt.to_period("M").dt.to_timestamp()))
 
     # A planilha de visitas começa em fev/2026: antes disso toda fazenda apareceria como "Nunca visitado".
     # A carteira do Procampo começa no primeiro mês com visita.
@@ -191,7 +192,7 @@ def executar_publicacao_dim_procampo(raiz: Path | None = None) -> pd.DataFrame:
                             "data_inicio,data_conclusao,latitude,longitude", "matricula")
     if fazendas.empty:
         raise RuntimeError(f"{tabelas['procampo_fazendas_raw']} está vazia: rode antes scripts/functions/carregar_procampo.py.")
-    visitas = _buscar_tudo(supabase, tabelas["procampo_visitas_raw"], "id_composto,codigo_lr,data_visita,rascunho", "id_composto")
+    visitas = _buscar_tudo(supabase, tabelas["procampo_visitas_raw"], "id_composto,codigo_lr,data_visita,mes_referencia,rascunho", "id_composto")
     print(f"   -> {len(fazendas)} fazendas na raw, {len(visitas)} visitas, meses {meses[0]:%Y-%m} a {meses[-1]:%Y-%m}")
 
     # (código, mês) que o SmartQuestion já lista na dim: não duplicar a fazenda LR do Procampo nesses meses
