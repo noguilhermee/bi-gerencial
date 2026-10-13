@@ -50,7 +50,11 @@ button.primary:hover { background: #003d3a; }
 button.primary:disabled { opacity: .6; cursor: wait; }
 #novaSenhaForm button.primary { width: 130px; }
 .msg { min-height: 20px; margin: 14px 0 0; font-size: 12px; line-height: 20px; text-align: center; color: var(--danger); }
+.msg:empty { display: none; }
 .msg.ok { color: var(--green-700); }
+.suporte-texto { margin: 20px 0 0; text-align: left; font-size: 13px; line-height: 18px; color: #111; }
+.link-suporte { color: #014845; text-decoration: underline; font-weight: 700; }
+.link-suporte:hover { opacity: .85; }
 form[hidden] { display: none; }
 @media (max-width: 900px) {
   body { justify-content: center; padding: 16px; }
