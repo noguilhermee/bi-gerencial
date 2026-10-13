@@ -3972,3 +3972,24 @@ th.col-center .table-col-filter { text-align: center !important; }
   .slide > .grid-two--data,
   .slide > .grid-two--prod-main { min-height: 260px; }
 }
+
+/* Notebook: piso de fonte de 10–11px (antes havia texto de 7,5 a 10,5px, ilegível a ~50cm da tela). A etiqueta
+   "TELA GERENCIAL BI LABOR" some para o título respirar na moldura de 52px. */
+@media (min-width: 1025px) and (max-width: 1600px) {
+  .screen-code { display: none; }
+  .update-block-header { font-size: 9.5px; }
+  .filter-control span { font-size: 10px; }
+  .metric-card small,
+  .insight strong,
+  .criteria-strip strong,
+  .table-col-filter { font-size: 10.5px; }
+  .insight p,
+  .criteria-strip p,
+  .table-col-filter::placeholder { font-size: 10px; }
+  .data-table,
+  .data-table th,
+  .data-table td { font-size: 11px; }
+  .badge { font-size: 10px; }
+  .link-button,
+  .chart-horizon-control button { font-size: 11px; }
+}
