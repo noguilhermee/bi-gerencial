@@ -1,23 +1,23 @@
 {
-  "timestamp_inspecao": "2026-10-14T11:29:39.639852-03:00",
-  "timestamp_etl": "2026-10-14T11:29:39.639852-03:00",
-  "ultima_execucao_etl_formatada": "14/10/2026 às 11:29:39",
-  "ultima_leitura_planilhas_formatada": "14/10/2026 às 11:29:39",
+  "timestamp_inspecao": "2026-10-14T14:00:26.287459-03:00",
+  "timestamp_etl": "2026-10-14T14:00:26.287459-03:00",
+  "ultima_execucao_etl_formatada": "14/10/2026 às 14:00:26",
+  "ultima_leitura_planilhas_formatada": "14/10/2026 às 14:00:26",
   "arquivo_mais_recente_nome": "261014_LISTA_INATIVACAO.xlsx",
   "arquivo_mais_recente_data": "14/10/2026 às 04:00",
   "total_arquivos": 12,
   "diretorio_origem": "/home/ubuntu/labor-rural/dados/BD_SMARTQUESTION",
   "consistencia_mensal": {
     "tabela": "elabore_raw_consistencia_mensal",
-    "ultima_atualizacao": "2026-10-14T11:24:54.934859-03:00",
-    "ultima_atualizacao_formatada": "14/10/2026 às 11:24",
+    "ultima_atualizacao": "2026-10-14T13:59:43.909945-03:00",
+    "ultima_atualizacao_formatada": "14/10/2026 às 13:59",
     "total_registros": 16477,
     "status": "✅ Sincronizado"
   },
   "consistencia_anual": {
     "tabela": "elabore_raw_consistencia_anual",
-    "ultima_atualizacao": "2026-10-14T11:25:16.562899-03:00",
-    "ultima_atualizacao_formatada": "14/10/2026 às 11:25",
+    "ultima_atualizacao": "2026-10-14T14:00:03.247048-03:00",
+    "ultima_atualizacao_formatada": "14/10/2026 às 14:00",
     "total_registros": 7131,
     "status": "✅ Sincronizado"
   },
