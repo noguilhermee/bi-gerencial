@@ -2259,8 +2259,17 @@ aoCarregar(() => {
   }
 
   function updateTimestamp() {
-    const now = new Date();
-    if (el('lastUpdateDate')) el('lastUpdateDate').textContent = `${now.toLocaleDateString('pt-BR')} ${now.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}`;
+    const dataEtl = state.overview?.ultimaExecucaoEtl
+      || state.overview?.dataProvenance?.ultima_execucao_etl_formatada
+      || state.overview?.dataProvenance?.ultima_leitura_planilhas_formatada;
+    if (el('lastUpdateDate')) {
+      if (dataEtl) {
+        el('lastUpdateDate').textContent = dataEtl;
+      } else {
+        const now = new Date();
+        el('lastUpdateDate').textContent = `${now.toLocaleDateString('pt-BR')} ${now.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}`;
+      }
+    }
   }
 
   /** Marca no filtro Mês exatamente os meses da lista (vazia = nenhum marcado = "Todos"). */
@@ -3199,11 +3208,19 @@ aoCarregar(() => {
     async function renderProvenanceData() {
       let data = state.overview?.dataProvenance;
       if (!data) {
-        data = await getJson('/data/fontes_metadados.json');
+        try {
+          data = await getJson('/data/fontes_metadados.json');
+        } catch (e) {
+          data = null;
+        }
       }
       if (!data || !data.arquivos || data.arquivos.length === 0) {
         if (groupsContainer) {
-          groupsContainer.innerHTML = '<div class="provenance-loading-state">Nenhum metadado de planilha disponível no momento.</div>';
+          const dt = state.overview?.ultimaExecucaoEtl;
+          const msg = dt
+            ? `Última execução do pipeline: ${dt}. Detalhes das planilhas disponíveis após sincronização.`
+            : 'Nenhum metadado de planilha disponível no momento.';
+          groupsContainer.innerHTML = `<div class="provenance-loading-state">${msg}</div>`;
         }
         return;
       }

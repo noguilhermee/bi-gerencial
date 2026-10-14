@@ -173,6 +173,23 @@ module.exports = comAuth(async (req, res) => {
       console.warn('Metadados de proveniência não carregados:', e.message);
     }
 
+    let ultimaExecucaoEtl = dataProvenance?.ultima_execucao_etl_formatada || null;
+    if (!ultimaExecucaoEtl) {
+      try {
+        const { data: ultProc } = await supabase
+          .from('tab_fato_visitas')
+          .select('data_processamento')
+          .order('data_processamento', { ascending: false })
+          .limit(1);
+        if (ultProc && ultProc.length > 0 && ultProc[0].data_processamento) {
+          const d = new Date(ultProc[0].data_processamento);
+          ultimaExecucaoEtl = `${d.toLocaleDateString('pt-BR')} às ${d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}`;
+        }
+      } catch (e) {
+        console.warn('Não foi possível obter data_processamento de tab_fato_visitas:', e.message);
+      }
+    }
+
     const dimFazendas = fazendasMes.map(r => ({
         codigo_lr: r.codigo_lr,
         produtor: r.nome_produtor,
@@ -188,6 +205,7 @@ module.exports = comAuth(async (req, res) => {
 
     return res.status(200).json({
       timestamp: new Date().toISOString(),
+      ultimaExecucaoEtl,
       refMonth,
       meses: filters.months,
       visitasMonth: refMonth,

@@ -38,7 +38,6 @@ data/output/logs/*
 !data/output/logs/.gitkeep
 
 data/output/.temp_build/
-app/public/data/fontes_metadados.json
 
 # Distribuição / Pacotes
 build/
