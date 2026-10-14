@@ -474,12 +474,21 @@ def maiusculo_sem_acento(texto: str) -> str:
 
 def normalizar_registros(registros):
     """Aplica maiusculo_sem_acento em todo valor texto de um registro (dict) ou lista de registros antes de
-    gravar no Supabase. Colunas de identificador (eh_coluna_identificador) e valores não texto ficam intactos."""
+    gravar no Supabase, e converte valores nan/inf/pd.NA para None (compatível com JSON).
+    Colunas de identificador (eh_coluna_identificador) e valores não texto ficam intactos."""
+    def _tratar_valor(k, v):
+        if v is None or pd.isna(v):
+            return None
+        if isinstance(v, float) and (math.isnan(v) or math.isinf(v)):
+            return None
+        if isinstance(v, str):
+            return v if eh_coluna_identificador(k) else maiusculo_sem_acento(v)
+        return v
+
     def _registro(r):
         if not isinstance(r, Mapping):
             return r
-        return {k: maiusculo_sem_acento(v) if isinstance(v, str) and not eh_coluna_identificador(k) else v
-                for k, v in r.items()}
+        return {k: _tratar_valor(k, v) for k, v in r.items()}
 
     if isinstance(registros, Mapping):
         return _registro(registros)

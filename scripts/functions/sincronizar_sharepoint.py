@@ -306,6 +306,8 @@ def sincronizar_pastas_sharepoint(raiz: Path | None = None) -> bool:
 
     falhas = []
     for chave, link in pastas.items():
+        if chave == "elabore_projeto":
+            continue  # o projeto do elabore é sincronizado pelas funções de indicadores (monthly/annual/forrageira)
         destino = cfg["caminhos"].get(chave)
         if not destino:
             falhas.append(f"{chave}: sem caminhos.{chave} no config.yaml")
