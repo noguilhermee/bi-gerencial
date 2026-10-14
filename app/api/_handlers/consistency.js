@@ -43,11 +43,13 @@ module.exports = comAuth(async (req, res) => {
     const escopo = await obterEscopo(req, supabase);
     const filters = parseFilters(req.query);
 
-    const [carteiraTodosBruta, consistenciaTodosBruta] = await Promise.all([
+    const [carteiraTodosBruta, consistenciaTodosBruta, movimentacaoTodasBruta] = await Promise.all([
       fetchWithCache('CARTEIRA_MENSAL_ALL', () =>
         fetchAll(() => supabase.from('tab_fato_carteira_mensal').select(COLUNAS.carteira).order('mes_referencia', { ascending: false }), undefined, 'id_composto')),
       fetchWithCache('FATO_CONSISTENCIA_ALL', () =>
-        fetchAll(() => supabase.from('tab_fato_consistencia').select(COLUNAS.consistencia).order('mes_referencia', { ascending: false }), undefined, 'id_composto'))
+        fetchAll(() => supabase.from('tab_fato_consistencia').select(COLUNAS.consistencia).order('mes_referencia', { ascending: false }), undefined, 'id_composto')),
+      fetchWithCache('FATO_MOVIMENTACAO_ALL', () =>
+        fetchAll(() => supabase.from('tab_fato_movimentacao').select(COLUNAS.movimentacao).order('data_movimentacao', { ascending: false }), undefined, 'id_composto'))
     ]);
     const carteiraTodos = escopo.carteira(carteiraTodosBruta);
     const consistenciaTodos = escopo.fatos(consistenciaTodosBruta);
@@ -58,6 +60,23 @@ module.exports = comAuth(async (req, res) => {
     const mesSelecionado = filters.monthRef || null; // vários meses: foto do mais recente escolhido
     const refMonth = mesSelecionado ? shiftMonthMinus1(mesSelecionado) : ultimoMesDisponivel;
     const doMes = r => !refMonth || String(r.mes_referencia).slice(0, 10) === refMonth;
+
+    // Fazenda que saiu até o mês selecionado (último movimento = SAIDA) não entra nos indicadores da tela 3.
+    // Sem mês selecionado, o corte é o mês seguinte ao último disponível (equivale ao mês "atual" da tela).
+    let corteSaida = mesSelecionado;
+    if (!corteSaida && ultimoMesDisponivel) {
+      const [a, m] = ultimoMesDisponivel.split('-').map(Number);
+      corteSaida = new Date(Date.UTC(a, m, 1)).toISOString().slice(0, 10);
+    }
+    const ultimoMov = new Map();
+    escopo.fatos(movimentacaoTodasBruta).forEach(m => {
+      const mes = `${String(m.data_movimentacao || '').slice(0, 7)}-01`;
+      if (!m.codigo_lr || mes.length !== 10 || (corteSaida && mes > corteSaida)) return;
+      const chave = `${mes}|${String(m.data_solicitacao || '').slice(0, 10)}`;
+      const atual = ultimoMov.get(m.codigo_lr);
+      if (!atual || chave > atual.chave) ultimoMov.set(m.codigo_lr, { chave, tipo: m.tipo });
+    });
+    const saiu = r => ultimoMov.get(r.codigo_lr)?.tipo === 'SAIDA';
 
     // Base do mês: 1 linha por fazenda (a carteira tem 1 linha por consultor)
     const porFazenda = new Map();
@@ -72,7 +91,7 @@ module.exports = comAuth(async (req, res) => {
     // Nome da fazenda por código (fora da carteira o fato de consistência não traz a propriedade)
     const fazendaPorCodigo = new Map();
     carteiraTodos.forEach(r => { if (r.nome_propriedade && !fazendaPorCodigo.has(r.codigo_lr)) fazendaPorCodigo.set(r.codigo_lr, r.nome_propriedade); });
-    const base = [...porFazenda.values()].filter(r => !r.sem_lancamento_elabore && rowMatchesFilters(r, filters));
+    const base = [...porFazenda.values()].filter(r => !r.sem_lancamento_elabore && !saiu(r) && rowMatchesFilters(r, filters));
 
     const conta = (campo, valor) => base.filter(r => r[campo] === valor).length;
     // Partição exclusiva da base: fazenda em carência conta como "incompleta" (ainda não é cobrada),
@@ -101,13 +120,13 @@ module.exports = comAuth(async (req, res) => {
     };
     const evolucaoConsistencia = { labels: [], mensal: [], anual: [] };
     referencias.forEach(ref => {
-      const doRef = historico.filter(c => String(c.mes_referencia).slice(0, 10) === ref);
+      const doRef = historico.filter(c => String(c.mes_referencia).slice(0, 10) === ref && (ref !== refMonth || !saiu(c)));
       evolucaoConsistencia.labels.push(monthLabel(ref));
       evolucaoConsistencia.mensal.push(taxa(doRef, 'consistencia_mensal'));
       evolucaoConsistencia.anual.push(taxa(doRef, 'consistencia_anual'));
     });
     // Cards fixos no último mês da série (mesma regra e mesma base do gráfico)
-    const historicoRef = historico.filter(doMes);
+    const historicoRef = historico.filter(c => doMes(c) && !saiu(c));
     const percMensalRef = taxa(historicoRef, 'consistencia_mensal').toFixed(1);
     const percAnualRef = taxa(historicoRef, 'consistencia_anual').toFixed(1);
 
