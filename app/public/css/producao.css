@@ -9,7 +9,7 @@
   border: 1px solid var(--warning);
   border-radius: 8px;
   background: var(--warning-soft);
-  font-size: 11.5px;
+  font-size: 0.7188rem;
   font-weight: 600;
   line-height: 1.35;
 }
@@ -28,7 +28,7 @@
 /* Os três blocos dividem toda a altura do painel */
 .traj-list { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 6px; }
 .traj-list > .traj-row { flex: 1 1 0; min-height: 0; }
-.traj-empty { margin: auto; color: var(--muted); font-size: 12px; text-align: center; }
+.traj-empty { margin: auto; color: var(--muted); font-size: 0.75rem; text-align: center; }
 .traj-row {
   width: 100%;
   padding: 4px 10px;
@@ -47,10 +47,10 @@
 }
 .traj-row:hover { transform: translateY(-1px); box-shadow: var(--shadow); }
 .traj-row:focus-visible { outline: 3px solid rgba(79, 201, 176, 0.35); outline-offset: 2px; }
-.traj-row strong { font-size: 20px; font-weight: 800; line-height: 1; letter-spacing: -0.02em; }
-.traj-row span { display: flex; flex-direction: column; font-size: 12.5px; font-weight: 700; }
-.traj-row span i { margin-top: 0; color: var(--muted); font-size: 11px; font-style: normal; font-weight: 500; }
-.traj-row em { color: var(--muted); font-size: 11px; font-style: normal; font-weight: 700; white-space: nowrap; }
+.traj-row strong { font-size: 1.25rem; font-weight: 800; line-height: 1; letter-spacing: -0.02em; }
+.traj-row span { display: flex; flex-direction: column; font-size: 0.7812rem; font-weight: 700; }
+.traj-row span i { margin-top: 0; color: var(--muted); font-size: 0.6875rem; font-style: normal; font-weight: 500; }
+.traj-row em { color: var(--muted); font-size: 0.6875rem; font-style: normal; font-weight: 700; white-space: nowrap; }
 .traj-row--up { border-left-color: var(--green-600); }
 .traj-row--up strong { color: var(--green-700); }
 .traj-row--flat { border-left-color: var(--warning); }
@@ -93,7 +93,7 @@
 .map-empty {
   position: absolute; inset: 0; z-index: 500;
   display: grid; place-items: center;
-  color: var(--muted); font-size: 12.5px; font-weight: 600;
+  color: var(--muted); font-size: 0.7812rem; font-weight: 600;
   background: var(--surface-soft); border-radius: 8px;
 }
 .map-empty[hidden], .map-ficha[hidden] { display: none; }
@@ -111,25 +111,25 @@
 }
 .map-ficha .fc-fechar {
   position: absolute; top: 6px; right: 8px;
-  color: var(--muted); border: 0; background: none; font-size: 18px; line-height: 1; cursor: pointer;
+  color: var(--muted); border: 0; background: none; font-size: 1.125rem; line-height: 1; cursor: pointer;
 }
-.map-ficha .fc-nome { padding-right: 18px; color: var(--ink-strong); font-size: 13px; font-weight: 800; line-height: 1.25; }
-.map-ficha .fc-loc { margin-top: 2px; color: var(--muted); font-size: 11.5px; }
+.map-ficha .fc-nome { padding-right: 18px; color: var(--ink-strong); font-size: 0.8125rem; font-weight: 800; line-height: 1.25; }
+.map-ficha .fc-loc { margin-top: 2px; color: var(--muted); font-size: 0.7188rem; }
 .map-ficha .fc-lista { margin-top: 8px; display: grid; gap: 4px; }
-.map-ficha .fc-item { display: flex; justify-content: space-between; gap: 10px; font-size: 11.2px; }
+.map-ficha .fc-item { display: flex; justify-content: space-between; gap: 10px; font-size: 0.7rem; }
 .map-ficha .fc-item span { color: var(--muted); }
 .map-ficha .fc-item b { max-width: 62%; text-align: right; font-weight: 700; }
 .map-ficha .fc-prod { margin-top: 9px; padding-top: 8px; border-top: 1px solid var(--line-soft); }
-.map-ficha .fc-prod span { display: block; color: var(--muted); font-size: 10.5px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; }
-.map-ficha .fc-prod b { color: var(--green-700); font-size: 20px; font-weight: 800; }
-.map-ficha .fc-prod small { color: var(--muted); font-size: 11px; font-weight: 600; }
-.map-ficha .fc-aprox { margin-top: 8px; padding: 4px 8px; color: var(--warning); border-radius: 6px; background: var(--warning-soft); font-size: 10.5px; font-weight: 700; }
+.map-ficha .fc-prod span { display: block; color: var(--muted); font-size: 0.6562rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; }
+.map-ficha .fc-prod b { color: var(--green-700); font-size: 1.25rem; font-weight: 800; }
+.map-ficha .fc-prod small { color: var(--muted); font-size: 0.6875rem; font-weight: 600; }
+.map-ficha .fc-aprox { margin-top: 8px; padding: 4px 8px; color: var(--warning); border-radius: 6px; background: var(--warning-soft); font-size: 0.6562rem; font-weight: 700; }
 
 .map-legend {
   flex: 0 0 auto;
   margin-top: 8px;
   display: flex; flex-wrap: wrap; gap: 4px 14px;
-  color: var(--muted); font-size: 11px; font-weight: 600;
+  color: var(--muted); font-size: 0.6875rem; font-weight: 600;
 }
 .map-legend .lg { display: inline-flex; align-items: center; gap: 5px; cursor: pointer; }
 .map-legend .lg.off { opacity: 0.35; }
@@ -149,18 +149,18 @@
   box-shadow: var(--shadow-soft);
 }
 .map-escala[hidden] { display: none; }
-.map-escala .me-titulo { font-size: 10.5px; font-weight: 800; }
+.map-escala .me-titulo { font-size: 0.6562rem; font-weight: 800; }
 .map-escala .me-linha { margin-top: 6px; display: flex; align-items: flex-end; gap: 12px; }
 .map-escala .me-item { display: flex; flex-direction: column; align-items: center; gap: 3px; }
 .map-escala .me-item i { display: block; border: 1.5px solid var(--green-700); border-radius: 50%; background: color-mix(in srgb, var(--green-700) 20%, transparent); }
-.map-escala .me-item span { color: var(--muted); font-size: 10px; font-weight: 700; }
-.map-escala .me-nota { margin-top: 4px; color: var(--muted); font-size: 9.5px; font-style: italic; }
+.map-escala .me-item span { color: var(--muted); font-size: 0.625rem; font-weight: 700; }
+.map-escala .me-nota { margin-top: 4px; color: var(--muted); font-size: 0.5938rem; font-style: italic; }
 
 .leaflet-tooltip.map-tip { color: var(--ink); border: 1px solid var(--line); border-radius: 6px; background: var(--surface); box-shadow: var(--shadow-soft); font-weight: 700; }
 .leaflet-tooltip.map-tip::before { display: none; }
 
 /* Sigla da UF no centro do estado (malha IBGE); escondida no zoom do Brasil inteiro */
-.leaflet-tooltip.uf-rotulo { padding: 0; border: 0; background: transparent; box-shadow: none; color: var(--green-700); font-size: 10px; font-weight: 700; letter-spacing: .04em; opacity: .55 !important; pointer-events: none; }
+.leaflet-tooltip.uf-rotulo { padding: 0; border: 0; background: transparent; box-shadow: none; color: var(--green-700); font-size: 0.625rem; font-weight: 700; letter-spacing: .04em; opacity: .55 !important; pointer-events: none; }
 .leaflet-tooltip.uf-rotulo::before { display: none; }
 #mapaTerritorio.sem-rotulo-uf .uf-rotulo { display: none; }
 
@@ -200,7 +200,7 @@
   flex: 0 0 auto;
   margin: 0;
   color: var(--green-600);
-  font-size: 20px;
+  font-size: 1.25rem;
   letter-spacing: normal;
   text-transform: none;
   line-height: 1;
@@ -208,7 +208,7 @@
 .safra-toolbar .safra-filtro .safra-rot {
   margin: 0;
   color: var(--ink);
-  font-size: 13px;
+  font-size: 0.8125rem;
   font-weight: 500;
   letter-spacing: normal;
   text-transform: none;
@@ -217,14 +217,14 @@
 .safra-toolbar .safra-filtro .select-display-value,
 .safra-toolbar .safra-filtro > strong {
   color: var(--ink-strong);
-  font-size: 13px;
+  font-size: 0.8125rem;
   font-weight: 800;
   line-height: 1.15;
 }
 .safra-toolbar .safra-filtro .select-display-value { max-width: 240px; padding-right: 20px; background-size: 14px; }
 .safra-toolbar .safra-filtro--info { cursor: default; }
 .safra-toolbar .safra-filtro--info:hover { border-color: var(--line); background: var(--surface); }
-.safra-toolbar-nota { flex: 1 1 0; min-width: 0; color: var(--muted); font-size: 11.5px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.safra-toolbar-nota { flex: 1 1 0; min-width: 0; color: var(--muted); font-size: 0.7188rem; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .safra-toolbar-espaco { flex: 0 0 0; }
 /* Botão "Gerar PDF": pílula da mesma altura dos chips, ícone em círculo e legenda curta; gira enquanto monta o relatório */
 .safra-btn-pdf {
@@ -253,11 +253,11 @@
   place-items: center;
   border-radius: 50%;
   background: rgba(255, 255, 255, 0.18);
-  font-size: 18px;
+  font-size: 1.125rem;
 }
 .safra-btn-pdf-txt { display: flex; flex-direction: column; align-items: flex-start; line-height: 1.1; }
-.safra-btn-pdf-txt b { font-size: 12.5px; font-weight: 800; }
-.safra-btn-pdf-txt small { font-size: 10px; font-weight: 600; opacity: 0.8; }
+.safra-btn-pdf-txt b { font-size: 0.7812rem; font-weight: 800; }
+.safra-btn-pdf-txt small { font-size: 0.625rem; font-weight: 600; opacity: 0.8; }
 .safra-btn-pdf-giro { display: none; }
 .safra-btn-pdf.gerando { cursor: progress; filter: saturate(0.7); transform: none; }
 .safra-btn-pdf.gerando .safra-btn-pdf-ico { color: transparent; }
@@ -282,7 +282,7 @@
   gap: 10px;
 }
 .grid-safra > .panel-card { min-height: 0; }
-.safra-rodape { flex: 0 0 auto; color: var(--muted); font-size: 11px; line-height: 1.35; }
+.safra-rodape { flex: 0 0 auto; color: var(--muted); font-size: 0.6875rem; line-height: 1.35; }
 
 @media (max-width: 1024px) {
   .grid-safra { display: flex !important; flex-direction: column !important; gap: 22px !important; }
@@ -297,7 +297,7 @@
   border-radius: 999px;
   background: transparent;
   font: inherit;
-  font-size: 11.5px;
+  font-size: 0.7188rem;
   font-weight: 700;
   cursor: pointer;
 }
@@ -307,15 +307,15 @@
 .safra-donut { position: relative; height: 100%; min-height: 0; }
 .safra-donut canvas { position: absolute; inset: 0; }
 .safra-donut-centro { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; pointer-events: none; }
-.safra-donut-centro strong { color: var(--ink-strong); font-size: 26px; font-weight: 800; line-height: 1; letter-spacing: -0.02em; }
-.safra-donut-centro span { color: var(--muted); font-size: 11px; font-weight: 600; }
+.safra-donut-centro strong { color: var(--ink-strong); font-size: 1.625rem; font-weight: 800; line-height: 1; letter-spacing: -0.02em; }
+.safra-donut-centro span { color: var(--muted); font-size: 0.6875rem; font-weight: 600; }
 .safra-legenda { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 4px; }
 .safra-legenda li { display: grid; grid-template-columns: 12px minmax(0, 1fr) auto; align-items: center; gap: 10px; padding: 6px 0; border-bottom: 1px solid var(--line-soft); }
 .safra-legenda li:last-child { border-bottom: 0; }
 .safra-legenda i { width: 12px; height: 12px; border-radius: 50%; }
-.safra-legenda span { display: flex; flex-direction: column; min-width: 0; font-size: 13px; }
-.safra-legenda small { color: var(--muted); font-size: 11px; font-weight: 500; }
-.safra-legenda strong { color: var(--ink-strong); font-size: 20px; font-weight: 800; }
+.safra-legenda span { display: flex; flex-direction: column; min-width: 0; font-size: 0.8125rem; }
+.safra-legenda small { color: var(--muted); font-size: 0.6875rem; font-weight: 500; }
+.safra-legenda strong { color: var(--ink-strong); font-size: 1.25rem; font-weight: 800; }
 
 .safra-destaque {
   flex: 0 0 auto;
@@ -327,12 +327,12 @@
   color: var(--ink);
   border-radius: 10px;
   background: var(--green-100);
-  font-size: 12px;
+  font-size: 0.75rem;
 }
-.safra-destaque > .material-symbols-rounded { color: var(--green-600); font-size: 20px; }
-.safra-destaque strong { color: var(--green-700); font-size: 18px; font-weight: 800; }
+.safra-destaque > .material-symbols-rounded { color: var(--green-600); font-size: 1.25rem; }
+.safra-destaque strong { color: var(--green-700); font-size: 1.125rem; font-weight: 800; }
 .safra-destaque span { display: flex; flex-direction: column; }
-.safra-destaque small { color: var(--muted); font-size: 10.5px; }
+.safra-destaque small { color: var(--muted); font-size: 0.6562rem; }
 
 .safra-cob { flex: 1; min-height: 0; display: grid; grid-template-columns: 1fr 1fr; align-items: center; gap: 12px; }
 .safra-cob-lado { display: flex; align-items: center; gap: 12px; }
@@ -340,16 +340,16 @@
 .safra-cob-lado strong { font-size: clamp(38px, 5vw, 60px); font-weight: 800; line-height: 1; letter-spacing: -0.03em; }
 .safra-cob-lado--com strong { color: #0f7a55; }
 .safra-cob-lado--sem strong { color: #4f93d6; }
-.safra-cob-lado span { color: var(--ink); font-size: 13px; font-weight: 600; line-height: 1.25; }
-.safra-cob-lado small { display: block; margin-top: 2px; color: var(--muted); font-size: 11px; font-weight: 500; }
+.safra-cob-lado span { color: var(--ink); font-size: 0.8125rem; font-weight: 600; line-height: 1.25; }
+.safra-cob-lado small { display: block; margin-top: 2px; color: var(--muted); font-size: 0.6875rem; font-weight: 500; }
 .safra-barra { flex: 0 0 auto; height: 43px; display: flex; overflow: hidden; border-radius: 8px; }
-.safra-barra i { display: flex; align-items: center; justify-content: center; color: #fff; font-size: 12px; font-style: normal; font-weight: 800; transition: width 300ms ease; }
+.safra-barra i { display: flex; align-items: center; justify-content: center; color: #fff; font-size: 0.75rem; font-style: normal; font-weight: 800; transition: width 300ms ease; }
 .safra-barra .com { background: #0f7a55; }
 .safra-barra .sem { background: #4f93d6; }
 /* Mais de uma safra: o histórico (colunas 100 % por safra) substitui os percentuais grandes e a barra */
 .safra-cob-hist { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 6px; }
 .safra-cob-hist .chart-box { flex: 1; min-height: 0; }
-.safra-cob-hist-legenda { display: flex; flex-wrap: wrap; gap: 4px 14px; color: var(--ink); font-size: 11.5px; font-weight: 600; }
+.safra-cob-hist-legenda { display: flex; flex-wrap: wrap; gap: 4px 14px; color: var(--ink); font-size: 0.7188rem; font-weight: 600; }
 .safra-cob-hist-legenda span { display: inline-flex; align-items: center; gap: 6px; }
 .safra-cob-hist-legenda i { width: 10px; height: 10px; border-radius: 3px; }
 .safra-cob-hist-legenda .com { background: #0f7a55; }
@@ -361,8 +361,8 @@
 .safra-custo-duplo > div + div::before { content: ''; position: absolute; left: -22px; top: 6px; bottom: 6px; border-left: 1px solid var(--line-soft); }
 .safra-custo-duplo > div { min-height: 0; display: flex; flex-direction: column; }
 .safra-custo-duplo .chart-box { flex: 1; min-height: 0; }
-.safra-mini { margin: 0 0 2px; color: var(--muted); font-size: 11px; }
-.safra-mini b { color: var(--ink-strong); font-size: 12px; }
+.safra-mini { margin: 0 0 2px; color: var(--muted); font-size: 0.6875rem; }
+.safra-mini b { color: var(--ink-strong); font-size: 0.75rem; }
 .safra-custo-duplo[hidden], #safraCustoCompBox[hidden] { display: none; }
 #safraCustoCompBox { flex: 1; min-height: 0; }
 
@@ -381,21 +381,21 @@
 /* Composição do custo por etapa: barras horizontais empilhadas (uma por sistema de plantio) */
 .safra-comp { flex: 1; min-height: 0; display: flex; flex-direction: column; justify-content: center; gap: 14px; padding: 4px 4px 0; }
 .safra-comp[hidden] { display: none; }
-.safra-comp-legenda { display: flex; flex-wrap: wrap; gap: 6px 16px; color: var(--muted); font-size: 11.5px; font-weight: 600; }
+.safra-comp-legenda { display: flex; flex-wrap: wrap; gap: 6px 16px; color: var(--muted); font-size: 0.7188rem; font-weight: 600; }
 .safra-comp-legenda span { display: inline-flex; align-items: center; gap: 6px; }
 .safra-comp-legenda i { width: 12px; height: 12px; border-radius: 3px; }
 .safra-comp-linhas { display: flex; flex-direction: column; gap: 12px; }
 .safra-comp-linha { display: grid; grid-template-columns: minmax(110px, 0.9fr) minmax(0, 3fr) auto; align-items: center; gap: 14px; }
 .safra-comp-nome { display: flex; align-items: center; gap: 8px; min-width: 0; }
 .safra-comp-nome i { flex: 0 0 auto; width: 10px; height: 10px; border-radius: 50%; }
-.safra-comp-nome span { display: flex; flex-direction: column; min-width: 0; font-size: 13px; line-height: 1.15; }
+.safra-comp-nome span { display: flex; flex-direction: column; min-width: 0; font-size: 0.8125rem; line-height: 1.15; }
 .safra-comp-nome b { color: var(--ink-strong); font-weight: 800; }
-.safra-comp-nome small { color: var(--muted); font-size: 11px; font-weight: 500; }
+.safra-comp-nome small { color: var(--muted); font-size: 0.6875rem; font-weight: 500; }
 .safra-comp-trilho { height: 30px; min-width: 0; }
 .safra-comp-barra { height: 100%; display: flex; gap: 1px; overflow: hidden; border-radius: 8px; transition: width 300ms ease; }
-.safra-comp-seg { display: flex; align-items: center; justify-content: center; min-width: 0; font-size: 12px; font-weight: 800; }
-.safra-comp-total { min-width: 92px; color: var(--ink-strong); font-size: 18px; font-weight: 800; text-align: right; white-space: nowrap; }
-.safra-comp-nota { margin: 0; color: var(--muted); font-size: 11px; }
+.safra-comp-seg { display: flex; align-items: center; justify-content: center; min-width: 0; font-size: 0.75rem; font-weight: 800; }
+.safra-comp-total { min-width: 92px; color: var(--ink-strong); font-size: 1.125rem; font-weight: 800; text-align: right; white-space: nowrap; }
+.safra-comp-nota { margin: 0; color: var(--muted); font-size: 0.6875rem; }
 
 /* ── Gerar PDF da tela 7: relatório próprio (js/safra-relatorio.js) em A4 paisagem ──────────────────────
    Na tela o relatório não aparece; na impressão só ele é impresso. Cores fixas (claras) mesmo no tema escuro. */
@@ -502,9 +502,9 @@
   .map-ficha .fc-prod span,
   .map-ficha .fc-aprox,
   .map-escala .me-titulo,
-  .safra-destaque small { font-size: 11px; }
+  .safra-destaque small { font-size: 0.6875rem; }
   .map-escala .me-item span,
   .leaflet-tooltip.uf-rotulo,
-  .safra-btn-pdf-txt small { font-size: 10.5px; }
-  .map-escala .me-nota { font-size: 10px; }
+  .safra-btn-pdf-txt small { font-size: 0.6562rem; }
+  .map-escala .me-nota { font-size: 0.625rem; }
 }

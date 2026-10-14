@@ -2739,7 +2739,7 @@ aoCarregar(() => {
             return `<div class="custom-select-option ${multi ? 'is-multi' : ''} ${isSelected ? 'selected' : ''} ${isHighlighted ? 'highlighted' : ''}" data-value="${escapeHtml(opt.value)}" data-index="${idx}">
               ${multi ? `<span class="multi-check" aria-hidden="true">${isSelected ? '✓' : ''}</span>` : ''}
               <span>${escapeHtml(opt.text)}</span>
-              ${!multi && isSelected ? '<span style="font-size:10px;">✓</span>' : ''}
+              ${!multi && isSelected ? '<span style="font-size:0.625rem;">✓</span>' : ''}
             </div>`;
           }).join('');
           optionsList.innerHTML = extras + rowsHtml;
