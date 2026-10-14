@@ -67,8 +67,8 @@ ORDEM_TIPO = {"CREATED": 0, "UPDATED": 1}   # CREATED e o 1º UPDATED podem ter 
 
 
 def carregar_configuracao(raiz: Path) -> dict:
-    with open(raiz / "scripts" / "config" / "config.yaml", encoding="utf-8") as fh:
-        return yaml.safe_load(fh)
+    from functions.config_projeto import ler_config
+    return ler_config(raiz)
 
 
 def caminho_planilha(raiz: Path | None = None) -> Path:

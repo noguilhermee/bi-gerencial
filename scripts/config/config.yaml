@@ -4,7 +4,9 @@ projeto:
   departamento: "Labor Rural - Analytics"
   descricao: "Pipeline de ETL e consistência para relatórios do SmartQuestion"
 
-# 📁 CAMINHOS DE DIRETÓRIOS (Ajuste aqui caso mude de computador ou ambiente)
+# 📁 CAMINHOS DE DIRETÓRIOS (caminhos do notebook)
+# Em outra máquina (VPS), troque pelo scripts/config/.env, sem editar aqui: LR_CAMINHO_<CHAVE>=/caminho
+# (ex.: LR_CAMINHO_BD_SMARTQUESTION). Caminho relativo vale a partir da raiz do projeto. Ver scripts/functions/config_projeto.py.
 caminhos:
   # Pasta principal de leitura dos relatórios exportados do SmartQuestion
   bd_smartquestion: "C:/Users/Guilherme/LABOR RURAL/Analytics - Departamento Analytics/POWER_BI/PROJETOS/BI_LABOR_RURAL/BD_SMARTQUESTION"
@@ -196,6 +198,16 @@ indicadores_elabore:
   timeout_celula_segundos: 3600               # limite por célula do notebook
   timeout_total_segundos: 10800               # limite do notebook inteiro (processo é encerrado ao estourar)
   idade_maxima_horas: 36                      # planilha usada mais velha que isso gera aviso (geração falhou ou foi pulada)
+
+# ☁️ PASTAS DE ENTRADA NO SHAREPOINT (sincronizar_sharepoint.py)
+# Chave = a mesma de caminhos.*; valor = link de compartilhamento da pasta. Só é usado com LR_SINCRONIZAR_SHAREPOINT=1
+# no .env (servidor sem OneDrive). No notebook o OneDrive já mantém as pastas em dia e nada é baixado.
+# As saídas do lr-indicadores-elabore não entram aqui: no servidor o próprio notebook do Elabore as gera.
+sharepoint:
+  pastas:
+    bd_smartquestion: "https://laborruralserv.sharepoint.com/:f:/g/anl/IgAQXozGxePYSJUIAxDi1RMCAd9EAljKroBk4t9Avu1aPrc?e=oPALhn"
+    bd_procampo: "https://laborruralserv.sharepoint.com/:f:/g/anl/IgAqHYqB-gCjTIPtVXlLTGLYARpCCoQlZTWnicidmZkNHKs?e=kL2bDO"
+    elabore_projeto: "https://laborruralserv.sharepoint.com/:f:/g/anl/IgBLAbmIruxARY-dt3DUuSGuAR7Uc0jGf_4fu6abnPZc0V0?e=FU0Atk"
 
 # ⚙️ PARÂMETROS DE EXECUÇÃO DO PIPELINE
 execucao:

@@ -6,6 +6,7 @@ Substitui o fluxo de duas pontas (gerar as planilhas no lr-indicadores-elabore �
 
     1. [segundo plano] Notebook "Elabore Indicadores" (lr-indicadores-elabore) -> *_indicadores_mensais.xlsx,
                        *_indicadores_anuais.xlsx e *_base_custo_forrageira.xlsx
+    0. [só no servidor, LR_SINCRONIZAR_SHAREPOINT=1] pastas BD_SMARTQUESTION e BD_PROCAMPO espelhadas do SharePoint
     2. base do Procampo (SharePoint), raw de visitas do SmartQuestion e raw do Procampo
                        (independentes do Elabore: rodam enquanto o passo 1 corre)
     3. aguarda o passo 1 e confere se as 3 planilhas são novas
@@ -35,6 +36,7 @@ import argparse
 import asyncio
 import importlib
 import os
+import signal
 import subprocess
 import sys
 import time
@@ -129,6 +131,8 @@ class ExecucaoNotebook:
         self.proc = subprocess.Popen(
             cmd, cwd=str(cwd), env=env,
             stdout=self._arquivo_log, stderr=subprocess.STDOUT if self._arquivo_log else None,
+            # Linux: grupo de processos próprio, para encerrar() levar junto o kernel do Jupyter
+            start_new_session=(os.name != "nt"),
         )
         self.inicio = time.time()
 
@@ -146,8 +150,14 @@ class ExecucaoNotebook:
 
     def encerrar(self) -> None:
         if self.proc.poll() is None:
-            # taskkill /T leva junto o kernel do Jupyter, que é processo filho do executor.
-            subprocess.run(["taskkill", "/F", "/T", "/PID", str(self.proc.pid)], capture_output=True)
+            # Leva junto o kernel do Jupyter, que é processo filho do executor.
+            if os.name == "nt":
+                subprocess.run(["taskkill", "/F", "/T", "/PID", str(self.proc.pid)], capture_output=True)
+            else:
+                try:
+                    os.killpg(self.proc.pid, signal.SIGKILL)
+                except ProcessLookupError:
+                    pass
             try:
                 self.proc.wait(timeout=30)
             except subprocess.TimeoutExpired:
@@ -166,8 +176,7 @@ class ExecucaoNotebook:
 # CONFIG E CONFERÊNCIA DAS PLANILHAS DO ELABORE
 # ==============================================================================
 def carregar_config() -> dict:
-    with open(RAIZ / "scripts" / "config" / "config.yaml", "r", encoding="utf-8") as f:
-        return yaml.safe_load(f)
+    return _chamar("config_projeto", "ler_config", RAIZ)  # caminhos desta máquina (.env: LR_CAMINHO_*)
 
 
 def config_indicadores(cfg: dict) -> dict:
@@ -334,6 +343,11 @@ def main() -> int:
     print(f"⏰ Início: {datetime.now().strftime('%d/%m/%Y %H:%M:%S')}")
     print("=" * 70)
 
+    # 0. Pastas de entrada (só no servidor; no notebook o OneDrive já sincroniza) ------------------------
+    if _chamar("sincronizar_sharepoint", "sincronizacao_ativa"):
+        pipe.rodar("sharepoint", "Pastas de entrada (SharePoint -> BD_SMARTQUESTION, BD_PROCAMPO)",
+                   lambda: _chamar("sincronizar_sharepoint", "sincronizar_pastas_sharepoint", RAIZ))
+
     gerar = not args.sem_indicadores
     execucao_ind: ExecucaoNotebook | None = None
     inicio_ind = [0.0]
@@ -369,6 +383,11 @@ def main() -> int:
         problemas += conferir_planilhas(cfg, inicio_ind[0] if execucao_ind is not None and not problemas else None)
         if problemas:
             raise RuntimeError("; ".join(problemas) + " — a pipeline segue com as planilhas anteriores")
+        if _chamar("sincronizar_sharepoint", "sincronizacao_ativa"):
+            try:
+                _chamar("sincronizar_sharepoint", "enviar_indicadores_sharepoint", RAIZ, inicio_ind[0])
+            except Exception as erro_up:
+                print(f"   ⚠️  Aviso ao enviar indicadores para o SharePoint: {erro_up}")
 
     try:
         # 1. Geração dos indicadores (segundo plano) ---------------------------------------------------------
@@ -399,6 +418,8 @@ def main() -> int:
             pipe.rodar("indicadores", "Gerar indicadores do Elabore (mensal, anual e forrageira)",
                        concluir_indicadores, desde=inicio_ind[0])
         elif not gerar and args.sem_indicadores:
+            if _chamar("sincronizar_sharepoint", "sincronizacao_ativa"):
+                _chamar("sincronizar_sharepoint", "baixar_indicadores_sharepoint", RAIZ)
             pipe.rodar("indicadores", "Conferir planilhas do Elabore (sem gerar)", lambda: _exigir(conferir_planilhas(cfg, None)))
 
         if args.so_indicadores:

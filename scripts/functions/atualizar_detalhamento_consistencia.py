@@ -60,14 +60,12 @@ def detectar_raiz(caminho_base: Path | None = None) -> Path:
 
 
 def carregar_configuracao(raiz_projeto: Path) -> dict:
-    """Carrega o config.yaml oficial."""
-    config_file = raiz_projeto / "scripts" / "config" / "config.yaml"
-    if not config_file.is_file():
-        config_file = raiz_projeto / "SCRIPTS" / "CONFIG" / "config.yaml"
-    if not config_file.is_file():
-        raise FileNotFoundError(f"❌ Arquivo de configuração não encontrado: {config_file}")
-    with open(config_file, "r", encoding="utf-8") as f:
-        return yaml.safe_load(f)
+    """Carrega o config.yaml oficial (caminhos ajustados à máquina: config_projeto)."""
+    try:
+        from functions.config_projeto import ler_config
+    except ImportError:
+        from config_projeto import ler_config
+    return ler_config(raiz_projeto)
 
 
 def obter_cliente_supabase(raiz_projeto: Path):

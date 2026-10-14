@@ -136,11 +136,8 @@ def executar_reconciliacao(reindex_completo: bool = False):
     config = carregar_config_referencia(raiz_projeto)
     supabase = obter_cliente_supabase(raiz_projeto)
     
-    cfg_file = raiz_projeto / "scripts" / "config" / "config.yaml"
-    if not cfg_file.exists():
-        cfg_file = raiz_projeto / "SCRIPTS" / "CONFIG" / "config.yaml"
-    with open(cfg_file, "r", encoding="utf-8") as f:
-        cfg_raw = yaml.safe_load(f)
+    from functions.config_projeto import ler_config
+    cfg_raw = ler_config(raiz_projeto)
         
     bd_path = Path(cfg_raw.get("caminhos", {}).get("bd_smartquestion", ""))
     

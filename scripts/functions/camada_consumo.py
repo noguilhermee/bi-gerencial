@@ -1815,8 +1815,8 @@ def executar_camada_consumo(raiz: Path | None = None, gravar: bool = True) -> di
     raiz = raiz or raiz_projeto
     carregar_env(raiz)
     carregar_config_referencia(raiz)
-    with open(raiz / "scripts" / "config" / "config.yaml", encoding="utf-8") as fh:
-        cfg = yaml.safe_load(fh)
+    from functions.config_projeto import ler_config
+    cfg = ler_config(raiz)
     ref = cfg["referencia"]
 
     print("=" * 70)

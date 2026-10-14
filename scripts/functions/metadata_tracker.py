@@ -168,15 +168,11 @@ def obter_metadados_planilhas(raiz_projeto: Path | str | None = None) -> Dict[st
     else:
         raiz = caminho_base
         
-    config_path = raiz / "scripts" / "config" / "config.yaml"
-    if not config_path.exists():
-        config_path = raiz / "SCRIPTS" / "CONFIG" / "config.yaml"
-    
-    if not config_path.exists():
-        raise FileNotFoundError(f"Arquivo config.yaml não encontrado em {config_path}")
-        
-    with open(config_path, "r", encoding="utf-8") as f:
-        cfg = yaml.safe_load(f)
+    try:
+        from functions.config_projeto import ler_config
+    except ImportError:
+        from config_projeto import ler_config
+    cfg = ler_config(raiz)
         
     bd_path = Path(cfg.get("caminhos", {}).get("bd_smartquestion", ""))
     

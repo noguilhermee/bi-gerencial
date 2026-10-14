@@ -60,8 +60,11 @@ def _id_compartilhamento(link: str) -> str:
 def sincronizar_base_procampo(raiz: Path | None = None) -> bool:
     """Baixa a base do SharePoint se estiver mais nova. Devolve True se atualizou, False se já estava em dia."""
     raiz = raiz or detectar_raiz()
-    with open(raiz / "scripts" / "config" / "config.yaml", "r", encoding="utf-8") as f:
-        cfg = yaml.safe_load(f)
+    try:
+        from functions.config_projeto import ler_config
+    except ImportError:
+        from config_projeto import ler_config
+    cfg = ler_config(raiz)
     cfg_pro = cfg["procampo"]
     link = cfg_pro.get("base_sharepoint_link")
     if not link:

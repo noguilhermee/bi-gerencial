@@ -181,8 +181,8 @@ def executar_publicacao_dim_procampo(raiz: Path | None = None) -> pd.DataFrame:
     print(f"🐄 PUBLICANDO FAZENDAS DO PROCAMPO EM {TABELA_DIM}")
     print("=" * 70)
     carregar_env(raiz)
-    with open(raiz / "scripts" / "config" / "config.yaml", encoding="utf-8") as fh:
-        cfg = yaml.safe_load(fh)
+    from functions.config_projeto import ler_config
+    cfg = ler_config(raiz)
     cfg_pro, tabelas = cfg["procampo"], cfg["supabase"]["tabelas"]
     supabase = obter_cliente_supabase(raiz)
 

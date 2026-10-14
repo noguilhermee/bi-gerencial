@@ -106,13 +106,11 @@ from functions.function import criar_cliente_supabase  # noqa: E402
 
 
 def carregar_configuracao(raiz: Path) -> dict:
-    config_file = raiz / "scripts" / "config" / "config.yaml"
-    if not config_file.is_file():
-        config_file = raiz / "SCRIPTS" / "CONFIG" / "config.yaml"
-    if not config_file.is_file():
-        raise FileNotFoundError(f"❌ Arquivo de configuração não encontrado: {config_file}")
-    with open(config_file, "r", encoding="utf-8") as f:
-        return yaml.safe_load(f)
+    try:
+        from functions.config_projeto import ler_config
+    except ImportError:
+        from config_projeto import ler_config
+    return ler_config(raiz)
 
 
 def obter_cliente_supabase(raiz: Path):
