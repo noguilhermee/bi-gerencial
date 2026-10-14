@@ -87,6 +87,15 @@ module.exports = comAuth(async (req, res) => {
     consistenciaTodos.filter(c => doMes(c) && !c.na_carteira).forEach(c => {
       porFazenda.set(`${c.codigo_lr}|${String(c.mes_referencia).slice(0, 10)}`, foraDaCarteira(c));
     });
+    // Fazenda que entrou na carteira do mês selecionado e não existe no mês exibido (M-1): entra com a linha do próprio mês
+    if (mesSelecionado && refMonth !== mesSelecionado) {
+      const codigosExibidos = new Set([...porFazenda.values()].map(r => r.codigo_lr));
+      carteiraTodos.filter(r => String(r.mes_referencia).slice(0, 10) === mesSelecionado).forEach(r => {
+        if (codigosExibidos.has(r.codigo_lr)) return;
+        codigosExibidos.add(r.codigo_lr);
+        porFazenda.set(`${r.codigo_lr}|${mesSelecionado}`, daCarteira(r));
+      });
+    }
     // Regra 13 (AGENTS.md): fazendas de consultor que não lança no Elabore ficam fora dos indicadores (flag gravada pelo ETL)
     // Nome da fazenda por código (fora da carteira o fato de consistência não traz a propriedade)
     const fazendaPorCodigo = new Map();

@@ -2758,6 +2758,15 @@ aoCarregar(() => {
             e.stopPropagation();
             e.preventDefault();
             const val = optEl.dataset.value;
+            // Multi-seleção: caixa de marcação soma/remove; clicar no nome seleciona só aquela opção
+            const noNome = multi && !e.target.closest('.multi-check') && val !== '__all__' && val !== '__results__';
+            if (noNome) {
+              [...select.options].forEach((opt) => { opt.selected = opt.value === val; });
+              multiDirty = true;
+              syncDisplayValue();
+              updatePopupOptions(popup.querySelector('.custom-select-search-input')?.value || '', true);
+              return;
+            }
             selectOptionByValue(val);
           });
         });

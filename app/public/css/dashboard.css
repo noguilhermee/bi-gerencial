@@ -3678,6 +3678,7 @@ th.col-center .table-col-filter { text-align: center !important; }
   font-size: 0.625rem;
   line-height: 1;
   opacity: 0.85;
+  cursor: pointer;
 }
 
 .custom-select-option.is-all {
