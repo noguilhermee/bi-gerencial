@@ -3125,13 +3125,18 @@ aoCarregar(() => {
       activeBtn = btn;
     }
 
+    // Popover fixado por clique: permanece aberto até novo clique no botão ou fora dele.
+    let pinned = false;
+
     function hidePopover() {
       popover.classList.remove('active');
       popover.setAttribute('aria-hidden', 'true');
       activeBtn = null;
+      pinned = false;
     }
 
     document.addEventListener('mouseover', (e) => {
+      if (pinned) return;
       const btn = e.target.closest('.kpi-info-btn');
       if (btn && activeBtn !== btn) {
         showPopover(btn);
@@ -3139,6 +3144,7 @@ aoCarregar(() => {
     });
 
     document.addEventListener('mouseout', (e) => {
+      if (pinned) return;
       const btn = e.target.closest('.kpi-info-btn');
       if (btn && activeBtn === btn) {
         const related = e.relatedTarget;
@@ -3152,10 +3158,11 @@ aoCarregar(() => {
       const btn = e.target.closest('.kpi-info-btn');
       if (btn) {
         e.stopPropagation();
-        if (activeBtn === btn) {
+        if (pinned && activeBtn === btn) {
           hidePopover();
         } else {
           showPopover(btn);
+          pinned = true;
         }
         return;
       }
@@ -3164,7 +3171,9 @@ aoCarregar(() => {
       }
     });
 
-    window.addEventListener('scroll', hidePopover, { passive: true });
+    window.addEventListener('scroll', () => {
+      if (!pinned) hidePopover();
+    }, { passive: true });
   }
 
   function setupProvenanceModal() {
