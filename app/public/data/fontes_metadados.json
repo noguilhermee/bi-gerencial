@@ -1,23 +1,23 @@
 {
-  "timestamp_inspecao": "2026-10-14T08:36:05.694128-03:00",
-  "timestamp_etl": "2026-10-14T08:36:05.694128-03:00",
-  "ultima_execucao_etl_formatada": "14/10/2026 às 08:36:05",
-  "ultima_leitura_planilhas_formatada": "14/10/2026 às 08:36:05",
+  "timestamp_inspecao": "2026-10-14T11:29:39.639852-03:00",
+  "timestamp_etl": "2026-10-14T11:29:39.639852-03:00",
+  "ultima_execucao_etl_formatada": "14/10/2026 às 11:29:39",
+  "ultima_leitura_planilhas_formatada": "14/10/2026 às 11:29:39",
   "arquivo_mais_recente_nome": "261014_LISTA_INATIVACAO.xlsx",
   "arquivo_mais_recente_data": "14/10/2026 às 04:00",
   "total_arquivos": 12,
-  "diretorio_origem": "C:\\Users\\Guilherme\\LABOR RURAL\\Analytics - Departamento Analytics\\POWER_BI\\PROJETOS\\BI_LABOR_RURAL\\BD_SMARTQUESTION",
+  "diretorio_origem": "/home/ubuntu/labor-rural/dados/BD_SMARTQUESTION",
   "consistencia_mensal": {
     "tabela": "elabore_raw_consistencia_mensal",
-    "ultima_atualizacao": "2026-10-14T08:17:49.131823-03:00",
-    "ultima_atualizacao_formatada": "14/10/2026 às 08:17",
+    "ultima_atualizacao": "2026-10-14T11:24:54.934859-03:00",
+    "ultima_atualizacao_formatada": "14/10/2026 às 11:24",
     "total_registros": 16477,
     "status": "✅ Sincronizado"
   },
   "consistencia_anual": {
     "tabela": "elabore_raw_consistencia_anual",
-    "ultima_atualizacao": "2026-10-14T08:18:36.933957-03:00",
-    "ultima_atualizacao_formatada": "14/10/2026 às 08:18",
+    "ultima_atualizacao": "2026-10-14T11:25:16.562899-03:00",
+    "ultima_atualizacao_formatada": "14/10/2026 às 11:25",
     "total_registros": 7131,
     "status": "✅ Sincronizado"
   },
@@ -32,7 +32,7 @@
       "tamanho_bytes": 181652,
       "tamanho_formatado": "177.4 KB",
       "total_registros": 982,
-      "caminho": "C:\\Users\\Guilherme\\LABOR RURAL\\Analytics - Departamento Analytics\\POWER_BI\\PROJETOS\\BI_LABOR_RURAL\\BD_SMARTQUESTION\\260915_LISTA_INATIVACAO_COMPLETO.xlsx"
+      "caminho": "/home/ubuntu/labor-rural/dados/BD_SMARTQUESTION/260915_LISTA_INATIVACAO_COMPLETO.xlsx"
     },
     {
       "nome": "261014_LISTA_CADASTRO.xlsx",
@@ -44,7 +44,7 @@
       "tamanho_bytes": 94373,
       "tamanho_formatado": "92.2 KB",
       "total_registros": 262,
-      "caminho": "C:\\Users\\Guilherme\\LABOR RURAL\\Analytics - Departamento Analytics\\POWER_BI\\PROJETOS\\BI_LABOR_RURAL\\BD_SMARTQUESTION\\261014_LISTA_CADASTRO.xlsx"
+      "caminho": "/home/ubuntu/labor-rural/dados/BD_SMARTQUESTION/261014_LISTA_CADASTRO.xlsx"
     },
     {
       "nome": "261014_LISTA_INATIVACAO.xlsx",
@@ -56,7 +56,7 @@
       "tamanho_bytes": 38853,
       "tamanho_formatado": "37.9 KB",
       "total_registros": 4,
-      "caminho": "C:\\Users\\Guilherme\\LABOR RURAL\\Analytics - Departamento Analytics\\POWER_BI\\PROJETOS\\BI_LABOR_RURAL\\BD_SMARTQUESTION\\261014_LISTA_INATIVACAO.xlsx"
+      "caminho": "/home/ubuntu/labor-rural/dados/BD_SMARTQUESTION/261014_LISTA_INATIVACAO.xlsx"
     },
     {
       "nome": "BD_BI_VINCULOS_COMPLETO.xlsx",
@@ -68,7 +68,7 @@
       "tamanho_bytes": 928279,
       "tamanho_formatado": "906.5 KB",
       "total_registros": 9140,
-      "caminho": "C:\\Users\\Guilherme\\LABOR RURAL\\Analytics - Departamento Analytics\\POWER_BI\\PROJETOS\\BI_LABOR_RURAL\\BD_SMARTQUESTION\\BD_BI_VINCULOS_COMPLETO.xlsx"
+      "caminho": "/home/ubuntu/labor-rural/dados/BD_SMARTQUESTION/BD_BI_VINCULOS_COMPLETO.xlsx"
     },
     {
       "nome": "BD_STATUS_USUARIO_SQ.xlsx",
@@ -80,7 +80,7 @@
       "tamanho_bytes": 652971,
       "tamanho_formatado": "637.7 KB",
       "total_registros": 3873,
-      "caminho": "C:\\Users\\Guilherme\\LABOR RURAL\\Analytics - Departamento Analytics\\POWER_BI\\PROJETOS\\BI_LABOR_RURAL\\BD_SMARTQUESTION\\BD_STATUS_USUARIO_SQ.xlsx"
+      "caminho": "/home/ubuntu/labor-rural/dados/BD_SMARTQUESTION/BD_STATUS_USUARIO_SQ.xlsx"
     },
     {
       "nome": "LISTA_ALVOAR_VISITA.xlsx",
@@ -92,7 +92,7 @@
       "tamanho_bytes": 3787400,
       "tamanho_formatado": "3.6 MB",
       "total_registros": 3876,
-      "caminho": "C:\\Users\\Guilherme\\LABOR RURAL\\Analytics - Departamento Analytics\\POWER_BI\\PROJETOS\\BI_LABOR_RURAL\\BD_SMARTQUESTION\\LISTA_ALVOAR_VISITA.xlsx"
+      "caminho": "/home/ubuntu/labor-rural/dados/BD_SMARTQUESTION/LISTA_ALVOAR_VISITA.xlsx"
     },
     {
       "nome": "LISTA_CCPR_VISITA.xlsx",
@@ -104,7 +104,7 @@
       "tamanho_bytes": 983059,
       "tamanho_formatado": "960.0 KB",
       "total_registros": 338,
-      "caminho": "C:\\Users\\Guilherme\\LABOR RURAL\\Analytics - Departamento Analytics\\POWER_BI\\PROJETOS\\BI_LABOR_RURAL\\BD_SMARTQUESTION\\LISTA_CCPR_VISITA.xlsx"
+      "caminho": "/home/ubuntu/labor-rural/dados/BD_SMARTQUESTION/LISTA_CCPR_VISITA.xlsx"
     },
     {
       "nome": "LISTA_GERAL_RELATORIO_DE_GRUPO.xlsx",
@@ -116,7 +116,7 @@
       "tamanho_bytes": 1950567,
       "tamanho_formatado": "1.9 MB",
       "total_registros": 16036,
-      "caminho": "C:\\Users\\Guilherme\\LABOR RURAL\\Analytics - Departamento Analytics\\POWER_BI\\PROJETOS\\BI_LABOR_RURAL\\BD_SMARTQUESTION\\LISTA_GERAL_RELATORIO_DE_GRUPO.xlsx"
+      "caminho": "/home/ubuntu/labor-rural/dados/BD_SMARTQUESTION/LISTA_GERAL_RELATORIO_DE_GRUPO.xlsx"
     },
     {
       "nome": "LISTA_GERAL_VISITAS.xlsx",
@@ -128,7 +128,7 @@
       "tamanho_bytes": 827886,
       "tamanho_formatado": "808.5 KB",
       "total_registros": 5932,
-      "caminho": "C:\\Users\\Guilherme\\LABOR RURAL\\Analytics - Departamento Analytics\\POWER_BI\\PROJETOS\\BI_LABOR_RURAL\\BD_SMARTQUESTION\\LISTA_GERAL_VISITAS.xlsx"
+      "caminho": "/home/ubuntu/labor-rural/dados/BD_SMARTQUESTION/LISTA_GERAL_VISITAS.xlsx"
     },
     {
       "nome": "LISTA_LPA_VISITA.xlsx",
@@ -140,7 +140,7 @@
       "tamanho_bytes": 174110,
       "tamanho_formatado": "170.0 KB",
       "total_registros": 110,
-      "caminho": "C:\\Users\\Guilherme\\LABOR RURAL\\Analytics - Departamento Analytics\\POWER_BI\\PROJETOS\\BI_LABOR_RURAL\\BD_SMARTQUESTION\\LISTA_LPA_VISITA.xlsx"
+      "caminho": "/home/ubuntu/labor-rural/dados/BD_SMARTQUESTION/LISTA_LPA_VISITA.xlsx"
     },
     {
       "nome": "LISTA_REGENERA_VISITA.xlsx",
@@ -152,7 +152,7 @@
       "tamanho_bytes": 6146830,
       "tamanho_formatado": "5.9 MB",
       "total_registros": 4747,
-      "caminho": "C:\\Users\\Guilherme\\LABOR RURAL\\Analytics - Departamento Analytics\\POWER_BI\\PROJETOS\\BI_LABOR_RURAL\\BD_SMARTQUESTION\\LISTA_REGENERA_VISITA.xlsx"
+      "caminho": "/home/ubuntu/labor-rural/dados/BD_SMARTQUESTION/LISTA_REGENERA_VISITA.xlsx"
     },
     {
       "nome": "LISTA_SEMEAR_VISITA.xlsx",
@@ -164,7 +164,7 @@
       "tamanho_bytes": 2072949,
       "tamanho_formatado": "2.0 MB",
       "total_registros": 1327,
-      "caminho": "C:\\Users\\Guilherme\\LABOR RURAL\\Analytics - Departamento Analytics\\POWER_BI\\PROJETOS\\BI_LABOR_RURAL\\BD_SMARTQUESTION\\LISTA_SEMEAR_VISITA.xlsx"
+      "caminho": "/home/ubuntu/labor-rural/dados/BD_SMARTQUESTION/LISTA_SEMEAR_VISITA.xlsx"
     }
   ]
 }
