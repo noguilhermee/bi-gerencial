@@ -1,8 +1,8 @@
 {
-  "timestamp_inspecao": "2026-10-14T14:00:26.287459-03:00",
-  "timestamp_etl": "2026-10-14T14:00:26.287459-03:00",
-  "ultima_execucao_etl_formatada": "14/10/2026 às 14:00:26",
-  "ultima_leitura_planilhas_formatada": "14/10/2026 às 14:00:26",
+  "timestamp_inspecao": "2026-10-14T14:04:57.936549-03:00",
+  "timestamp_etl": "2026-10-14T14:04:57.936549-03:00",
+  "ultima_execucao_etl_formatada": "14/10/2026 às 14:04:57",
+  "ultima_leitura_planilhas_formatada": "14/10/2026 às 14:04:57",
   "arquivo_mais_recente_nome": "261014_LISTA_INATIVACAO.xlsx",
   "arquivo_mais_recente_data": "14/10/2026 às 04:00",
   "total_arquivos": 12,
