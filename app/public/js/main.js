@@ -2261,14 +2261,11 @@ aoCarregar(() => {
   function updateTimestamp() {
     const dataEtl = state.overview?.ultimaExecucaoEtl
       || state.overview?.dataProvenance?.ultima_execucao_etl_formatada
-      || state.overview?.dataProvenance?.ultima_leitura_planilhas_formatada;
-    if (el('lastUpdateDate')) {
-      if (dataEtl) {
-        el('lastUpdateDate').textContent = dataEtl;
-      } else {
-        const now = new Date();
-        el('lastUpdateDate').textContent = `${now.toLocaleDateString('pt-BR')} ${now.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}`;
-      }
+      || state.overview?.dataProvenance?.ultima_leitura_planilhas_formatada
+      || state.dataProvenance?.ultima_execucao_etl_formatada
+      || state.dataProvenance?.ultima_leitura_planilhas_formatada;
+    if (el('lastUpdateDate') && dataEtl) {
+      el('lastUpdateDate').textContent = dataEtl;
     }
   }
 
@@ -3214,6 +3211,10 @@ aoCarregar(() => {
           data = null;
         }
       }
+      if (data) {
+        state.dataProvenance = data;
+        updateTimestamp();
+      }
       if (!data || !data.arquivos || data.arquivos.length === 0) {
         if (groupsContainer) {
           const dt = state.overview?.ultimaExecucaoEtl;
@@ -3230,7 +3231,9 @@ aoCarregar(() => {
       
       const summaryEtl = el('provSummaryEtl');
       if (summaryEtl) {
-        if (data.ultima_execucao_etl_formatada) {
+        if (state.overview?.ultimaExecucaoEtl) {
+          summaryEtl.textContent = state.overview.ultimaExecucaoEtl;
+        } else if (data.ultima_execucao_etl_formatada) {
           summaryEtl.textContent = data.ultima_execucao_etl_formatada;
         } else {
           const etlTime = data.timestamp_etl || data.timestamp_inspecao;

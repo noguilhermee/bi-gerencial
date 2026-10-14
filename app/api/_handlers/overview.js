@@ -173,21 +173,22 @@ module.exports = comAuth(async (req, res) => {
       console.warn('Metadados de proveniência não carregados:', e.message);
     }
 
-    let ultimaExecucaoEtl = dataProvenance?.ultima_execucao_etl_formatada || null;
-    if (!ultimaExecucaoEtl) {
-      try {
-        const { data: ultProc } = await supabase
-          .from('tab_fato_visitas')
-          .select('data_processamento')
-          .order('data_processamento', { ascending: false })
-          .limit(1);
-        if (ultProc && ultProc.length > 0 && ultProc[0].data_processamento) {
-          const d = new Date(ultProc[0].data_processamento);
-          ultimaExecucaoEtl = `${d.toLocaleDateString('pt-BR')} às ${d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}`;
-        }
-      } catch (e) {
-        console.warn('Não foi possível obter data_processamento de tab_fato_visitas:', e.message);
+    let ultimaExecucaoEtl = null;
+    try {
+      const { data: ultProc } = await supabase
+        .from('tab_fato_visitas')
+        .select('data_processamento')
+        .order('data_processamento', { ascending: false })
+        .limit(1);
+      if (ultProc && ultProc.length > 0 && ultProc[0].data_processamento) {
+        const d = new Date(ultProc[0].data_processamento);
+        ultimaExecucaoEtl = `${d.toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' })} às ${d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', timeZone: 'America/Sao_Paulo' })}`;
       }
+    } catch (e) {
+      console.warn('Não foi possível obter data_processamento de tab_fato_visitas:', e.message);
+    }
+    if (!ultimaExecucaoEtl && dataProvenance?.ultima_execucao_etl_formatada) {
+      ultimaExecucaoEtl = dataProvenance.ultima_execucao_etl_formatada;
     }
 
     const dimFazendas = fazendasMes.map(r => ({

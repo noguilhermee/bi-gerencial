@@ -374,7 +374,15 @@ def montar_raw_movimentacao(ativos: pd.DataFrame, rotatividade: pd.DataFrame, ma
     # as duas linhas sobreviviam e a movimentação do BI contava o evento em dobro. Vale a de ATIVOS (vem primeiro no concat).
     # O texto do status varia entre as abas ("Inclusão Do Produtor…" × "…do produtor…"), então a comparação é normalizada.
     df["_status_norm"] = df["status_movimentacao"].map(lambda s: str(_sem_acento(s) or "").strip().upper())
-    chave_evento = df[["matricula", "_status_norm", "data_inicio", "data_conclusao"]].fillna("").astype(str).agg("|".join, axis=1)
+    def _col_str(s: pd.Series) -> pd.Series:
+        return s.astype(str).replace({"nan": "", "NaT": "", "None": "", "<NA>": ""})
+
+    chave_evento = (
+        _col_str(df["matricula"]) + "|" +
+        _col_str(df["_status_norm"]) + "|" +
+        _col_str(df["data_inicio"]) + "|" +
+        _col_str(df["data_conclusao"])
+    )
     entre_abas = (df["aba_origem"] != "ATIVOS") & chave_evento.isin(set(chave_evento[df["aba_origem"] == "ATIVOS"]))
     if entre_abas.any():
         print(f"   ℹ️ {int(entre_abas.sum())} eventos repetidos entre ATIVOS e ROTATIVIDADE foram unificados (vale a linha de ATIVOS).")
@@ -597,7 +605,7 @@ def casar_visitas_por_nome(visitas: pd.DataFrame, fazendas: pd.DataFrame, aliase
     for matricula, g in sem.groupby("_chave"):
         linha = {"matricula_arquivo": "(em branco)" if str(matricula).startswith("SEM_MATRICULA|") else matricula,
                  "visitas": len(g), "produtor": g["nome_produtor"].iloc[0],
-                 "fazenda": g["nome_propriedade"].iloc[0], "consultores": " / ".join(sorted(set(g["nome_consultor"].dropna()))),
+                 "fazenda": g["nome_propriedade"].iloc[0], "consultores": " / ".join(sorted(str(c) for c in set(g["nome_consultor"].dropna()) if str(c).strip())),
                  "ultima_visita": g["data_visita"].max()}
         alvo = (aliases_matricula or {}).get(str(matricula))
         if alvo:
