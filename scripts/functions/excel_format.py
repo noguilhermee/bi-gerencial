@@ -113,14 +113,21 @@ def exportar_varias_abas_xlsx(
     altura_linha: int = 20,
     altura_cabecalho: int = 38,
     max_linhas_amostra: int = 100,
+    listrado_rapido: bool = False,
 ) -> Path:
-    """Exporta várias tabelas para um único XLSX formatado com alta performance (xlsxwriter)."""
+    """Exporta várias tabelas para um único XLSX formatado com alta performance (xlsxwriter).
+
+    listrado_rapido: se True, o listrado das linhas é aplicado como formatação condicional
+    dentro do próprio xlsxwriter e a regravação célula a célula via openpyxl é dispensada.
+    """
     caminho_saida = Path(caminho_saida)
     caminho_saida.parent.mkdir(parents=True, exist_ok=True)
 
+    listrado_aplicado = False
     try:
         with pd.ExcelWriter(caminho_saida, engine="xlsxwriter") as writer:
             workbook = writer.book
+            fmt_linha_alternada = workbook.add_format({'bg_color': '#F2F2F2'})
 
             fmt_cabecalho = workbook.add_format({
                 'bold': True,
@@ -195,13 +202,26 @@ def exportar_varias_abas_xlsx(
                     )
                     largura = max(12 if is_date else 10, min(max_len + 4, 60))
                     worksheet.set_column(col_idx, col_idx, largura, col_fmt)
+
+                if listrado_rapido and max_row > 0 and max_col > 0:
+                    # Linha 2 do Excel (1ª de dados) cinza, 3ª branca, e assim por diante.
+                    worksheet.conditional_format(1, 0, max_row, max_col - 1, {
+                        'type': 'formula',
+                        'criteria': '=MOD(ROW(),2)=0',
+                        'format': fmt_linha_alternada,
+                    })
+            listrado_aplicado = listrado_rapido
     except Exception:
         # Fallback para openpyxl caso xlsxwriter falhe por qualquer razão
+        listrado_aplicado = False
         with pd.ExcelWriter(caminho_saida, engine="openpyxl") as writer:
             for nome_aba, df in abas.items():
                 nome_seguro = str(nome_aba)[:31]
                 df.to_excel(writer, index=False, sheet_name=nome_seguro)
             aplicar_formatacao_excel(writer.book, fonte=fonte, max_linhas_amostra=max_linhas_amostra)
+
+    if listrado_aplicado:
+        return caminho_saida
 
     try:
         aplicar_estilo_listrado_xlsx(
