@@ -142,7 +142,13 @@ procampo:
     "WELLINGTON MARTINS": "WELLINGTON MARTINS GOMES"
     "LUCAS GONCAVES E SILVA FERREIRA": "LUCAS GONCALVES E SILVA FERREIRA"          # erro de digitação na base (8 fazendas)
     "GUSTAVO GOUVEIA FONSECA - PROLE CONSULTORIA - 10005195": "GUSTAVO GOUVEIA FONSECA"   # sufixo da consultoria na base
-    "TIAGO MASSING - ALLIANCE": "TIAGO MASSING"                                     # sufixo da consultoria na base
+    "TIAGO MASSING - ALLIANCE": "TIAGO MIGUEL MASSING"                              # sufixo da consultoria na base
+    # Validação da tela 7 (2026-10-15): mesma pessoa com grafia curta na base mestra x planilhas de visitas
+    "MURILO MASSON": "MURILO HENRIQUE MASSON"
+    "PAULO LOURENCO": "PAULO LOURENCO DIAS JUNIOR"
+    "TIAGO MASSING": "TIAGO MIGUEL MASSING"
+    "LUCAS A. COSTA": "LUCAS DOS ANJOS COSTA"
+    "KAICK CAMPOS": "KAICK CAMPOS DA SILVA"
   # Sigla de PROPRIEDADE.REGIONAL da base -> nome da região no Elabore (= tab_dim_regiao / Piracanjuba)
   regioes_por_sigla:
     CCO: "CCO - Centro Oeste"
@@ -198,6 +204,21 @@ indicadores_elabore:
   timeout_celula_segundos: 3600               # limite por célula do notebook
   timeout_total_segundos: 10800               # limite do notebook inteiro (processo é encerrado ao estourar)
   idade_maxima_horas: 36                      # planilha usada mais velha que isso gera aviso (geração falhou ou foi pulada)
+
+# 👤 CONSULTORES INATIVOS (filtros do BI mostram "(INATIVO)")
+# Fonte principal: status do usuário no SmartQuestion (BD_STATUS_USUARIO_SQ.xlsx) e status do Elabore
+# (tab_dim_consultor.status). A lista abaixo só complementa quem não consta nessas fontes (ex.: consultores do
+# Procampo). Grafia sem acento e maiúscula; informar também a grafia anterior ao alias, se existir.
+consultores:
+  inativos:
+    - "ALEX ANDRE DA SILVA"
+    - "CELSO EDUARDO SILVA"
+    - "INGRID GONCALVES DO NASCIMENTO"
+    - "INGRID GONCALVES NASCIMENTO"
+    - "KAICK CAMPOS DA SILVA"
+    - "KAICK CAMPOS"
+    - "MARIA EDUARDA CUNHA DE CASTRO"
+    - "WELLINGTON MARTINS GOMES"
 
 # ☁️ PASTAS DE ENTRADA NO SHAREPOINT (sincronizar_sharepoint.py)
 # Chave = a mesma de caminhos.*; valor = link de compartilhamento da pasta. Só é usado com LR_SINCRONIZAR_SHAREPOINT=1

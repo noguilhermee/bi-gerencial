@@ -1931,7 +1931,10 @@ aoCarregar(() => {
     if (el('filterConsultant')) {
       const validRows = rows.filter((r) => matchesActiveExcept(r, 'consultant'));
       const available = restringirPelaRelacao([...new Set(validRows.map((r) => r.consultor).filter(Boolean))], 'consultant');
-      fillMultiSelect('filterConsultant', ordenar(available).map(simples));
+      const inativos = new Set(((state.overview || state.masterOverview)?.filterOptions?.consultoresInativos || []).map((n) => String(n).toLowerCase()));
+      fillMultiSelect('filterConsultant', ordenar(available).map((nome) => (
+        { value: nome, label: inativos.has(String(nome).toLowerCase()) ? `${nome} (INATIVO)` : nome }
+      )));
     }
 
     // 5. Produtor

@@ -47,6 +47,14 @@ module.exports = comAuth(async (req, res) => {
         })).values()]
       : null;
 
+    // Consultores com status INATIVO (gravado pelo ETL em tab_dim_consultor): o filtro mostra "(INATIVO)" ao lado do nome
+    const dimConsultor = await fetchWithCache('DIM_CONSULTOR_STATUS', () =>
+      fetchAll(() => supabase.from('tab_dim_consultor').select('chave_consultor,status'), 1000, 'id')
+    ).catch(() => []);
+    const consultoresInativos = [...new Set(
+      (dimConsultor || []).filter(c => String(c.status || '').toUpperCase() === 'INATIVO').map(c => c.chave_consultor).filter(Boolean)
+    )];
+
     const carteiraMes = carteiraTodos.filter(r => filters.noPeriodo(r.mes_referencia));
     const carteiraFiltrada = carteiraMes.filter(r => rowMatchesFilters({ ...r, status: r.status_visita }, filters));
 
@@ -234,6 +242,7 @@ module.exports = comAuth(async (req, res) => {
         consultores: [...new Set(carteiraTodos.map(r => r.consultor))].filter(Boolean).sort(),
         status: ['ATIVO', 'INATIVO'],
         meses: mesesUnicos,
+        consultoresInativos,
         relacoes
       },
       dim_fazendas: dimFazendas,

@@ -657,7 +657,8 @@ def construir_fato_visitas(f: Fontes, ctx: Contexto) -> tuple[pd.DataFrame, pd.D
             "mes_referencia": mes,
             "data_visita": r["data_visita"],
             "tipo_visita": _texto(r.get("tipo_visita")),
-            "nome_produtor": _texto(r.get("nome_produtor")) or _texto(faz.get("nome_produtor")) or "NÃO INFORMADO",
+            # cadastro da fazenda primeiro: o nome digitado na visita varia (WANDERLEI x WANDIRLEI) e duplica o produtor no filtro
+            "nome_produtor": _texto(faz.get("nome_produtor")) or _texto(r.get("nome_produtor")) or "NÃO INFORMADO",
             "nome_propriedade": _propriedade_valida(faz.get("nome_propriedade")) or _propriedade_valida(r.get("nome_propriedade")) or "PROPRIEDADE",
             "projeto": projeto or "NÃO INFORMADO",
             "agroindustria": agro,
@@ -1637,6 +1638,29 @@ def sincronizar_dim_consultor(supabase, dim: pd.DataFrame, nomes: list[str]) -> 
     return por_chave
 
 
+def marcar_consultores_inativos(supabase, lista_config: list[str], raiz: Path) -> int:
+    """Grava status = 'INATIVO' em tab_dim_consultor para quem está inativo no SmartQuestion
+    (BD_STATUS_USUARIO_SQ.xlsx) ou na lista `consultores.inativos` do config. O status que o Elabore já traz
+    em tab_dim_consultor é preservado; ninguém é reativado aqui. O BI mostra "(INATIVO)" nos filtros."""
+    inativos = {rn.chave(n) for n in (lista_config or []) if n}
+    try:
+        try:
+            from functions.carregar_status_consultor import ler_historico_status, consultores_inativos
+        except ImportError:
+            from carregar_status_consultor import ler_historico_status, consultores_inativos
+        inativos |= consultores_inativos(ler_historico_status())
+    except Exception as erro:
+        print(f"   ⚠️ status de usuários do SmartQuestion indisponível ({erro}); usando só a lista do config.")
+    dim = _buscar_tudo(supabase, TAB_DIM_CONSULTOR, "id,chave_consultor,status", ordem="id")
+    ids = [int(i) for i, k, s in zip(dim["id"], dim["chave_consultor"], dim["status"])
+           if _texto(k) in inativos and rn.chave(s) != "INATIVO"]
+    for i in range(0, len(ids), 100):
+        supabase.table(TAB_DIM_CONSULTOR).update({"status": "INATIVO"}).in_("id", ids[i:i + 100]).execute()
+    if ids:
+        print(f"   💤 {TAB_DIM_CONSULTOR}: {len(ids)} consultores marcados como INATIVO.")
+    return len(ids)
+
+
 def construir_consultor_atuacao(ctx: Contexto, r: dict, ids_consultor: dict[str, int]) -> tuple[pd.DataFrame, int]:
     """Ponte consultor × agroindústria × região (UF) × regional × mês, a partir das fatos já resolvidas.
 
@@ -1909,6 +1933,7 @@ def executar_camada_consumo(raiz: Path | None = None, gravar: bool = True) -> di
 
     print("\n🔗 Relacionando dimensões (consultor × agroindústria × região)...")
     ids_consultor = sincronizar_dim_consultor(supabase, fontes.dim_consultor, consultores_das_fatos(r))
+    marcar_consultores_inativos(supabase, cfg.get("consultores", {}).get("inativos", []), raiz)
     ponte, ignoradas = construir_consultor_atuacao(ctx, r, ids_consultor)
     if ponte.empty:
         print(f"   ⚠️ {TAB_CONSULTOR_ATUACAO} não foi atualizada: nenhuma linha gerada.")
